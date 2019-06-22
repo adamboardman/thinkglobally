@@ -1,0 +1,8 @@
+/node_modules
+.idea/
+test-db.db
+secret_key.txt
+postgres_args.txt
+dist/
+photos/
+main

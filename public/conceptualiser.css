@@ -1,0 +1,6 @@
+.activity-tag-group {
+    width: 100%;
+    overflow: scroll;
+    overflow-x: scroll;
+    overflow-y:hidden
+}
