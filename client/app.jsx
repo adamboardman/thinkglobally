@@ -20,6 +20,8 @@ import Login from "./login";
 import Register from "./register";
 import UserProfile from "./userprofile";
 import Concepts from "./concepts";
+import ConceptAdd from "./conceptadd";
+import ConceptEdit from "./conceptedit";
 
 class App extends React.Component {
     constructor(props) {
@@ -103,6 +105,7 @@ class App extends React.Component {
                             )
                         )}/>
                         <Route exact path="/" component={Concepts}/>
+                        <Route exact path="/concepts/:id/edit" component={ConceptEdit}/>
                     </Switch>
                 </div>
             </BrowserRouter>

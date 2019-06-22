@@ -83,6 +83,98 @@ func TestRegisterUser(t *testing.T) {
 	})
 }
 
+func TestInvalidTokenRejection(t *testing.T) {
+	Convey("Refreshing an invalid token", t, func() {
+		token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3Q3QGV4YW1wbGUuY29tIiwiZXhwIjoxNTM2Njc3NzUxLCJvcmlnX2lhdCI6MTUzNjY3NDE1MX0.65PStZIR8yRhJo7w2cF8VL-dtF1CbrOnvdB6ub9GxdY"
+		req, _ := http.NewRequest("GET", "/auth/refresh_token", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		response := httptest.NewRecorder()
+		a.Router.ServeHTTP(response, req)
+		Convey("Should give an error", func() {
+			So(response.Code, ShouldEqual, http.StatusUnauthorized)
+		})
+	})
+}
+
+func TestConfirmEmail(t *testing.T) {
+	Convey("Given test user without confirmation is in database", t, func() {
+		const emailAddress = "test-confirmed@example.com"
+		const verificationKey = "5678"
+		a.Store.PurgeUser(emailAddress)
+
+		encrypted, _ := bcrypt.GenerateFromPassword([]byte(verificationKey), 13)
+		user := store.User{
+			Email:           emailAddress,
+			ConfirmVerifier: string(encrypted),
+		}
+		a.Store.InsertUser(&user)
+
+		Convey("The user confirms email address and is redirected to the web app", func() {
+			data := url.Values{}
+			data.Set("email", emailAddress)
+			data.Set("verification", verificationKey)
+			req, _ := http.NewRequest("GET", "/auth/confirm_email?"+data.Encode(), nil)
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			response := httptest.NewRecorder()
+			a.Router.ServeHTTP(response, req)
+			So(response.Code, ShouldEqual, http.StatusTemporaryRedirect)
+		})
+	})
+}
+
+func TestMinimalSiteAccessWithoutConfirmedEmail(t *testing.T) {
+	Convey("Given unconfirmed test user", t, func() {
+		const emailAddress = "test-unconfirmed@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Confirmed = false
+		a.Store.UpdateUser(user)
+
+		response := loginToUser(emailAddress)
+
+		Convey("Login should succeed", func() {
+			So(response.Code, ShouldEqual, http.StatusOK)
+		})
+
+		token := userTokenFromLoginResponse(response)
+
+		Convey("Attempt to add a concept", func() {
+			req, _ := http.NewRequest("POST", "/api/concepts", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			response2 := httptest.NewRecorder()
+			a.Router.ServeHTTP(response2, req)
+
+			Convey("Should return error", func() {
+				So(response2.Code, ShouldEqual, http.StatusForbidden);
+			})
+		})
+	})
+}
+
+func TestRefreshToken(t *testing.T) {
+	Convey("Given confirmed test user", t, func() {
+		const emailAddress = "test@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Confirmed = true
+		a.Store.UpdateUser(user)
+
+		response := loginToUser(emailAddress)
+
+		Convey("Login should succeed", func() {
+			So(response.Code, ShouldEqual, http.StatusOK)
+		})
+
+		token := userTokenFromLoginResponse(response)
+
+		Convey("Should be able to refresh a token", func() {
+			req2, _ := http.NewRequest("GET", "/auth/refresh_token", nil)
+			req2.Header.Set("Authorization", "Bearer "+token)
+			response2 := httptest.NewRecorder()
+			a.Router.ServeHTTP(response2, req2)
+			So(response2.Code, ShouldEqual, http.StatusOK)
+		})
+	})
+}
+
 func userTokenFromLoginResponse(response *httptest.ResponseRecorder) string {
 	body, err := ioutil.ReadAll(response.Body)
 	responseData := new(Response)

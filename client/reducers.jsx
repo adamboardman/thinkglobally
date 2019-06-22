@@ -3,8 +3,8 @@ import {
     FETCHING,
     LOGOUT,
     USER_LOGGED_IN,
-    CONCEPT_ADDED,
-    CONCEPTS_FETCHED
+    CONCEPT_LOADED,
+    CONCEPTS_FETCHED,
 } from "#app/actions";
 import PropTypes from 'prop-types';
 
@@ -14,7 +14,6 @@ export const stateTypes = {
     lastUpdated: PropTypes.number,
     emailConfirmed: PropTypes.bool,
     concepts: PropTypes.array,
-    nominatim: PropTypes.array,
     photos: PropTypes.array,
     error: PropTypes.string,
 };
@@ -25,7 +24,6 @@ export const initialState = {
     lastUpdated: 0,
     emailConfirmed: false,
     concepts: [],
-    nominatim: [],
     photos: [],
     error: '',
 };
@@ -58,9 +56,9 @@ export default function reducers(state = initialState, action) {
             return Object.assign({}, state, {
                 error: action.error
             });
-        case CONCEPT_ADDED:
+        case CONCEPT_LOADED:
             return Object.assign({}, state, {
-                concepts: action.concepts
+                concept: action.concept
             });
         case CONCEPTS_FETCHED:
             return Object.assign({}, state, {

@@ -2,6 +2,7 @@ package store
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
+	"golang.org/x/crypto/bcrypt"
 	"os"
 	"testing"
 )
@@ -16,6 +17,49 @@ func TestMain(m *testing.M) {
 
 	_ = s.db.Close()
 	os.Exit(code)
+}
+
+func ensureTestUserExists(emailAddress string) *User {
+	user, err := s.FindUser(emailAddress)
+	if err != nil {
+		encrypted, err := bcrypt.GenerateFromPassword([]byte("1234"), 13)
+		So(err, ShouldBeNil)
+		user = &User{
+			Email:     emailAddress,
+			Password:  string(encrypted),
+			Confirmed: true,
+		}
+		s.InsertUser(user)
+	}
+	return user
+}
+
+func TestStore_DoubleInsertUser(t *testing.T) {
+	const emailAddress = "joe@example.com"
+	Convey("Insert a user to the store", t, func() {
+		s.PurgeUser(emailAddress)
+		user := User{Email: emailAddress}
+		user.FirstName = "Joe"
+		user.LastName = "Blogs"
+		userId, _ := s.InsertUser(&user)
+
+		Convey("User should be given an ID", func() {
+			So(userId, ShouldBeGreaterThan, 0)
+		})
+
+		Convey("Insert the same email again", func() {
+			user2 := User{Email: emailAddress}
+			user2.FirstName = "John"
+			user2.LastName = "Smith"
+			user2Id, err := s.InsertUser(&user2)
+
+			Convey("Expect Error and No UserId", func() {
+				So(err, ShouldNotBeNil)
+				So(user2Id, ShouldEqual, 0)
+			})
+		})
+
+	})
 }
 
 func TestStore_InsertConcept(t *testing.T) {

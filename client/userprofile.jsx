@@ -236,7 +236,7 @@ class UserProfile extends React.Component {
                         </form>
                     )}
                     <p>Or</p>
-                    <Link to="/venues" className="btn btn-primary">Back</Link>
+                    <Link to="/concepts" className="btn btn-primary">Back</Link>
                 </div>
             </div>
         );

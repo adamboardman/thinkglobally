@@ -50,6 +50,7 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.GET("/concepts", ConceptsList)
 	api.GET("/concepts/:conceptID", LoadConcept)
 	api.POST("/concepts", a.JwtMiddleware.MiddlewareFunc(), AddConcept)
+	api.PUT("/concepts/:conceptID", a.JwtMiddleware.MiddlewareFunc(), UpdateConcept)
 }
 
 func Exists(name string) bool {
@@ -204,17 +205,45 @@ func AddConcept(c *gin.Context) {
 		return
 	}
 
-	eventId, err := App.Store.InsertConcept(&concept)
+	conceptId, err := App.Store.InsertConcept(&concept)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
-		"status": http.StatusCreated, "message": "Event created successfully", "resourceId": eventId,
+		"status": http.StatusCreated, "message": "Event created successfully", "resourceId": conceptId,
 	})
 }
 
-func readJSONIntoConcept(event *store.Concept, c *gin.Context, forceUpdate bool) (error) {
+func UpdateConcept(c *gin.Context) {
+	conceptId, err := strconv.Atoi(c.Param("conceptID"));
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("ConceptID invalid - err: %s", err.Error()))
+		return
+	}
+
+	concept := &store.Concept{}
+	concept, err = App.Store.LoadConcept(uint(conceptId))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	err = readJSONIntoConcept(concept, c, true)
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("Concept details failed validation - err: %s", err.Error()))
+		return
+	}
+
+	_, err = App.Store.UpdateConcept(concept)
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK, "message": "Concept updated successfully", "resourceId": conceptId,
+		})
+	}
+}
+
+func readJSONIntoConcept(concept *store.Concept, c *gin.Context, forceUpdate bool) (error) {
 	conceptJSON := ConceptJSON{}
 	err := c.BindJSON(&conceptJSON)
 	if err != nil {
@@ -222,10 +251,10 @@ func readJSONIntoConcept(event *store.Concept, c *gin.Context, forceUpdate bool)
 	}
 
 	if forceUpdate || conceptJSON.ID == 0 {
-		event.ID = conceptJSON.ID
-		event.Name = conceptJSON.Name
-		event.Summary = conceptJSON.Summary
-		event.Full = conceptJSON.Full
+		concept.ID = conceptJSON.ID
+		concept.Name = conceptJSON.Name
+		concept.Summary = conceptJSON.Summary
+		concept.Full = conceptJSON.Full
 	}
 	return nil
 }
