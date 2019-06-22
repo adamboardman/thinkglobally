@@ -4,7 +4,7 @@ var autoprefixer = require('autoprefixer');
 var precss = require('precss');
 var functions = require('postcss-functions');
 var ExtractTextPlugin = require('mini-css-extract-plugin');
-const CleanWebpackPlugin = require('clean-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 var postCssLoader = [
     'css-loader?modules',
@@ -14,8 +14,7 @@ var postCssLoader = [
 ];
 
 var plugins = [
-    new CleanWebpackPlugin(['dist']),
-    new webpack.NoEmitOnErrorsPlugin(),
+    new CleanWebpackPlugin(),
     new ExtractTextPlugin('bundle.css'),
 ];
 
@@ -47,6 +46,9 @@ var config = {
         path: path.join(__dirname, 'dist'),
         publicPath: '/dist/',
         filename: '[name].js'
+    },
+    optimization: {
+        noEmitOnErrors: true
     },
     plugins: plugins,
     module: {
