@@ -2,10 +2,11 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"github.com/adamboardman/conceptualiser/store"
 	. "github.com/smartystreets/goconvey/convey"
-	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/argon2"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -99,20 +100,22 @@ func TestInvalidTokenRejection(t *testing.T) {
 func TestConfirmEmail(t *testing.T) {
 	Convey("Given test user without confirmation is in database", t, func() {
 		const emailAddress = "test-confirmed@example.com"
-		const verificationKey = "5678"
+		const verification = "5678"
 		a.Store.PurgeUser(emailAddress)
 
-		encrypted, _ := bcrypt.GenerateFromPassword([]byte(verificationKey), 13)
+		salt := RandomBytes(16)
+		verificationKey := argon2.IDKey([]byte(verification), salt, 1, 64*1024, 4, 32)
 		user := store.User{
 			Email:           emailAddress,
-			ConfirmVerifier: string(encrypted),
+			Salt:            base64.StdEncoding.EncodeToString(salt),
+			ConfirmVerifier: base64.StdEncoding.EncodeToString(verificationKey),
 		}
-		a.Store.InsertUser(&user)
+		_, _ = a.Store.InsertUser(&user)
 
 		Convey("The user confirms email address and is redirected to the web app", func() {
 			data := url.Values{}
 			data.Set("email", emailAddress)
-			data.Set("verification", verificationKey)
+			data.Set("verification", base64.StdEncoding.EncodeToString([]byte(verification)))
 			req, _ := http.NewRequest("GET", "/auth/confirm_email?"+data.Encode(), nil)
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			response := httptest.NewRecorder()
@@ -127,7 +130,7 @@ func TestMinimalSiteAccessWithoutConfirmedEmail(t *testing.T) {
 		const emailAddress = "test-unconfirmed@example.com"
 		user := ensureTestUserExists(emailAddress)
 		user.Confirmed = false
-		a.Store.UpdateUser(user)
+		_, _ = a.Store.UpdateUser(user)
 
 		response := loginToUser(emailAddress)
 
@@ -155,7 +158,7 @@ func TestRefreshToken(t *testing.T) {
 		const emailAddress = "test@example.com"
 		user := ensureTestUserExists(emailAddress)
 		user.Confirmed = true
-		a.Store.UpdateUser(user)
+		_, _ = a.Store.UpdateUser(user)
 
 		response := loginToUser(emailAddress)
 
@@ -217,11 +220,12 @@ func loginToUserJSON(emailAddress string) *httptest.ResponseRecorder {
 func ensureTestUserExists(emailAddress string) *store.User {
 	user, err := a.Store.FindUser(emailAddress)
 	if err != nil {
-		encrypted, err := bcrypt.GenerateFromPassword([]byte("1234"), 13)
-		So(err, ShouldBeNil)
+		salt := RandomBytes(16)
+		encrypted := argon2.IDKey([]byte("1234"), salt, 1, 64*1024, 4, 32)
 		user = &store.User{
 			Email:     emailAddress,
-			Password:  string(encrypted),
+			Salt:      base64.StdEncoding.EncodeToString(salt),
+			Password:  base64.StdEncoding.EncodeToString(encrypted),
 			Confirmed: true,
 		}
 		_, _ = a.Store.InsertUser(user)

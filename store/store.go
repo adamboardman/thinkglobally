@@ -29,6 +29,7 @@ type User struct {
 	PublicUser
 	Email              string `gorm:"unique_index"`
 	Mobile             string
+	Salt               string `json:"-"`
 	Password           string `json:"-"`
 	ConfirmVerifier    string `json:"-"`
 	Confirmed          bool
@@ -79,7 +80,7 @@ func (s *Store) StoreInit(dbName string) {
 
 	db.DB().Exec("CREATE EXTENSION postgis;")
 
-	err = db.AutoMigrate(&Concept{}, &ConceptAltName{}).Error
+	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}).Error
 	if err != nil {
 		log.Fatal(err)
 	}

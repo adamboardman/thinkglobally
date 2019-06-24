@@ -7,7 +7,7 @@ import (
 	"github.com/adamboardman/conceptualiser/store"
 	"github.com/appleboy/gin-jwt"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/argon2"
 	"io"
 	"io/ioutil"
 	"log"
@@ -39,10 +39,15 @@ func LogFatalError(err error) {
 }
 
 func RandomKey(len int) string {
+	key := RandomBytes(len)
+	return base64.StdEncoding.EncodeToString(key)
+}
+
+func RandomBytes(len int) []byte {
 	key := make([]byte, len)
 	_, err := io.ReadFull(rand.Reader, key)
 	LogFatalError(err)
-	return base64.StdEncoding.EncodeToString(key)
+	return key
 }
 
 func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
@@ -88,7 +93,10 @@ func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
 			}
 
 			user, err := a.Store.FindUser(loginVals.Email)
-			if err == nil && bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginVals.Password)) == nil {
+			salt, _ := base64.StdEncoding.DecodeString(user.Salt)
+			encrypted := argon2.IDKey([]byte(loginVals.Password), salt, 1, 64*1024, 4, 32)
+			loginPassword := base64.StdEncoding.EncodeToString(encrypted)
+			if err == nil && loginPassword == user.Password {
 				return user, nil
 			}
 
@@ -162,24 +170,22 @@ func RegisterUser(c *gin.Context) {
 
 	user := store.User{}
 	user.Email = registerJSON.Email
-	encrypted, err := bcrypt.GenerateFromPassword([]byte(registerJSON.Password), 12)
+	salt := RandomBytes(16)
+	encrypted := argon2.IDKey([]byte(registerJSON.Password), salt, 1, 64*1024, 4, 32)
+	user.Salt = base64.StdEncoding.EncodeToString(salt)
+	user.Password = base64.StdEncoding.EncodeToString(encrypted)
+
+	verification := RandomBytes(20)
+	verificationKey := argon2.IDKey(verification, salt, 1, 64*1024, 4, 32)
+	user.ConfirmVerifier = base64.StdEncoding.EncodeToString(verificationKey)
+
+	_, err := App.Store.InsertUser(&user)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	user.Password = string(encrypted)
 
-	verificationKey := RandomKey(20)
-	encryptedKey, _ := bcrypt.GenerateFromPassword([]byte(verificationKey), 12)
-	user.ConfirmVerifier = string(encryptedKey)
-
-	_, err = App.Store.InsertUser(&user)
-	if err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	SendEmail(registerJSON.Email, verificationKey)
+	SendEmail(registerJSON.Email, base64.StdEncoding.EncodeToString(verification))
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": http.StatusOK, "message": "User registered successfully", "resourceId": user.ID,
@@ -198,8 +204,8 @@ func SendEmail(emailAddress string, verificationKey string) {
 		return
 	}
 	defer c.Close()
-	c.Mail("no-reply@thinkglobally.org")
-	c.Rcpt(emailAddress)
+	_ = c.Mail("no-reply@thinkglobally.org")
+	_ = c.Rcpt(emailAddress)
 	wc, err := c.Data()
 	LogFatalError(err)
 	defer wc.Close()
@@ -213,15 +219,19 @@ func SendEmail(emailAddress string, verificationKey string) {
 
 func ConfirmEmail(c *gin.Context) {
 	email := c.Query("email")
-	verification := c.Query("verification")
+	verificationKey := c.Query("verification")
 
-	log.Print(email + verification)
+	log.Print(email + verificationKey)
 
 	user, err := App.Store.FindUser(email)
-	if err == nil && bcrypt.CompareHashAndPassword([]byte(user.ConfirmVerifier), []byte(verification)) == nil {
+	salt, _ := base64.StdEncoding.DecodeString(user.Salt)
+	verification, _ := base64.StdEncoding.DecodeString(verificationKey)
+	encrypted := argon2.IDKey(verification, salt, 1, 64*1024, 4, 32)
+	confirmVerification := base64.StdEncoding.EncodeToString(encrypted)
+	if err == nil && confirmVerification == user.ConfirmVerifier {
 		user.Confirmed = true
 		user.ConfirmVerifier = ""
-		App.Store.UpdateUser(user)
+		_, _ = App.Store.UpdateUser(user)
 		c.Redirect(307, "/")
 	} else {
 		c.AbortWithStatus(http.StatusBadRequest)
