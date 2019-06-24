@@ -29,7 +29,7 @@ func ensureTestUserExists(emailAddress string) *User {
 			Password:  string(encrypted),
 			Confirmed: true,
 		}
-		s.InsertUser(user)
+		_, _ = s.InsertUser(user)
 	}
 	return user
 }
@@ -127,9 +127,10 @@ func TestStore_DeleteConcept(t *testing.T) {
 	})
 }
 
-func TestStore_AddNameToConcept(t *testing.T) {
+func TestStore_AddTagsToConcept(t *testing.T) {
 	const name = "test"
-	const altName = "test2"
+	const tag1 = "tag1"
+	const tag2 = "tag2"
 	Convey("Insert a concept to the store", t, func() {
 		s.PurgeConcept(name)
 		concept := Concept{Name: name}
@@ -140,21 +141,90 @@ func TestStore_AddNameToConcept(t *testing.T) {
 			So(conceptId, ShouldBeGreaterThan, 0)
 		})
 
-		Convey("Add Alt Name", func() {
-			conceptAltName := ConceptAltName{AltName:altName, ConceptId:conceptId, Order:0}
-			conceptAltNameId, _ := s.InsertConceptAltName(&conceptAltName)
+		Convey("Add Tag", func() {
+			conceptTag1 := ConceptTag{Tag: tag1, ConceptId: conceptId, Order: 0}
+			conceptTag2 := ConceptTag{Tag: tag2, ConceptId: conceptId, Order: 1}
+			conceptTag1Id, _ := s.InsertConceptTag(&conceptTag1)
+			conceptTag2Id, _ := s.InsertConceptTag(&conceptTag2)
 
-			Convey("ConceptAltName should be given an ID", func() {
-				So(conceptAltNameId, ShouldBeGreaterThan, 0)
+			Convey("conceptTags should be given an ID", func() {
+				So(conceptTag1Id, ShouldBeGreaterThan, 0)
+				So(conceptTag2Id, ShouldBeGreaterThan, 0)
 			})
 
-			Convey("Concept names list should contain both names", func() {
-				altNames, _ := s.ConceptAltNames(&concept)
-				So(len(altNames), ShouldEqual, 2)
-				So(altNames[0], ShouldEqual, name)
-				So(altNames[1], ShouldEqual, altName)
+			Convey("Concept tags list should contain both names", func() {
+				tags, _ := s.ConceptTagsAsStrings(&concept)
+				So(len(tags), ShouldEqual, 2)
+				So(tags[0], ShouldEqual, tag1)
+				So(tags[1], ShouldEqual, tag2)
 			})
 		})
 	})
 }
 
+func ensureTestConceptExists(name string) *Concept {
+	concept, err := s.FindConcept(name)
+	if err != nil {
+		concept = &Concept{
+			Name:    name,
+			Summary: "a short version of the test concept",
+		}
+		_, _ = s.InsertConcept(concept)
+	}
+	return concept
+}
+
+func TestStore_ListAllTags(t *testing.T) {
+	const tagA = "tagA"
+	const tagB = "tagB"
+	const tagC = "tagC"
+	s.PurgeConceptTag(tagA)
+	s.PurgeConceptTag(tagB)
+	s.PurgeConceptTag(tagC)
+	concept := ensureTestConceptExists("testConcept")
+	Convey("Create some tags", t, func() {
+		conceptTagA := ConceptTag{Tag: tagA, ConceptId: concept.ID, Order: 0}
+		conceptTagB := ConceptTag{Tag: tagB, ConceptId: concept.ID, Order: 1}
+		conceptTagC := ConceptTag{Tag: tagC, ConceptId: concept.ID, Order: 1}
+		conceptTagAId, _ := s.InsertConceptTag(&conceptTagA)
+		conceptTagBId, _ := s.InsertConceptTag(&conceptTagB)
+		conceptTagCId, _ := s.InsertConceptTag(&conceptTagC)
+		Convey("All tags list should contain items", func() {
+			tags, _ := s.ListTags()
+			tagAFromTags := getTagFromTags(tags, tagA)
+			So(tagAFromTags.Tag, ShouldEqual, tagA)
+			So(tagAFromTags.ID, ShouldEqual, conceptTagAId)
+			tagBFromTags := getTagFromTags(tags, tagB)
+			So(tagBFromTags.Tag, ShouldEqual, tagB)
+			So(tagBFromTags.ID, ShouldEqual, conceptTagBId)
+			tagCFromTags := getTagFromTags(tags, tagC)
+			So(tagCFromTags.Tag, ShouldEqual, tagC)
+			So(tagCFromTags.ID, ShouldEqual, conceptTagCId)
+		})
+	})
+}
+
+func getTagFromTags(tags []ConceptTag, tag string) *ConceptTag {
+	for _, conceptTag := range tags {
+		if conceptTag.Tag == tag {
+			return &conceptTag
+		}
+	}
+	return nil
+}
+
+func TestStore_InvalidTagCreationFail(t *testing.T) {
+	const tagInvalid = "tagInvalid"
+	Convey("Create some tags", t, func() {
+		conceptTagInvalid := ConceptTag{Tag: tagInvalid, ConceptId: 0, Order: 0}
+		conceptTagInvalidId, _ := s.InsertConceptTag(&conceptTagInvalid)
+		Convey("Invalid tag should not be created", func() {
+			So(conceptTagInvalidId, ShouldEqual, 0)
+		})
+		Convey("All tags list should not contain invalid tag", func() {
+			tags, _ := s.ListTags()
+			tagInvalidFromTags := getTagFromTags(tags, tagInvalid)
+			So(tagInvalidFromTags, ShouldEqual, nil)
+		})
+	})
+}

@@ -47,10 +47,10 @@ type Concept struct {
 	Full    string
 }
 
-type ConceptAltName struct {
+type ConceptTag struct {
 	gorm.Model
+	Tag       string
 	ConceptId uint
-	AltName   string
 	Order     uint
 }
 
@@ -88,7 +88,7 @@ func (s *Store) StoreInit(dbName string) {
 	//DEBUG - add/remove to investigate SQL queries being executed
 	db.LogMode(true)
 
-	db.Model(&ConceptAltName{}).AddForeignKey("concept_id", "concepts(id)", "CASCADE", "RESTRICT")
+	db.Model(&ConceptTag{}).AddForeignKey("concept_id", "concepts(id)", "CASCADE", "RESTRICT")
 }
 
 func (s *Store) InsertUser(user *User) (uint, error) {
@@ -162,9 +162,9 @@ func (s *Store) LoadConcept(id uint) (*Concept, error) {
 	return &concept, err
 }
 
-func (s *Store) FindConcept(email string) (*Concept, error) {
+func (s *Store) FindConcept(name string) (*Concept, error) {
 	concept := Concept{}
-	err := s.db.Where("name=?", email).Find(&concept).Error
+	err := s.db.Where("name=?", name).Find(&concept).Error
 	if err != nil {
 		return nil, err
 	}
@@ -180,26 +180,35 @@ func (s *Store) ListConcepts() ([]Concept, error) {
 	return concepts, err
 }
 
-func (s *Store) InsertConceptAltName(conceptAltName *ConceptAltName) (uint, error) {
-	err := s.db.Create(conceptAltName).Error
-	return conceptAltName.ID, err
+func (s *Store) InsertConceptTag(conceptTag *ConceptTag) (uint, error) {
+	err := s.db.Create(conceptTag).Error
+	return conceptTag.ID, err
 }
 
-func (s *Store) UpdateConceptAltName(conceptAltName *ConceptAltName) (uint, error) {
-	err := s.db.Save(conceptAltName).Error
-	return conceptAltName.ID, err
+func (s *Store) UpdateConceptTag(conceptTag *ConceptTag) (uint, error) {
+	err := s.db.Save(conceptTag).Error
+	return conceptTag.ID, err
 }
 
-func (s *Store) ConceptAltNames(concept *Concept) ([]string, error) {
+func (s *Store) ConceptTagsAsStrings(concept *Concept) ([]string, error) {
 	var names []string
-	var altNames []ConceptAltName
-	err := s.db.Where("concept_id=?", concept.ID).Limit(200).Order("order").Find(&altNames).Error
+	var conceptTags []ConceptTag
+	err := s.db.Where("concept_id=?", concept.ID).Order("order").Find(&conceptTags).Error
 	if err == nil {
-		names = append(names, concept.Name)
-		for _, altName := range altNames {
-			names = append(names, altName.AltName)
+		for _, conceptTag := range conceptTags {
+			names = append(names, conceptTag.Tag)
 		}
 		return names, err
 	}
 	return nil, err
+}
+
+func (s *Store) ListTags() ([]ConceptTag, error) {
+	var conceptTags []ConceptTag
+	err := s.db.Order("order").Find(&conceptTags).Error
+	return conceptTags, err
+}
+
+func (s *Store) PurgeConceptTag(tag string) {
+	s.db.Unscoped().Where("tag=?", tag).Delete(ConceptTag{})
 }
