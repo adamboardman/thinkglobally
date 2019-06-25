@@ -51,6 +51,9 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.GET("/concepts/:conceptID", LoadConcept)
 	api.POST("/concepts", a.JwtMiddleware.MiddlewareFunc(), AddConcept)
 	api.PUT("/concepts/:conceptID", a.JwtMiddleware.MiddlewareFunc(), UpdateConcept)
+	api.GET("/concept_tags", ConceptTagsList)
+	api.POST("/concept_tags", a.JwtMiddleware.MiddlewareFunc(), AddConceptTag)
+	api.DELETE("/concept_tags/:conceptTagID", a.JwtMiddleware.MiddlewareFunc(), DeleteConceptTag)
 }
 
 func Exists(name string) bool {
@@ -157,22 +160,22 @@ func readJSONIntoUser(id uint, c *gin.Context) (*store.User, error) {
 }
 
 type UserJSON struct {
-	FirstName        string
-	MidNames         string
-	LastName         string
-	Location         string
-	PhotoID          uint
-	Email            string
-	Mobile           string
+	FirstName string
+	MidNames  string
+	LastName  string
+	Location  string
+	PhotoID   uint
+	Email     string
+	Mobile    string
 }
 
 func ConceptsList(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
-	events, err := App.Store.ListConcepts()
+	concepts, err := App.Store.ListConcepts()
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 	} else {
-		c.JSON(http.StatusOK, events)
+		c.JSON(http.StatusOK, concepts)
 	}
 }
 
@@ -264,4 +267,71 @@ type ConceptJSON struct {
 	Name    string
 	Summary string
 	Full    string
+}
+
+func ConceptTagsList(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	tags, err := App.Store.ListConceptTags()
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+	} else {
+		c.JSON(http.StatusOK, tags)
+	}
+}
+
+type ConceptTagJSON struct {
+	ID        uint
+	Tag       string
+	ConceptId uint
+}
+
+func readJSONIntoConceptTag(conceptTag *store.ConceptTag, c *gin.Context, forceUpdate bool) (error) {
+	conceptTagJSON := ConceptTagJSON{}
+	err := c.BindJSON(&conceptTagJSON)
+	if err != nil {
+		return err
+	}
+
+	if forceUpdate || conceptTagJSON.ID == 0 {
+		conceptTag.ID = conceptTagJSON.ID
+		conceptTag.Tag = conceptTagJSON.Tag
+		conceptTag.ConceptId = conceptTagJSON.ConceptId
+	}
+	return nil
+}
+
+func AddConceptTag(c *gin.Context) {
+	conceptTag := store.ConceptTag{}
+
+	err := readJSONIntoConceptTag(&conceptTag, c, true)
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("Concept failed validation - err: %s", err.Error()))
+		return
+	}
+
+	conceptTagId, err := App.Store.InsertConceptTag(&conceptTag)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusCreated, "message": "Event created successfully", "resourceId": conceptTagId,
+	})
+}
+
+func DeleteConceptTag(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	id, err := strconv.Atoi(c.Param("conceptTagID"))
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("Invalid ConceptTagID - err: %s", err.Error()))
+		return
+	}
+	err = App.Store.DeleteConceptTag(uint(id))
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("Delete ConceptTag Failed - err: %s", err.Error()))
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK, "message": "ConceptTag deleted", "resourceId": id,
+		})
+	}
 }

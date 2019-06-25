@@ -203,10 +203,15 @@ func (s *Store) ConceptTagsAsStrings(concept *Concept) ([]string, error) {
 	return nil, err
 }
 
-func (s *Store) ListTags() ([]ConceptTag, error) {
+func (s *Store) ListConceptTags() ([]ConceptTag, error) {
 	var conceptTags []ConceptTag
 	err := s.db.Order("order").Find(&conceptTags).Error
 	return conceptTags, err
+}
+
+func (s *Store) DeleteConceptTag(id uint) error {
+	err := s.db.Unscoped().Where("id=?", id).Delete(ConceptTag{}).Error
+	return err
 }
 
 func (s *Store) PurgeConceptTag(tag string) {

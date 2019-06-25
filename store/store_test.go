@@ -190,7 +190,7 @@ func TestStore_ListAllTags(t *testing.T) {
 		conceptTagBId, _ := s.InsertConceptTag(&conceptTagB)
 		conceptTagCId, _ := s.InsertConceptTag(&conceptTagC)
 		Convey("All tags list should contain items", func() {
-			tags, _ := s.ListTags()
+			tags, _ := s.ListConceptTags()
 			tagAFromTags := getTagFromTags(tags, tagA)
 			So(tagAFromTags.Tag, ShouldEqual, tagA)
 			So(tagAFromTags.ID, ShouldEqual, conceptTagAId)
@@ -222,7 +222,7 @@ func TestStore_InvalidTagCreationFail(t *testing.T) {
 			So(conceptTagInvalidId, ShouldEqual, 0)
 		})
 		Convey("All tags list should not contain invalid tag", func() {
-			tags, _ := s.ListTags()
+			tags, _ := s.ListConceptTags()
 			tagInvalidFromTags := getTagFromTags(tags, tagInvalid)
 			So(tagInvalidFromTags, ShouldEqual, nil)
 		})

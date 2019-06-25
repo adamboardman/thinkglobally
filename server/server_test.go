@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -241,6 +242,143 @@ func TestConceptsList(t *testing.T) {
 
 		Convey("The server should respond with StatusOK", func() {
 			So(response.Code, ShouldEqual, http.StatusOK)
+			body, err := ioutil.ReadAll(response.Body)
+			So(err, ShouldBeNil)
+			responseData := new([]store.Concept)
+			err = json.Unmarshal(body, responseData)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func TestConceptTagsList(t *testing.T) {
+	Convey("The concept tags list should be get'able", t, func() {
+		req, _ := http.NewRequest("GET", "/api/concept_tags", nil)
+		response := httptest.NewRecorder()
+		a.Router.ServeHTTP(response, req)
+
+		Convey("The server should respond with StatusOK", func() {
+			So(response.Code, ShouldEqual, http.StatusOK)
+			body, err := ioutil.ReadAll(response.Body)
+			So(err, ShouldBeNil)
+			responseData := new([]store.ConceptTag)
+			err = json.Unmarshal(body, responseData)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func ensureTestConceptExists(name string) *store.Concept {
+	concept, err := a.Store.FindConcept(name)
+	if err != nil {
+		concept = &store.Concept{
+			Name:    name,
+			Summary: "a short version of the test concept",
+		}
+		_, _ = a.Store.InsertConcept(concept)
+	}
+	return concept
+}
+
+func TestAddTagToConcept(t *testing.T) {
+	concept := ensureTestConceptExists("testConcept")
+
+	Convey("Given a test user", t, func() {
+		const emailAddress = "test-login@example.com"
+		ensureTestUserExists(emailAddress)
+
+		tagTag := "LETS"
+		a.Store.PurgeConceptTag(tagTag)
+
+		Convey("The user logs in", func() {
+			response := loginToUser(emailAddress)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Add a concept tag", func() {
+				conceptTagJSON := ConceptTagJSON{}
+				conceptTagJSON.Tag = tagTag
+				conceptTagJSON.ConceptId = concept.ID
+				data, _ := json.Marshal(conceptTagJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/concept_tags", post_data)
+				req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the tag should be added", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					tags, err := a.Store.ListConceptTags()
+					So(err, ShouldBeNil)
+
+					found := checkArrayForConceptTag(tags, tagTag)
+					So(found, ShouldBeTrue)
+				})
+			})
+		})
+	})
+}
+
+func checkArrayForConceptTag(tags []store.ConceptTag, tagTag string) bool {
+	found := false
+	for _, tag := range tags {
+		if tag.Tag == tagTag {
+			found = true
+		}
+	}
+	return found
+}
+
+func uintToString(id uint) string {
+	return strconv.FormatUint(uint64(id), 10)
+}
+
+func TestDeleteTag(t *testing.T) {
+	Convey("Given a test user", t, func() {
+		const emailAddress = "test-login@example.com"
+		ensureTestUserExists(emailAddress)
+
+		tagTag := "LETS"
+		a.Store.PurgeConceptTag(tagTag)
+		concept := ensureTestConceptExists("testConcept")
+		conceptTag := store.ConceptTag{
+			Tag: tagTag,
+			ConceptId: concept.ID,
+		}
+		conceptTagId, err := a.Store.InsertConceptTag(&conceptTag)
+		So(err, ShouldBeNil)
+
+		Convey("The user logs in", func() {
+			response := loginToUser(emailAddress)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Delete tag", func() {
+				req2, _ := http.NewRequest("DELETE", "/api/concept_tags/"+uintToString(conceptTagId), nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusOK and the venue should be removed", func() {
+					So(response2.Code, ShouldEqual, http.StatusOK)
+
+					conceptTags, err := a.Store.ListConceptTags()
+					So(err, ShouldBeNil)
+
+					found := checkArrayForConceptTag(conceptTags, tagTag)
+					So(found, ShouldBeFalse)
+				})
+			})
 		})
 	})
 }
