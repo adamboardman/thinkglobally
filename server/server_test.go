@@ -268,6 +268,25 @@ func TestConceptTagsList(t *testing.T) {
 	})
 }
 
+func TestConceptTagsListForConcept(t *testing.T) {
+	concept := ensureTestConceptExists("testConcept")
+
+	Convey("The concept tags list should be get'able", t, func() {
+		req, _ := http.NewRequest("GET", "/api/concepts/"+uintToString(concept.ID)+"/tags", nil)
+		response := httptest.NewRecorder()
+		a.Router.ServeHTTP(response, req)
+
+		Convey("The server should respond with StatusOK", func() {
+			So(response.Code, ShouldEqual, http.StatusOK)
+			body, err := ioutil.ReadAll(response.Body)
+			So(err, ShouldBeNil)
+			responseData := new([]store.ConceptTag)
+			err = json.Unmarshal(body, responseData)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
 func ensureTestConceptExists(name string) *store.Concept {
 	concept, err := a.Store.FindConcept(name)
 	if err != nil {

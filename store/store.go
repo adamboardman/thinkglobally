@@ -203,6 +203,12 @@ func (s *Store) ConceptTagsAsStrings(concept *Concept) ([]string, error) {
 	return nil, err
 }
 
+func (s *Store) ConceptTagsForConceptId(conceptId uint) ([]ConceptTag, error) {
+	var conceptTags []ConceptTag
+	err := s.db.Where("concept_id=?", conceptId).Order("order").Find(&conceptTags).Error
+	return conceptTags, err
+}
+
 func (s *Store) ListConceptTags() ([]ConceptTag, error) {
 	var conceptTags []ConceptTag
 	err := s.db.Order("order").Find(&conceptTags).Error

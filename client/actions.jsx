@@ -18,6 +18,15 @@ export function fetchError(error) {
     };
 }
 
+export const ADD_ERROR = 'ADD_ERROR';
+
+export function addError(err) {
+    return {
+        type: ADD_ERROR,
+        error: err
+    };
+}
+
 export const USER_LOGGED_IN = 'USER_LOGGED_IN';
 
 export function userLogin(token, expire) {
@@ -151,6 +160,7 @@ export function loadConcept(id, header) {
                 })
             .then((json) => {
                 dispatch(conceptLoaded(json));
+                dispatch(loadConceptTags(id, header));
                 dispatch(fetching(false));
             })
             .catch(() => {
@@ -216,5 +226,111 @@ export function addConcept(header, data) {
                 dispatch(fetching(false));
             });
 
+    };
+}
+
+export const CONCEPT_TAG_ADDED = 'CONCEPT_TAG_ADDED';
+
+export function conceptTagAdded(json, data) {
+    let dataUnpacked = JSON.parse(data);
+    return {
+        type: CONCEPT_TAG_ADDED,
+        tagId: json.resourceId,
+        tagTag: dataUnpacked.Tag,
+        tagConceptId: dataUnpacked.ConceptId
+    };
+}
+
+export function addConceptTag(header, data) {
+    return (dispatch) => {
+        dispatch(fetching(true));
+
+        fetch('/api/concept_tags', {method: 'POST', headers: header, body: data})
+            .then(
+                (response) => {
+                    if (!response.ok) {
+                        throw Error(response.statusText);
+                    }
+                    return response.json();
+                })
+            .then((json) => {
+                dispatch(conceptTagAdded(json, data));
+                dispatch(fetching(false));
+            })
+            .catch((err) => {
+                dispatch(addError(err));
+                dispatch(fetching(false));
+            });
+
+    };
+}
+
+export const CONCEPT_TAG_DELETED = 'CONCEPT_TAG_DELETED';
+
+export function conceptTagDeleted(json, tagId) {
+    return {
+        type: CONCEPT_TAG_DELETED,
+        tagId: json.resourceId,
+    };
+}
+
+export function deleteConceptTag(header, tagId) {
+    return (dispatch) => {
+        dispatch(fetching(true));
+
+        fetch('/api/concept_tags/' + tagId, {method: 'DELETE', headers: header})
+            .then(
+                (response) => {
+                    if (!response.ok) {
+                        throw Error(response.statusText);
+                    }
+                    return response.json();
+                })
+            .then((json) => {
+                dispatch(conceptTagDeleted(json, tagId));
+                dispatch(fetching(false));
+            })
+            .catch((err) => {
+                dispatch(addError(err));
+                dispatch(fetching(false));
+            });
+
+    };
+}
+
+export const CONCEPT_TAGS_LOADED = 'CONCEPT_TAGS_LOADED';
+
+export function conceptTagsLoaded(conceptId, json) {
+    return {
+        type: CONCEPT_TAGS_LOADED,
+        conceptTagsConceptId: conceptId,
+        conceptTagsConceptTags: json,
+    };
+}
+
+export function loadConceptTags(id, header) {
+    return (dispatch) => {
+        dispatch(fetching(true));
+
+        fetch('/api/concepts/' + id + '/tags', {method: 'GET', headers: header})
+            .then(
+                (response) => {
+                    dispatch(conceptTagsLoaded(id, undefined));
+                    if (response.status === 401) {
+                        dispatch(logout());
+                        throw Error(response.statusText);
+                    } else if (!response.ok) {
+                        throw Error(response.statusText);
+                    }
+                    return response.json();
+                })
+            .then((json) => {
+                dispatch(conceptTagsLoaded(id, json));
+                dispatch(fetching(false));
+            })
+            .catch(() => {
+                dispatch(fetchError());
+                dispatch(fetching(false));
+            });
     };
 }

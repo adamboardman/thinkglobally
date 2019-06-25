@@ -49,6 +49,7 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.PUT("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), UpdateUser)
 	api.GET("/concepts", ConceptsList)
 	api.GET("/concepts/:conceptID", LoadConcept)
+	api.GET("/concepts/:conceptID/tags", LoadConceptTags)
 	api.POST("/concepts", a.JwtMiddleware.MiddlewareFunc(), AddConcept)
 	api.PUT("/concepts/:conceptID", a.JwtMiddleware.MiddlewareFunc(), UpdateConcept)
 	api.GET("/concept_tags", ConceptTagsList)
@@ -186,16 +187,16 @@ func LoadConcept(c *gin.Context) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	event, err := App.Store.LoadConcept(uint(conceptId))
+	concept, err := App.Store.LoadConcept(uint(conceptId))
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 	conceptJSON := ConceptJSON{}
-	conceptJSON.ID = event.ID
-	conceptJSON.Name = event.Name
-	conceptJSON.Summary = event.Summary
-	conceptJSON.Full = event.Full
+	conceptJSON.ID = concept.ID
+	conceptJSON.Name = concept.Name
+	conceptJSON.Summary = concept.Summary
+	conceptJSON.Full = concept.Full
 	c.JSON(http.StatusOK, conceptJSON)
 }
 
@@ -334,4 +335,19 @@ func DeleteConceptTag(c *gin.Context) {
 			"status": http.StatusOK, "message": "ConceptTag deleted", "resourceId": id,
 		})
 	}
+}
+
+func LoadConceptTags(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	conceptId, err := strconv.Atoi(c.Param("conceptID"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	conceptTags, err := App.Store.ConceptTagsForConceptId(uint(conceptId))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	c.JSON(http.StatusOK, conceptTags)
 }
