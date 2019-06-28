@@ -52,6 +52,7 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.GET("/concepts/:conceptID/tags", LoadConceptTags)
 	api.POST("/concepts", a.JwtMiddleware.MiddlewareFunc(), AddConcept)
 	api.PUT("/concepts/:conceptID", a.JwtMiddleware.MiddlewareFunc(), UpdateConcept)
+	api.GET("/concept/:tag", FetchConcept)
 	api.GET("/concept_tags", ConceptTagsList)
 	api.POST("/concept_tags", a.JwtMiddleware.MiddlewareFunc(), AddConceptTag)
 	api.DELETE("/concept_tags/:conceptTagID", a.JwtMiddleware.MiddlewareFunc(), DeleteConceptTag)
@@ -188,6 +189,27 @@ func LoadConcept(c *gin.Context) {
 		return
 	}
 	concept, err := App.Store.LoadConcept(uint(conceptId))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	conceptJSON := ConceptJSON{}
+	conceptJSON.ID = concept.ID
+	conceptJSON.Name = concept.Name
+	conceptJSON.Summary = concept.Summary
+	conceptJSON.Full = concept.Full
+	c.JSON(http.StatusOK, conceptJSON)
+}
+
+func FetchConcept(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	tag := c.Param("tag")
+	conceptTag, err := App.Store.FindConceptTag(tag)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	concept, err := App.Store.LoadConcept(conceptTag.ConceptId)
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return

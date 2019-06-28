@@ -74,7 +74,7 @@ func TestStore_InsertConcept(t *testing.T) {
 			So(conceptId, ShouldBeGreaterThan, 0)
 		})
 
-		Convey("ConceptList should contain concept", func() {
+		Convey("Concepts list should contain concept", func() {
 			concepts, _ := s.ListConcepts()
 			So(len(concepts), ShouldBeGreaterThan, 0)
 		})

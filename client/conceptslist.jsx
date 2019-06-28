@@ -4,7 +4,7 @@ import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import ConceptContent from "./conceptcontent";
 
-class ConceptList extends React.Component {
+class ConceptsList extends React.Component {
 
     componentDidMount() {
         const headers = new Headers({"Authorization": "Bearer " + this.props.loginToken});
@@ -23,7 +23,7 @@ class ConceptList extends React.Component {
     }
 }
 
-ConceptList.propTypes = {
+ConceptsList.propTypes = {
     fetchConcepts: PropTypes.func.isRequired,
     logout: PropTypes.func.isRequired,
     isFetching: PropTypes.number,
@@ -48,4 +48,4 @@ const mapConceptsDispatchToProps = (dispatch) => {
     };
 };
 
-export default connect(mapConceptsStateToProps, mapConceptsDispatchToProps)(ConceptList);
+export default connect(mapConceptsStateToProps, mapConceptsDispatchToProps)(ConceptsList);

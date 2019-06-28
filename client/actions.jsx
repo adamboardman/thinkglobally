@@ -170,6 +170,34 @@ export function loadConcept(id, header) {
     };
 }
 
+export function fetchConcept(tag, header) {
+    return (dispatch) => {
+        dispatch(fetching(true));
+
+        fetch('/api/concept/' + tag, {method: 'GET', headers: header})
+            .then(
+                (response) => {
+                    dispatch(conceptLoaded(undefined));
+                    if (response.status === 401) {
+                        dispatch(logout());
+                        throw Error(response.statusText);
+                    } else if (!response.ok) {
+                        throw Error(response.statusText);
+                    }
+                    return response.json();
+                })
+            .then((json) => {
+                dispatch(conceptLoaded(json));
+                dispatch(loadConceptTags(json.ID, header));
+                dispatch(fetching(false));
+            })
+            .catch(() => {
+                dispatch(fetchError());
+                dispatch(fetching(false));
+            });
+    };
+}
+
 export const CONCEPT_UPDATED = 'CONCEPT_UPDATED';
 
 export function conceptUpdated(json) {

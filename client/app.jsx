@@ -19,7 +19,8 @@ import {logout} from "#app/actions";
 import Login from "./login";
 import Register from "./register";
 import UserProfile from "./userprofile";
-import Concepts from "./concepts";
+import Concept from "./concept";
+import ConceptsList from "./conceptslist";
 import ConceptAdd from "./conceptadd";
 import ConceptEdit from "./conceptedit";
 
@@ -56,7 +57,7 @@ class App extends React.Component {
                         <Collapse isOpen={this.state.isOpen} navbar>
                             <Nav className="ml-auto" navbar>
                                 <NavItem>
-                                    <NavLink tag={Link} to="/">Concepts</NavLink>
+                                    <NavLink tag={Link} to="/concepts">Concepts</NavLink>
                                 </NavItem>
                                 {loginToken.length > 0 &&
                                 <UncontrolledDropdown nav inNavbar>
@@ -104,8 +105,10 @@ class App extends React.Component {
                                 <Redirect to="/"/>
                             )
                         )}/>
-                        <Route exact path="/" component={Concepts}/>
+                        <Route exact path="/" component={Concept}/>
                         <Route exact path="/concepts/:id/edit" component={ConceptEdit}/>
+                        <Route exact path="/concepts" component={ConceptsList}/>
+                        <Route exact path="/concept/:tag" component={Concept}/>
                     </Switch>
                 </div>
             </BrowserRouter>
