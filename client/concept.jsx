@@ -16,10 +16,10 @@ class Concept extends React.Component {
     }
 
     render() {
-        const {loginToken, concept} = this.props;
+        const {loginToken, concept, displayableTagsList} = this.props;
         return (
             <div className="card-deck">
-                <ConceptContent key={concept ? concept.ID : 0} loginToken={loginToken} concept={concept}/>
+                <ConceptContent key={concept ? concept.ID : 0} loginToken={loginToken} concept={concept} displayableTagsList={displayableTagsList}/>
             </div>
         );
     }
@@ -31,7 +31,8 @@ Concept.propTypes = {
     isFetching: PropTypes.number,
     loginToken: PropTypes.string,
     lastUpdated: PropTypes.number,
-    concept: PropTypes.array
+    concept: PropTypes.object,
+    displayableTagsList: PropTypes.array,
 };
 
 const mapConceptsStateToProps = (state) => {
@@ -39,7 +40,8 @@ const mapConceptsStateToProps = (state) => {
         isFetching: state.isFetching,
         loginToken: state.loginToken,
         lastUpdated: state.lastUpdated,
-        concept: state.concept
+        concept: state.concept,
+        displayableTagsList: state.displayableTagsList
     };
 };
 

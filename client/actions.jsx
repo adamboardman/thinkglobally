@@ -189,6 +189,8 @@ export function fetchConcept(tag, header) {
             .then((json) => {
                 dispatch(conceptLoaded(json));
                 dispatch(loadConceptTags(json.ID, header));
+                dispatch(fetchConcepts(header));
+                dispatch(loadConceptTagsList(header));
                 dispatch(fetching(false));
             })
             .catch(() => {
@@ -362,3 +364,40 @@ export function loadConceptTags(id, header) {
             });
     };
 }
+
+export const CONCEPT_TAGS_LIST_LOADED = 'CONCEPT_TAGS_LIST_LOADED';
+
+export function conceptTagsListLoaded(json) {
+    return {
+        type: CONCEPT_TAGS_LIST_LOADED,
+        conceptTagsList: json,
+    };
+}
+
+export function loadConceptTagsList(header) {
+    return (dispatch) => {
+        dispatch(fetching(true));
+
+        fetch('/api/concept_tags', {method: 'GET', headers: header})
+            .then(
+                (response) => {
+                    dispatch(conceptTagsListLoaded(undefined));
+                    if (response.status === 401) {
+                        dispatch(logout());
+                        throw Error(response.statusText);
+                    } else if (!response.ok) {
+                        throw Error(response.statusText);
+                    }
+                    return response.json();
+                })
+            .then((json) => {
+                dispatch(conceptTagsListLoaded(json));
+                dispatch(fetching(false));
+            })
+            .catch(() => {
+                dispatch(fetchError());
+                dispatch(fetching(false));
+            });
+    };
+}
+

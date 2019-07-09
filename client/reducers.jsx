@@ -2,6 +2,7 @@ import {
     CONCEPT_LOADED,
     CONCEPT_TAG_ADDED,
     CONCEPT_TAG_DELETED,
+    CONCEPT_TAGS_LIST_LOADED,
     CONCEPT_TAGS_LOADED,
     CONCEPTS_FETCHED,
     FETCH_ERROR,
@@ -18,6 +19,8 @@ export const stateTypes = {
     emailConfirmed: PropTypes.bool,
     concepts: PropTypes.array,
     photos: PropTypes.array,
+    conceptTagsList: PropTypes.array,
+    displayableTagsList: PropTypes.array,
     error: PropTypes.string,
 };
 
@@ -28,8 +31,40 @@ export const initialState = {
     emailConfirmed: false,
     concepts: [],
     photos: [],
+    conceptTagsList: [],
+    displayableTagsList: [],
     error: '',
 };
+
+function groupBy(xs, key) {
+    return xs.reduce(function (rv, x) {
+        (rv[x[key]] = rv[x[key]] || []).push(x);
+        return rv;
+    }, {});
+}
+
+function displayableTagsListFrom(conceptTagsList, concepts, displayableTagsList) {
+    let newDisplayableTagsList = displayableTagsList;
+    if (conceptTagsList !== undefined && concepts !== null && conceptTagsList.length > 0 && concepts.length > 0) {
+        newDisplayableTagsList = [];
+        let groupedConcepts = groupBy(concepts, 'ID');
+        let groupedTags = groupBy(conceptTagsList, 'ConceptId');
+        console.log('grouped' + JSON.stringify(groupedTags));
+        Object.keys(groupedTags).forEach(function (id) {
+            let tags = groupedTags[id].map(function (tag) {
+                return tag.Tag;
+            });
+            let summary = groupedConcepts[id][0].Summary;
+            newDisplayableTagsList.push({
+                id: parseInt(id),
+                index: tags[0],
+                tags: tags,
+                summary: summary
+            });
+        })
+    }
+    return newDisplayableTagsList;
+}
 
 export default function reducers(state = initialState, action) {
     switch (action.type) {
@@ -62,10 +97,6 @@ export default function reducers(state = initialState, action) {
         case CONCEPT_LOADED:
             return Object.assign({}, state, {
                 concept: action.concept
-            });
-        case CONCEPTS_FETCHED:
-            return Object.assign({}, state, {
-                concepts: action.concepts
             });
         case CONCEPT_TAG_ADDED: {
             let newTag = {};
@@ -120,13 +151,25 @@ export default function reducers(state = initialState, action) {
         }
         case CONCEPT_TAGS_LOADED: {
             let newConcept = state.concept;
-            if (newConcept.ID == action.conceptTagsConceptId) {
+            if (newConcept.ID === parseInt(action.conceptTagsConceptId)) {
                 newConcept.Tags = action.conceptTagsConceptTags;
             }
             return Object.assign({}, state, {
                 concept: newConcept,
             });
         }
+        case CONCEPTS_FETCHED:
+            return Object.assign({}, state, {
+                concepts: action.concepts,
+                displayableTagsList: displayableTagsListFrom(state.conceptTagsList, action.concepts, state.displayableTagsList),
+            });
+        case CONCEPT_TAGS_LIST_LOADED: {
+            return Object.assign({}, state, {
+                conceptTagsList: action.conceptTagsList,
+                displayableTagsList: displayableTagsListFrom(action.conceptTagsList, state.concepts, state.displayableTagsList),
+            });
+        }
+
         default:
             return state;
     }
