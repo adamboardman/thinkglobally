@@ -1,6 +1,6 @@
 import React from "react";
 import {login} from "#app/actions";
-import {Link} from "react-router-dom";
+import {Link, Redirect} from "react-router-dom";
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 
@@ -24,7 +24,10 @@ class Login extends React.Component {
     }
 
     render() {
-        const {isFetching} = this.props;
+        const {isFetching, loginToken, location} = this.props;
+        if (loginToken.length > 0) {
+            return (<Redirect to={location.state ? location.state.from : '/'}/>);
+        }
         return (
             <div className="container">
                 <div className="col-xs-8 col-xs-offset-2 jumbotron">
@@ -70,7 +73,7 @@ Login.propTypes = {
     isFetching: PropTypes.number,
     error: PropTypes.string,
     loginToken: PropTypes.string,
-    emailConfirmed: PropTypes.bool
+    emailConfirmed: PropTypes.bool,
 };
 
 const mapStateToProps = (state) => {

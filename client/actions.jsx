@@ -99,10 +99,7 @@ export function fetchConcepts(header) {
         fetch('/api/concepts', {method: 'GET', headers: header})
             .then(
                 (response) => {
-                    if (response.status === 401) {
-                        dispatch(logout());
-                        throw Error(response.statusText);
-                    } else if (!response.ok) {
+                    if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();
@@ -178,10 +175,7 @@ export function fetchConcept(tag, header) {
             .then(
                 (response) => {
                     dispatch(conceptLoaded(undefined));
-                    if (response.status === 401) {
-                        dispatch(logout());
-                        throw Error(response.statusText);
-                    } else if (!response.ok) {
+                    if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();
@@ -216,7 +210,10 @@ export function updateConcept(id, header, data) {
         fetch('/api/concepts/' + id, {method: 'PUT', headers: header, body: data})
             .then(
                 (response) => {
-                    if (!response.ok) {
+                    if (response.status === 401) {
+                        dispatch(logout());
+                        throw Error(response.statusText);
+                    } else if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();
@@ -241,7 +238,10 @@ export function addConcept(header, data) {
         fetch('/api/concepts', {method: 'POST', headers: header, body: data})
             .then(
                 (response) => {
-                    if (!response.ok) {
+                    if (response.status === 401) {
+                        dispatch(logout());
+                        throw Error(response.statusText);
+                    } else if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();
@@ -278,7 +278,10 @@ export function addConceptTag(header, data) {
         fetch('/api/concept_tags', {method: 'POST', headers: header, body: data})
             .then(
                 (response) => {
-                    if (!response.ok) {
+                    if (response.status === 401) {
+                        dispatch(logout());
+                        throw Error(response.statusText);
+                    } else if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();
@@ -311,7 +314,10 @@ export function deleteConceptTag(header, tagId) {
         fetch('/api/concept_tags/' + tagId, {method: 'DELETE', headers: header})
             .then(
                 (response) => {
-                    if (!response.ok) {
+                    if (response.status === 401) {
+                        dispatch(logout());
+                        throw Error(response.statusText);
+                    } else if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();
@@ -346,10 +352,7 @@ export function loadConceptTags(id, header) {
             .then(
                 (response) => {
                     dispatch(conceptTagsLoaded(id, undefined));
-                    if (response.status === 401) {
-                        dispatch(logout());
-                        throw Error(response.statusText);
-                    } else if (!response.ok) {
+                    if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();
@@ -382,10 +385,7 @@ export function loadConceptTagsList(header) {
             .then(
                 (response) => {
                     dispatch(conceptTagsListLoaded(undefined));
-                    if (response.status === 401) {
-                        dispatch(logout());
-                        throw Error(response.statusText);
-                    } else if (!response.ok) {
+                    if (!response.ok) {
                         throw Error(response.statusText);
                     }
                     return response.json();

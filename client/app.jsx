@@ -24,6 +24,17 @@ import ConceptsList from "./conceptslist";
 import ConceptAdd from "./conceptadd";
 import ConceptEdit from "./conceptedit";
 
+const AuthOnlyRoute = ({component: Component, loginToken, ...rest}) => (
+    <Route {...rest} render={(props) => (
+        loginToken.length > 0
+            ? <Component {...props} />
+            : <Redirect to={{
+                pathname: '/login',
+                state: {from: props.location}
+            }}/>
+    )}/>
+)
+
 class App extends React.Component {
     constructor(props) {
         super(props);
@@ -56,9 +67,11 @@ class App extends React.Component {
                         <NavbarToggler onClick={this.toggle}/>
                         <Collapse isOpen={this.state.isOpen} navbar>
                             <Nav className="ml-auto" navbar>
+                                {loginToken.length > 0 &&
                                 <NavItem>
                                     <NavLink tag={Link} to="/concepts">Concepts</NavLink>
                                 </NavItem>
+                                }
                                 {loginToken.length > 0 &&
                                 <UncontrolledDropdown nav inNavbar>
                                     <DropdownToggle nav caret>
@@ -106,8 +119,8 @@ class App extends React.Component {
                             )
                         )}/>
                         <Route exact path="/" component={Concept}/>
-                        <Route exact path="/concepts/:id/edit" component={ConceptEdit}/>
-                        <Route exact path="/concepts" component={ConceptsList}/>
+                        <AuthOnlyRoute exact path="/concepts/:id/edit" loginToken={loginToken} component={ConceptEdit}/>
+                        <AuthOnlyRoute exact path="/concepts" loginToken={loginToken} component={ConceptsList}/>
                         <Route exact path="/concept/:tag" component={Concept}/>
                     </Switch>
                 </div>
@@ -131,7 +144,7 @@ const mapAppStateToProps = (state) => {
         isFetching: state.isFetching,
         loginToken: state.loginToken,
         lastUpdated: state.lastUpdated,
-        emailConfirmed: state.emailConfirmed
+        emailConfirmed: state.emailConfirmed,
     };
 };
 

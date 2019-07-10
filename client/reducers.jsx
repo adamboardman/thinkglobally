@@ -49,7 +49,6 @@ function displayableTagsListFrom(conceptTagsList, concepts, displayableTagsList)
         newDisplayableTagsList = [];
         let groupedConcepts = groupBy(concepts, 'ID');
         let groupedTags = groupBy(conceptTagsList, 'ConceptId');
-        console.log('grouped' + JSON.stringify(groupedTags));
         Object.keys(groupedTags).forEach(function (id) {
             let tags = groupedTags[id].map(function (tag) {
                 return tag.Tag;
