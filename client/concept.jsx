@@ -7,16 +7,18 @@ import ConceptContent from "./conceptcontent";
 class Concept extends React.Component {
 
     componentDidMount() {
-        const headers = new Headers({"Authorization": "Bearer " + this.props.loginToken});
-        var tag = this.props.match.params.tag;
-        if (tag === undefined) {
-            tag = "index";
-        }
-        this.props.fetchConcept(tag,headers);
     }
 
     render() {
-        const {loginToken, concept, displayableTagsList} = this.props;
+        const {isFetching, loginToken, concept, displayableTagsList} = this.props;
+        let tag = this.props.match.params.tag;
+        if (tag === undefined) {
+            tag = "index";
+        }
+        if (!isFetching && (!concept || tag !== concept.Tags[0].Tag)) {
+            const headers = new Headers({"Authorization": "Bearer " + loginToken});
+            this.props.fetchConcept(tag, headers);
+        }
         return (
             <div className="card-deck">
                 <ConceptContent key={concept ? concept.ID : 0} loginToken={loginToken} concept={concept} displayableTagsList={displayableTagsList}/>

@@ -3,6 +3,14 @@ import PropTypes from 'prop-types';
 import {Link} from "react-router-dom";
 import ReactMarkdownConcepts from "react-markdown-concepts";
 
+function RouterLink(props) {
+    return (
+        props.href.match(/^\//)
+            ? <Link to={props.href}>{props.children}</Link>
+            : <a href={props.href}>{props.children}</a>
+    );
+}
+
 class ConceptContent extends React.Component {
     constructor(props) {
         super(props);
@@ -21,10 +29,13 @@ class ConceptContent extends React.Component {
         return (
             <div className="container">
                 <h5>{concept ? concept.Name : ''}</h5>
-                <ReactMarkdownConcepts source={concept ? concept.Full : ''} concepts={displayableTagsList}/>
+                <ReactMarkdownConcepts
+                    source={concept ? concept.Full : ''}
+                    concepts={displayableTagsList}
+                    renderers={{link: RouterLink}}
+                />
                 {loginToken.length > 0 &&
                 <p>
-
                     <Link
                         to={concept ? "/concepts/" + concept.ID + "/edit" : ''}
                         className="btn btn-primary">Edit</Link>

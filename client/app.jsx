@@ -81,7 +81,7 @@ class App extends React.Component {
                                     {loginToken.length > 0 &&
                                     <NavLink onClick={this.logout}>Logout</NavLink>
                                     }
-                                    {loginToken.length == 0 &&
+                                    {loginToken.length === 0 &&
                                     <NavLink tag={Link} to="/login">Login</NavLink>
                                     }
                                 </NavItem>
