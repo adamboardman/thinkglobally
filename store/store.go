@@ -78,7 +78,7 @@ func (s *Store) StoreInit(dbName string) {
 	}
 	s.db = db
 
-	db.DB().Exec("CREATE EXTENSION postgis;")
+	_, _ = db.DB().Exec("CREATE EXTENSION postgis;")
 
 	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}).Error
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *Store) StoreInit(dbName string) {
 	}
 
 	//DEBUG - add/remove to investigate SQL queries being executed
-	db.LogMode(true)
+	//db.LogMode(true)
 
 	db.Model(&ConceptTag{}).AddForeignKey("concept_id", "concepts(id)", "CASCADE", "RESTRICT")
 }

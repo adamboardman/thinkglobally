@@ -17,5 +17,5 @@ func main() {
 	a := server.WebApp{}
 	a.Init("aye-social")
 
-	a.Run("localhost:3030")
+	a.Run("3030")
 }
