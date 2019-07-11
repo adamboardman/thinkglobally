@@ -4,7 +4,7 @@ var webpackHotMiddleware = require('webpack-hot-middleware');
 var proxy = require('proxy-middleware');
 var config = require('./webpack.config');
 
-var port = +(process.env.PORT || 3000);
+var port = +(process.env.PORT || 3030);
 
 config.entry = {
     bundle: [

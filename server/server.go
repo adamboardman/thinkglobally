@@ -74,7 +74,7 @@ func addDefaultRouteToWebApp(router *gin.Engine) {
 }
 
 func (a *WebApp) Run(addr string) {
-	a.Router.Run(addr);
+	_ = a.Router.Run(addr);
 }
 
 func addWebAppStaticFiles(router *gin.Engine) {

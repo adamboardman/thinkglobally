@@ -56,7 +56,7 @@ function displayableTagsListFrom(conceptTagsList, concepts, displayableTagsList)
             let summary = groupedConcepts[id][0].Summary;
             newDisplayableTagsList.push({
                 id: parseInt(id),
-                index: tags[0],
+                index: tags.length > 0 ? tags[0] : '',
                 tags: tags,
                 summary: summary
             });

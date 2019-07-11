@@ -15,7 +15,7 @@ class Concept extends React.Component {
         if (tag === undefined) {
             tag = "index";
         }
-        if (!isFetching && (!concept || tag !== concept.Tags[0].Tag)) {
+        if (!isFetching && (!concept || concept.Tags.length === 0 || tag !== concept.Tags[0].Tag)) {
             const headers = new Headers({"Authorization": "Bearer " + loginToken});
             this.props.fetchConcept(tag, headers);
         }
