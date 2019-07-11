@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/adamboardman/conceptualiser/store"
+	"github.com/adamboardman/thinkglobally/store"
 	jwt "github.com/appleboy/gin-jwt"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"

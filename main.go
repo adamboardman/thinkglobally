@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/adamboardman/conceptualiser/server"
+	"github.com/adamboardman/thinkglobally/server"
 	"github.com/gin-gonic/gin"
 )
 

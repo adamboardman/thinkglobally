@@ -60,7 +60,7 @@ func readPostgresArgs() string {
 	if err != nil {
 		postgresArgs, err = ioutil.ReadFile("../" + postgresArgsFileName)
 		if err != nil {
-			postgresArgs = []byte("host=myhost port=myport sslmode=disable user=conceptualiser dbname=concepts password=mypassword")
+			postgresArgs = []byte("host=myhost port=myport sslmode=disable user=thinkglobally dbname=concepts password=mypassword")
 			err = ioutil.WriteFile(postgresArgsFileName, postgresArgs, 0666)
 			if err != nil {
 				log.Fatal(err)

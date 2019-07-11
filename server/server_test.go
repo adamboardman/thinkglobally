@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/adamboardman/conceptualiser/store"
+	"github.com/adamboardman/thinkglobally/store"
 	. "github.com/smartystreets/goconvey/convey"
 	"golang.org/x/crypto/argon2"
 	"io/ioutil"
