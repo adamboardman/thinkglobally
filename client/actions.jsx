@@ -300,7 +300,7 @@ export function addConceptTag(header, data) {
 
 export const CONCEPT_TAG_DELETED = 'CONCEPT_TAG_DELETED';
 
-export function conceptTagDeleted(json, tagId) {
+export function conceptTagDeleted(json) {
     return {
         type: CONCEPT_TAG_DELETED,
         tagId: json.resourceId,
@@ -323,7 +323,7 @@ export function deleteConceptTag(header, tagId) {
                     return response.json();
                 })
             .then((json) => {
-                dispatch(conceptTagDeleted(json, tagId));
+                dispatch(conceptTagDeleted(json));
                 dispatch(fetching(false));
             })
             .catch((err) => {

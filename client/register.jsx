@@ -76,7 +76,7 @@ export default class Register extends React.Component {
                     {this.state.registered ? (<div>
                         <p>Thanks for registering, please check your email for the confirmation link.</p>
                     </div>) : (<div>
-                        <p>Think Globally - TG's - Semi-distributed digital time banking</p>
+                        <p>Think Globally - Trade Locally - TG&apos;s - Semi-distributed digital time banking</p>
                         <p>Register to get access</p>
                         <form onSubmit={this.handleRegister} noValidate>
                             <div className="form-group">

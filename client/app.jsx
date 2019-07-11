@@ -33,7 +33,7 @@ const AuthOnlyRoute = ({component: Component, loginToken, ...rest}) => (
                 state: {from: props.location}
             }}/>
     )}/>
-)
+);
 
 class App extends React.Component {
     constructor(props) {

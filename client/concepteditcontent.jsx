@@ -52,7 +52,7 @@ class ConceptEditContent extends React.Component {
     updateInputValueTagDelete(event) {
         let newTagDeletion = this.state.conceptTagsToDelete;
         if (newTagDeletion === undefined) {
-            newTagDeletion = []
+            newTagDeletion = [];
         }
         if (event.target.checked) {
             newTagDeletion.push(event.target.value);

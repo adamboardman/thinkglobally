@@ -245,21 +245,12 @@ class UserProfile extends React.Component {
 
 UserProfile.propTypes = {
     loginToken: PropTypes.string,
-    fetchNominatim: PropTypes.func.isRequired,
-    nominatim: PropTypes.array,
 };
 
 const mapUsersStateToProps = (state) => {
     return {
         loginToken: state.loginToken,
-        nominatim: state.nominatim,
     };
 };
 
-const mapUsersDispatchToProps = (dispatch) => {
-    return {
-        fetchNominatim: (name, place) => dispatch(fetchNominatim(name, place)),
-    };
-};
-
-export default connect(mapUsersStateToProps, mapUsersDispatchToProps)(UserProfile);
+export default connect(mapUsersStateToProps)(UserProfile);

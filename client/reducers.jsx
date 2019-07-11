@@ -60,7 +60,7 @@ function displayableTagsListFrom(conceptTagsList, concepts, displayableTagsList)
                 tags: tags,
                 summary: summary
             });
-        })
+        });
     }
     return newDisplayableTagsList;
 }

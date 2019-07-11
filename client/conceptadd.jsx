@@ -13,7 +13,6 @@ class ConceptAdd extends React.Component {
     }
 
     componentDidMount() {
-        const headers = new Headers({"Authorization": "Bearer " + this.props.loginToken});
     }
 
     render() {
