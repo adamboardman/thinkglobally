@@ -1,7 +1,7 @@
 {
-  "name": "conceptualiser",
+  "name": "thinkglobally",
   "version": "1.0.0",
-  "description": "Hyperlinked concept map display",
+  "description": "A time based alternative to currencies",
   "dependencies": {
     "@babel/cli": "^7.5.0",
     "@babel/core": "^7.5.0",
@@ -62,6 +62,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/adamboardman/conceptualiser.git"
+    "url": "git+https://github.com/adamboardman/thinkglobally.git"
   }
 }
