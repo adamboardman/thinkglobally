@@ -16,7 +16,6 @@ class ConceptEditContent extends React.Component {
 
         this.state = {
             showTagModal: false,
-            inputId: this.props.concept ? this.props.concept.ID : 0,
             inputName: this.props.concept ? this.props.concept.Name : '',
             inputSummary: this.props.concept ? this.props.concept.Summary : '',
             inputFull: this.props.concept ? this.props.concept.Full : '',
@@ -72,7 +71,7 @@ class ConceptEditContent extends React.Component {
             return;
         }
         const userData = {
-            ID: this.state.inputId,
+            ID: this.props.concept ? this.props.concept.ID : 0,
             Name: this.state.inputName,
             Summary: this.state.inputSummary,
             Full: this.state.inputFull,

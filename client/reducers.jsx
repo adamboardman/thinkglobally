@@ -4,6 +4,7 @@ import {
     CONCEPT_TAG_DELETED,
     CONCEPT_TAGS_LIST_LOADED,
     CONCEPT_TAGS_LOADED,
+    CONCEPT_UPDATED,
     CONCEPTS_FETCHED,
     FETCH_ERROR,
     FETCHING,
@@ -155,6 +156,13 @@ export default function reducers(state = initialState, action) {
             }
             return Object.assign({}, state, {
                 concept: newConcept,
+            });
+        }
+        case CONCEPT_UPDATED: {
+            let updatedConcept = state.concept ? state.concept : {};
+            updatedConcept.ID = action.conceptId;
+            return Object.assign({}, state, {
+                concept: updatedConcept
             });
         }
         case CONCEPTS_FETCHED:

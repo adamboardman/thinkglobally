@@ -79,7 +79,7 @@ class App extends React.Component {
                                         Add
                                     </DropdownToggle>
                                     <DropdownMenu right>
-                                        <DropdownItem tag={Link} to="/add_concept">Concept</DropdownItem>
+                                        <DropdownItem tag={Link} to="/add_concept_new">Concept</DropdownItem>
                                     </DropdownMenu>
                                 </UncontrolledDropdown>
                                 }
@@ -104,6 +104,9 @@ class App extends React.Component {
                     <Switch>
                         <Route exact path="/login" component={Login}/>
                         <Route exact path="/register" component={Register}/>
+                        <Route exact path="/add_concept_new" render={() => (
+                            <Redirect to="/add_concept"/>
+                        )}/>
                         <Route exact path="/add_concept" render={() => (
                             loginToken.length > 0 ? (
                                 <ConceptAdd/>
