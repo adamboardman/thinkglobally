@@ -1,5 +1,5 @@
 import React from "react";
-import {addConcept, addConceptTag, deleteConceptTag, loadConcept, updateConcept} from "#app/actions";
+import {addConcept, addConceptTag, addError, deleteConceptTag, loadConcept, updateConcept} from "#app/actions";
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import {Modal, ModalBody, ModalFooter, ModalHeader} from "reactstrap";
@@ -22,6 +22,8 @@ class ConceptEditContent extends React.Component {
             inputTag: '',
             conceptTagsToDelete: [],
         };
+
+        this.props.clearErrors();
     }
 
     updateInputValueName(event) {
@@ -184,6 +186,9 @@ class ConceptEditContent extends React.Component {
                             onChange={evt => this.updateInputValueFull(evt)}
                             defaultValue={concept ? concept.Full : ''}/>
                     </div>
+                    <div>
+                        {"" + this.props.error}
+                    </div>
                     <button className="btn btn-primary" disabled={isFetching}>
                         {
                             isFetching
@@ -220,11 +225,13 @@ class ConceptEditContent extends React.Component {
 ConceptEditContent.propTypes = {
     isFetching: PropTypes.number,
     loginToken: PropTypes.string,
+    clearErrors: PropTypes.func.isRequired,
     addConcept: PropTypes.func.isRequired,
     updateConcept: PropTypes.func.isRequired,
     addConceptTag: PropTypes.func.isRequired,
     deleteConceptTag: PropTypes.func.isRequired,
     concept: PropTypes.object,
+    error: PropTypes.string,
 };
 
 const mapStateToContentProps = (state) => {
@@ -234,11 +241,13 @@ const mapStateToContentProps = (state) => {
         lastUpdated: state.lastUpdated,
         emailConfirmed: state.emailConfirmed,
         concept: state.concept,
+        error: state.error,
     };
 };
 
 const mapDispatchToContentProps = (dispatch) => {
     return {
+        clearErrors: () => dispatch(addError(null)),
         loadConcept: (conceptId, headers) => dispatch(loadConcept(conceptId, headers)),
         addConcept: (headers, conceptInfo) => dispatch(addConcept(headers, conceptInfo)),
         updateConcept: (conceptId, headers, conceptInfo) => dispatch(updateConcept(conceptId, headers, conceptInfo)),

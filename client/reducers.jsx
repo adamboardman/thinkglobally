@@ -1,4 +1,5 @@
 import {
+    ADD_ERROR,
     CONCEPT_LOADED,
     CONCEPT_TAG_ADDED,
     CONCEPT_TAG_DELETED,
@@ -91,6 +92,10 @@ export default function reducers(state = initialState, action) {
             });
         }
         case FETCH_ERROR:
+            return Object.assign({}, state, {
+                error: action.error
+            });
+        case ADD_ERROR:
             return Object.assign({}, state, {
                 error: action.error
             });

@@ -23,7 +23,7 @@ export const ADD_ERROR = 'ADD_ERROR';
 export function addError(err) {
     return {
         type: ADD_ERROR,
-        error: err
+        error: err ? err.message : ''
     };
 }
 
@@ -206,6 +206,7 @@ export function conceptUpdated(json) {
 export function updateConcept(id, header, data) {
     return (dispatch) => {
         dispatch(fetching(true));
+        dispatch(addError(null));
 
         fetch('/api/concepts/' + id, {method: 'PUT', headers: header, body: data})
             .then(
@@ -234,6 +235,7 @@ export function updateConcept(id, header, data) {
 export function addConcept(header, data) {
     return (dispatch) => {
         dispatch(fetching(true));
+        dispatch(addError(null));
 
         fetch('/api/concepts', {method: 'POST', headers: header, body: data})
             .then(
@@ -274,6 +276,7 @@ export function conceptTagAdded(json, data) {
 export function addConceptTag(header, data) {
     return (dispatch) => {
         dispatch(fetching(true));
+        dispatch(addError(null));
 
         fetch('/api/concept_tags', {method: 'POST', headers: header, body: data})
             .then(
@@ -310,6 +313,7 @@ export function conceptTagDeleted(json) {
 export function deleteConceptTag(header, tagId) {
     return (dispatch) => {
         dispatch(fetching(true));
+        dispatch(addError(null));
 
         fetch('/api/concept_tags/' + tagId, {method: 'DELETE', headers: header})
             .then(
