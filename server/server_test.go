@@ -141,8 +141,8 @@ func TestMinimalSiteAccessWithoutConfirmedEmail(t *testing.T) {
 
 		token := userTokenFromLoginResponse(response)
 
-		Convey("Attempt to add a concept", func() {
-			req, _ := http.NewRequest("POST", "/api/concepts", nil)
+		Convey("Attempt to read user profile", func() {
+			req, _ := http.NewRequest("GET", "/api/users/"+uintToString(user.ID), nil)
 			req.Header.Set("Authorization", "Bearer "+token)
 			response2 := httptest.NewRecorder()
 			a.Router.ServeHTTP(response2, req)
@@ -299,12 +299,59 @@ func ensureTestConceptExists(name string) *store.Concept {
 	return concept
 }
 
-func TestAddTagToConcept(t *testing.T) {
+func TestAddTagToConceptAsUserShouldFail(t *testing.T) {
 	concept := ensureTestConceptExists("testConcept")
 
 	Convey("Given a test user", t, func() {
 		const emailAddress = "test-login@example.com"
 		ensureTestUserExists(emailAddress)
+
+		tagTag := "LETS"
+		a.Store.PurgeConceptTag(tagTag)
+
+		Convey("The user logs in", func() {
+			response := loginToUser(emailAddress)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Add a concept tag", func() {
+				conceptTagJSON := ConceptTagJSON{}
+				conceptTagJSON.Tag = tagTag
+				conceptTagJSON.ConceptId = concept.ID
+				data, _ := json.Marshal(conceptTagJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/concept_tags", post_data)
+				req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with error", func() {
+					So(response2.Code, ShouldEqual, http.StatusForbidden)
+
+					tags, err := a.Store.ListConceptTags()
+					So(err, ShouldBeNil)
+
+					found := checkArrayForConceptTag(tags, tagTag)
+					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func TestAddTagToConceptAsAdmin(t *testing.T) {
+	concept := ensureTestConceptExists("testConcept")
+
+	Convey("Given a test user", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
 
 		tagTag := "LETS"
 		a.Store.PurgeConceptTag(tagTag)
@@ -358,7 +405,7 @@ func uintToString(id uint) string {
 	return strconv.FormatUint(uint64(id), 10)
 }
 
-func TestDeleteTag(t *testing.T) {
+func TestDeleteTagAsUserFails(t *testing.T) {
 	Convey("Given a test user", t, func() {
 		const emailAddress = "test-login@example.com"
 		ensureTestUserExists(emailAddress)
@@ -388,7 +435,47 @@ func TestDeleteTag(t *testing.T) {
 				response2 := httptest.NewRecorder()
 				a.Router.ServeHTTP(response2, req2)
 
-				Convey("The server should respond with StatusOK and the venue should be removed", func() {
+				Convey("The server should respond with StatusForbidden", func() {
+					So(response2.Code, ShouldEqual, http.StatusForbidden)
+				})
+			})
+		})
+	})
+}
+
+func TestDeleteTagAsAdmin(t *testing.T) {
+	Convey("Given a test user", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
+
+		tagTag := "LETS"
+		a.Store.PurgeConceptTag(tagTag)
+		concept := ensureTestConceptExists("testConcept")
+		conceptTag := store.ConceptTag{
+			Tag: tagTag,
+			ConceptId: concept.ID,
+		}
+		conceptTagId, err := a.Store.InsertConceptTag(&conceptTag)
+		So(err, ShouldBeNil)
+
+		Convey("The user logs in", func() {
+			response := loginToUser(emailAddress)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Delete tag", func() {
+				req2, _ := http.NewRequest("DELETE", "/api/concept_tags/"+uintToString(conceptTagId), nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusOK and the tag should be removed", func() {
 					So(response2.Code, ShouldEqual, http.StatusOK)
 
 					conceptTags, err := a.Store.ListConceptTags()

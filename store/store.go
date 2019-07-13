@@ -25,6 +25,14 @@ func (PublicUser) TableName() string {
 	return "users"
 }
 
+type UserPermissions int
+
+const (
+	UserPermissionsUser UserPermissions = iota + 1
+	UserPermissionsEditor
+	UserPermissionsAdmin
+)
+
 type User struct {
 	PublicUser
 	Email              string `gorm:"unique_index"`
@@ -38,6 +46,7 @@ type User struct {
 	Locked             string `json:"-"`
 	RecoverVerifier    string `json:"-"`
 	RecoverTokenExpiry string `json:"-"`
+	Permissions        UserPermissions `json:"-"`
 }
 
 type Concept struct {
