@@ -8,7 +8,7 @@ import (
 
 func main() {
 	isDebugging := false
-	flag.BoolVar(&isDebugging, "debugging", false, "if true, we start HTTP server")
+	flag.BoolVar(&isDebugging, "debugging", false, "if true, we start in debug mode")
 	flag.Parse()
 
 	if !isDebugging {

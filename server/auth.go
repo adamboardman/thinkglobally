@@ -63,7 +63,7 @@ func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
 	}
 
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
-		Realm:       "test zone",
+		Realm:       "thinkglobally",
 		Key:         secretKey,
 		Timeout:     time.Hour * 24 * 7,
 		MaxRefresh:  time.Hour,
