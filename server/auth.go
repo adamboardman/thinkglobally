@@ -1,10 +1,10 @@
 package server
 
 import (
-	"../store"
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"github.com/adamboardman/thinkglobally/store"
 	"github.com/appleboy/gin-jwt"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/argon2"

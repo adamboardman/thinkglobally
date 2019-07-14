@@ -1,8 +1,8 @@
 package main
 
 import (
-	"./server"
 	"flag"
+	"github.com/adamboardman/thinkglobally/server"
 	"github.com/gin-gonic/gin"
 )
 
