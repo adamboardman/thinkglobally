@@ -1,9 +1,9 @@
 package server
 
 import (
+	"../store"
 	"errors"
 	"fmt"
-	"github.com/adamboardman/thinkglobally/store"
 	jwt "github.com/appleboy/gin-jwt"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"

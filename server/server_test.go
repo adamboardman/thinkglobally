@@ -1,10 +1,10 @@
 package server
 
 import (
+	"../store"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/adamboardman/thinkglobally/store"
 	. "github.com/smartystreets/goconvey/convey"
 	"golang.org/x/crypto/argon2"
 	"io/ioutil"
