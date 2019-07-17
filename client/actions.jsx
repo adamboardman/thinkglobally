@@ -56,7 +56,7 @@ export function login(data) {
         dispatch(fetching(true));
         dispatch(fetchError(''));
 
-        fetch('/auth/login', {method: 'POST', body: data})
+        fetch('/api/auth/login', {method: 'POST', body: data})
             .then(
                 (response) => {
                     if (!response.ok) {

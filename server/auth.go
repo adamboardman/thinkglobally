@@ -50,7 +50,20 @@ func RandomBytes(len int) []byte {
 	return key
 }
 
-func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
+func AllowOptions(c *gin.Context) {
+	if c.Request.Method != "OPTIONS" || c.Request.Host != "localhost:3030" {
+		c.Next()
+	} else {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "authorization, origin, content-type, accept")
+		c.Header("Allow", "HEAD,GET,POST,PUT,PATCH,DELETE,OPTIONS")
+		c.Header("Content-Type", "application/json")
+		c.AbortWithStatus(http.StatusOK)
+	}
+}
+
+func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 	const secretKeyFileName = "secret_key.txt"
 	secretKey, err := ioutil.ReadFile(secretKeyFileName)
 	if err != nil {
@@ -93,7 +106,10 @@ func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
 			}
 
 			user, err := a.Store.FindUser(loginVals.Email)
-			salt, _ := base64.StdEncoding.DecodeString(user.Salt)
+			if err != nil {
+				return nil, err
+			}
+			salt, err := base64.StdEncoding.DecodeString(user.Salt)
 			encrypted := argon2.IDKey([]byte(loginVals.Password), salt, 1, 64*1024, 4, 32)
 			loginPassword := base64.StdEncoding.EncodeToString(encrypted)
 			if err == nil && loginPassword == user.Password {
@@ -110,9 +126,16 @@ func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
 
 			return false
 		},
+		LoginResponse: func(c *gin.Context, code int, token string, expire time.Time) {
+			c.JSON(http.StatusOK, gin.H{
+				"status":   http.StatusOK,
+				"token":  token,
+				"expire": expire.Format(time.RFC3339),
+			})
+		},
 		Unauthorized: func(c *gin.Context, code int, message string) {
 			c.JSON(code, gin.H{
-				"code":    code,
+				"status":    code,
 				"message": message,
 			})
 		},
@@ -128,7 +151,10 @@ func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
 		log.Fatal("JWT Error:" + err.Error())
 	}
 
-	auth := r.Group("/auth")
+	auth := group.Group("/auth")
+	auth.OPTIONS("/register", AllowOptions)
+	auth.OPTIONS("/login", AllowOptions)
+	auth.OPTIONS("/refresh_token", AllowOptions)
 	auth.POST("/register", RegisterUser)
 	auth.POST("/login", authMiddleware.LoginHandler)
 	auth.GET("/confirm_email", ConfirmEmail)
@@ -140,7 +166,7 @@ func (a *WebApp) InitAuth(r *gin.Engine) *jwt.GinJWTMiddleware {
 type RegisterJSON struct {
 	Email                string
 	Password             string
-	PasswordConfirmation string
+	PasswordConfirmation string `json:"password_confirmation"`
 }
 
 func RegisterUser(c *gin.Context) {

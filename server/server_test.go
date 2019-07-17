@@ -68,7 +68,7 @@ func TestRegisterUser(t *testing.T) {
 			registerJSON.PasswordConfirmation = "1234";
 			data, _ := json.Marshal(registerJSON)
 			postData := bytes.NewReader(data)
-			req, _ := http.NewRequest("POST", "/auth/register", postData)
+			req, _ := http.NewRequest("POST", "/api/auth/register", postData)
 			req.Header.Set("Content-Type", "application/json")
 			response := httptest.NewRecorder()
 			a.Router.ServeHTTP(response, req)
@@ -88,7 +88,7 @@ func TestRegisterUser(t *testing.T) {
 func TestInvalidTokenRejection(t *testing.T) {
 	Convey("Refreshing an invalid token", t, func() {
 		token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3Q3QGV4YW1wbGUuY29tIiwiZXhwIjoxNTM2Njc3NzUxLCJvcmlnX2lhdCI6MTUzNjY3NDE1MX0.65PStZIR8yRhJo7w2cF8VL-dtF1CbrOnvdB6ub9GxdY"
-		req, _ := http.NewRequest("GET", "/auth/refresh_token", nil)
+		req, _ := http.NewRequest("GET", "/api/auth/refresh_token", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		response := httptest.NewRecorder()
 		a.Router.ServeHTTP(response, req)
@@ -117,7 +117,7 @@ func TestConfirmEmail(t *testing.T) {
 			data := url.Values{}
 			data.Set("email", emailAddress)
 			data.Set("verification", base64.StdEncoding.EncodeToString([]byte(verification)))
-			req, _ := http.NewRequest("GET", "/auth/confirm_email?"+data.Encode(), nil)
+			req, _ := http.NewRequest("GET", "/api/auth/confirm_email?"+data.Encode(), nil)
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			response := httptest.NewRecorder()
 			a.Router.ServeHTTP(response, req)
@@ -133,7 +133,7 @@ func TestMinimalSiteAccessWithoutConfirmedEmail(t *testing.T) {
 		user.Confirmed = false
 		_, _ = a.Store.UpdateUser(user)
 
-		response := loginToUser(emailAddress)
+		response := loginToUserJSON(emailAddress)
 
 		Convey("Login should succeed", func() {
 			So(response.Code, ShouldEqual, http.StatusOK)
@@ -161,7 +161,7 @@ func TestRefreshToken(t *testing.T) {
 		user.Confirmed = true
 		_, _ = a.Store.UpdateUser(user)
 
-		response := loginToUser(emailAddress)
+		response := loginToUserJSON(emailAddress)
 
 		Convey("Login should succeed", func() {
 			So(response.Code, ShouldEqual, http.StatusOK)
@@ -170,7 +170,7 @@ func TestRefreshToken(t *testing.T) {
 		token := userTokenFromLoginResponse(response)
 
 		Convey("Should be able to refresh a token", func() {
-			req2, _ := http.NewRequest("GET", "/auth/refresh_token", nil)
+			req2, _ := http.NewRequest("GET", "/api/auth/refresh_token", nil)
 			req2.Header.Set("Authorization", "Bearer "+token)
 			response2 := httptest.NewRecorder()
 			a.Router.ServeHTTP(response2, req2)
@@ -193,7 +193,7 @@ func loginToUser(emailAddress string) *httptest.ResponseRecorder {
 	data.Set("email", emailAddress)
 	data.Set("password", "1234")
 	postData := strings.NewReader(data.Encode())
-	req, _ := http.NewRequest("POST", "/auth/login", postData)
+	req, _ := http.NewRequest("POST", "/api/auth/login", postData)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response := httptest.NewRecorder()
 	a.Router.ServeHTTP(response, req)
@@ -211,7 +211,7 @@ func loginToUserJSON(emailAddress string) *httptest.ResponseRecorder {
 	loginJSON.Password = "1234"
 	data, _ := json.Marshal(loginJSON)
 	post_data := bytes.NewReader(data)
-	req, _ := http.NewRequest("POST", "/auth/login", post_data)
+	req, _ := http.NewRequest("POST", "/api/auth/login", post_data)
 	req.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	a.Router.ServeHTTP(response, req)
@@ -310,7 +310,7 @@ func TestAddTagToConceptAsUserShouldFail(t *testing.T) {
 		a.Store.PurgeConceptTag(tagTag)
 
 		Convey("The user logs in", func() {
-			response := loginToUser(emailAddress)
+			response := loginToUserJSON(emailAddress)
 
 			Convey("The server should respond with StatusOK", func() {
 				So(response.Code, ShouldEqual, http.StatusOK)
@@ -357,7 +357,7 @@ func TestAddTagToConceptAsAdmin(t *testing.T) {
 		a.Store.PurgeConceptTag(tagTag)
 
 		Convey("The user logs in", func() {
-			response := loginToUser(emailAddress)
+			response := loginToUserJSON(emailAddress)
 
 			Convey("The server should respond with StatusOK", func() {
 				So(response.Code, ShouldEqual, http.StatusOK)
@@ -421,7 +421,7 @@ func TestDeleteTagAsUserFails(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("The user logs in", func() {
-			response := loginToUser(emailAddress)
+			response := loginToUserJSON(emailAddress)
 
 			Convey("The server should respond with StatusOK", func() {
 				So(response.Code, ShouldEqual, http.StatusOK)
@@ -461,7 +461,7 @@ func TestDeleteTagAsAdmin(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("The user logs in", func() {
-			response := loginToUser(emailAddress)
+			response := loginToUserJSON(emailAddress)
 
 			Convey("The server should respond with StatusOK", func() {
 				So(response.Code, ShouldEqual, http.StatusOK)

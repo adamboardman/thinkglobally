@@ -41,7 +41,7 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 		c.JSON(http.StatusOK, gin.H{"message": "root of the API does nothing, next?"})
 	})
 
-	a.JwtMiddleware = a.InitAuth(router)
+	a.JwtMiddleware = a.InitAuth(api)
 	api.GET("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), LoadUser)
 	//api.GET("/users/:userID/photo", a.JwtMiddleware.MiddlewareFunc(), UserPhoto)
 	//api.POST("/users/:userID/photo", a.JwtMiddleware.MiddlewareFunc(), AddUserPhoto)

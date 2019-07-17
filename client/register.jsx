@@ -43,7 +43,7 @@ export default class Register extends React.Component {
         this.fetching(true);
         this.fetchError('');
 
-        fetch('/auth/register', {method: 'POST', body: data})
+        fetch('/api/auth/register', {method: 'POST', body: data})
             .then(
                 (response) => {
                     if (!response.ok) {
