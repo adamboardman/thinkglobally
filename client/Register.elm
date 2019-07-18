@@ -20,23 +20,21 @@ registerFieldsToValidate =
 
 pageRegister : Model -> List (Html Msg)
 pageRegister model =
-    [ div [ class "cred-page" ]
-        [ div [ class "container page" ]
-            [ div [ class "row" ]
-                [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
-                    [ h1 [ class "text-xs-center" ] [ text "Register" ]
-                    , p [ class "text-xs-center" ]
-                        [ a [ href "#login" ]
-                            [ text "Have an account?" ]
-                        ]
-                    , ul [ class "error-messages" ]
-                        (List.map viewProblem model.problems)
-                    , if model.postResponse.resourceId == 0 then
-                        viewRegisterForm model.registerForm
-
-                      else
-                        text "Please check your email (inc spam folder) and click the confirmation link"
+    [ div [ class "container page" ]
+        [ div [ class "row" ]
+            [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
+                [ h1 [ class "text-xs-center" ] [ text "Register" ]
+                , p [ class "text-xs-center" ]
+                    [ a [ href "#login" ]
+                        [ text "Have an account?" ]
                     ]
+                , ul [ class "error-messages" ]
+                    (List.map viewProblem model.problems)
+                , if model.postResponse.resourceId == 0 then
+                    viewRegisterForm model.registerForm
+
+                  else
+                    text "Please check your email (inc spam folder) and click the confirmation link"
                 ]
             ]
         ]
@@ -132,6 +130,9 @@ validateField (RegisterTrimmed form) field =
 
                 else
                     [ "Passwords must match" ]
+
+            _ ->
+                []
 
 
 type RegisterTrimmedForm

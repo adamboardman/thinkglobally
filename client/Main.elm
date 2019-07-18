@@ -14,8 +14,9 @@ import Html.Attributes exposing (class, href, placeholder, type_, value)
 import Http exposing (Error(..), emptyBody)
 import Json.Decode as Decode exposing (Decoder, at, decodeString, field, int, map7, string)
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
+import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), User, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), User, authHeader, profileDecoder, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
 
@@ -71,6 +72,15 @@ init flags url key =
                     , mobile = ""
                     , permissions = 0
                     }
+                , profileForm =
+                    { id = 0
+                    , firstName = ""
+                    , midNames = ""
+                    , lastName = ""
+                    , location = ""
+                    , email = ""
+                    , mobile = ""
+                    }
                 }
     in
     ( model, Cmd.batch [ urlCmd, navCmd ] )
@@ -102,6 +112,11 @@ menu model =
               else
                 Navbar.itemLink [ href "" ] [ text "" ]
             , if loggedIn model then
+                Navbar.itemLink [ href "#profile" ] [ text "Profile" ]
+
+              else
+                Navbar.itemLink [ href "" ] [ text "" ]
+            , if loggedIn model then
                 Navbar.itemLink [ href "#logout" ] [ text "Logout" ]
 
               else
@@ -125,6 +140,9 @@ mainContent model =
 
             Register ->
                 pageRegister model
+
+            Profile ->
+                pageProfile model
 
             NotFound ->
                 pageNotFound
@@ -239,6 +257,18 @@ update msg model =
                     , Cmd.none
                     )
 
+        SubmittedProfileForm ->
+            case profileValidate model.profileForm of
+                Ok validForm ->
+                    ( { model | problems = [] }
+                    , profile model.session.loginToken validForm
+                    )
+
+                Err problems ->
+                    ( { model | problems = problems }
+                    , Cmd.none
+                    )
+
         EnteredLoginEmail email ->
             loginUpdateForm (\form -> { form | email = email }) model
 
@@ -251,8 +281,26 @@ update msg model =
         EnteredRegisterPassword password ->
             registerUpdateForm (\form -> { form | password = password }) model
 
-        EnteredRegisterConfirmPassword password_confirm ->
-            registerUpdateForm (\form -> { form | password_confirm = password_confirm }) model
+        EnteredRegisterConfirmPassword passwordConfirm ->
+            registerUpdateForm (\form -> { form | password_confirm = passwordConfirm }) model
+
+        EnteredUserFirstName firstName ->
+            profileUpdateForm (\form -> { form | firstName = firstName }) model
+
+        EnteredUserMidNames midNames ->
+            profileUpdateForm (\form -> { form | midNames = midNames }) model
+
+        EnteredUserLastName lastName ->
+            profileUpdateForm (\form -> { form | lastName = lastName }) model
+
+        EnteredUserLocation location ->
+            profileUpdateForm (\form -> { form | location = location }) model
+
+        EnteredUserMobile mobile ->
+            profileUpdateForm (\form -> { form | mobile = mobile }) model
+
+        EnteredUserEmail email ->
+            profileUpdateForm (\form -> { form | email = email }) model
 
         CompletedLogin (Err error) ->
             let
@@ -279,7 +327,30 @@ update msg model =
             , Cmd.none
             )
 
+        LoadedProfile (Err error) ->
+            ( model
+            , Cmd.none
+            )
+
+        LoadedProfile (Ok res) ->
+            ( { model | profileForm = res }
+            , Cmd.none
+            )
+
         GotRegisterJson result ->
+            case result of
+                Ok res ->
+                    ( { model | postResponse = res }, Cmd.none )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors }, Cmd.none )
+
+        GotUpdateProfileJson result ->
             case result of
                 Ok res ->
                     ( { model | postResponse = res }, Cmd.none )
@@ -332,8 +403,14 @@ urlUpdate url model =
         Nothing ->
             ( { model | page = NotFound }, Cmd.none )
 
-        Just route ->
-            ( { model | page = route }, Cmd.none )
+        Just page ->
+            ( { model | page = page }
+            , if page == Profile then
+                loadProfile model.session.loginToken
+
+              else
+                Cmd.none
+            )
 
 
 decode : Url -> Maybe Page
@@ -349,16 +426,12 @@ routeParser =
         , UrlParser.map Login (s "login")
         , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register")
+        , UrlParser.map Profile (s "profile")
         ]
 
 
 
 -- HTTP
-
-
-authHeader : String -> Http.Header
-authHeader token =
-    Http.header "authorization" ("Bearer " ++ token)
 
 
 loadUser : String -> Int -> Cmd Msg
@@ -367,6 +440,19 @@ loadUser token userId =
         { method = "GET"
         , url = "http://localhost:3030/api/users/" ++ String.fromInt userId
         , expect = Http.expectJson LoadedUser userDecoder
+        , headers = [ authHeader token ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+loadProfile : String -> Cmd Msg
+loadProfile token =
+    Http.request
+        { method = "GET"
+        , url = "http://localhost:3030/api/users/0"
+        , expect = Http.expectJson LoadedProfile profileDecoder
         , headers = [ authHeader token ]
         , body = emptyBody
         , timeout = Nothing

@@ -29,28 +29,26 @@ userIsEditor model =
 
 pageLogin : Model -> List (Html Msg)
 pageLogin model =
-    [ div [ class "cred-page" ]
-        [ div [ class "container page" ]
-            [ div [ class "row" ]
-                [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
-                    [ h1 [ class "text-xs-center" ] [ text "Login" ]
-                    , p [ class "text-xs-center" ]
-                        [ if loggedIn model then
-                            a [ href "#logout" ]
-                                [ text "Logout" ]
-
-                          else
-                            a [ href "#register" ]
-                                [ text "Need an account?" ]
-                        ]
-                    , ul [ class "error-messages" ]
-                        (List.map viewProblem model.problems)
-                    , if loggedIn model then
-                        text "Already logged in"
+    [ div [ class "container page" ]
+        [ div [ class "row" ]
+            [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
+                [ h1 [ class "text-xs-center" ] [ text "Login" ]
+                , p [ class "text-xs-center" ]
+                    [ if loggedIn model then
+                        a [ href "#logout" ]
+                            [ text "Logout" ]
 
                       else
-                        viewLoginForm model.loginForm
+                        a [ href "#register" ]
+                            [ text "Need an account?" ]
                     ]
+                , ul [ class "error-messages" ]
+                    (List.map viewProblem model.problems)
+                , if loggedIn model then
+                    text "Already logged in"
+
+                  else
+                    viewLoginForm model.loginForm
                 ]
             ]
         ]
