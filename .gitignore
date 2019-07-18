@@ -6,3 +6,6 @@ postgres_args.txt
 dist/
 photos/
 main
+elm.js
+elm.min.js
+elm-stuff/
