@@ -1,10 +1,11 @@
-module Types exposing (ApiPostResponse, LoginForm, Model, Msg(..), Page(..), Problem(..), RegisterForm, Session, ValidatedField(..))
+module Types exposing (ApiPostResponse, LoginForm, Model, Msg(..), Page(..), Problem(..), RegisterForm, Session, User, ValidatedField(..), userDecoder)
 
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Http
+import Json.Decode exposing (Decoder, at, int, map7, map8, string)
 import Url exposing (Url)
 
 
@@ -18,6 +19,7 @@ type alias Model =
     , registerForm : RegisterForm
     , session : Session
     , postResponse : ApiPostResponse
+    , loggedInUser : User
     }
 
 
@@ -38,6 +40,18 @@ type alias Session =
 type alias ApiPostResponse =
     { status : Int
     , resourceId : Int
+    }
+
+
+type alias User =
+    { id : Int
+    , firstName : String
+    , midNames : String
+    , lastName : String
+    , location : String
+    , email : String
+    , mobile : String
+    , permissions : Int
     }
 
 
@@ -80,3 +94,21 @@ type Msg
     | EnteredRegisterConfirmPassword String
     | CompletedLogin (Result Http.Error Session)
     | GotRegisterJson (Result Http.Error ApiPostResponse)
+    | LoadedUser (Result Http.Error User)
+
+
+
+-- DECODERS
+
+
+userDecoder : Decoder User
+userDecoder =
+    map8 User
+        (at [ "ID" ] int)
+        (at [ "FirstName" ] string)
+        (at [ "MidNames" ] string)
+        (at [ "LastName" ] string)
+        (at [ "Location" ] string)
+        (at [ "Email" ] string)
+        (at [ "Mobile" ] string)
+        (at [ "Permissions" ] int)

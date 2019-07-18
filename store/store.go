@@ -46,7 +46,7 @@ type User struct {
 	Locked             string `json:"-"`
 	RecoverVerifier    string `json:"-"`
 	RecoverTokenExpiry string `json:"-"`
-	Permissions        UserPermissions `json:"-"`
+	Permissions        UserPermissions
 }
 
 type Concept struct {

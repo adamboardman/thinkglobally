@@ -1,4 +1,4 @@
-module Login exposing (LoginTrimmedForm(..), loggedIn, login, loginDecoder, loginFieldsToValidate, loginTrimFields, loginUpdateForm, loginValidate, pageLogin, validateField, viewLoginForm)
+module Login exposing (LoginTrimmedForm(..), loggedIn, login, loginDecoder, loginFieldsToValidate, loginTrimFields, loginUpdateForm, loginValidate, pageLogin, userIsEditor, validateField, viewLoginForm)
 
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, a, button, div, fieldset, h1, input, p, text, ul)
@@ -20,6 +20,11 @@ loginFieldsToValidate =
 loggedIn : Model -> Bool
 loggedIn model =
     String.length model.session.loginToken > 0
+
+
+userIsEditor : Model -> Bool
+userIsEditor model =
+    model.loggedInUser.permissions > 0
 
 
 pageLogin : Model -> List (Html Msg)

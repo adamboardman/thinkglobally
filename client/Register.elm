@@ -107,8 +107,11 @@ validateField (RegisterTrimmed form) field =
                 if String.isEmpty form.email then
                     [ "email can't be blank." ]
 
-                else
+                else if String.contains form.email "@" then
                     []
+
+                else
+                    [ "email must contain '@'" ]
 
             Password ->
                 if String.isEmpty form.password then

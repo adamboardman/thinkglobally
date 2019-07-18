@@ -11,11 +11,11 @@ import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (class, href, placeholder, type_, value)
-import Http exposing (Error(..))
-import Json.Decode as Decode exposing (Decoder, decodeString, field, string)
-import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin)
+import Http exposing (Error(..), emptyBody)
+import Json.Decode as Decode exposing (Decoder, at, decodeString, field, int, map7, string)
+import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..))
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), User, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
 
@@ -61,6 +61,16 @@ init flags url key =
                 , registerForm = { email = "", password = "", password_confirm = "" }
                 , session = { loginExpire = "", loginToken = "" }
                 , postResponse = { status = 0, resourceId = 0 }
+                , loggedInUser =
+                    { id = 0
+                    , firstName = ""
+                    , midNames = ""
+                    , lastName = ""
+                    , location = ""
+                    , email = ""
+                    , mobile = ""
+                    , permissions = 0
+                    }
                 }
     in
     ( model, Cmd.batch [ urlCmd, navCmd ] )
@@ -86,7 +96,12 @@ menu model =
         |> Navbar.container
         |> Navbar.brand [ href "#" ] [ text "ThinkGlobally" ]
         |> Navbar.items
-            [ if loggedIn model then
+            [ if userIsEditor model then
+                Navbar.itemLink [ href "#concepts" ] [ text "Concepts" ]
+
+              else
+                Navbar.itemLink [ href "" ] [ text "" ]
+            , if loggedIn model then
                 Navbar.itemLink [ href "#logout" ] [ text "Logout" ]
 
               else
@@ -251,6 +266,16 @@ update msg model =
 
         CompletedLogin (Ok res) ->
             ( { model | session = res }
+            , loadUser res.loginToken 0
+            )
+
+        LoadedUser (Err error) ->
+            ( model
+            , Cmd.none
+            )
+
+        LoadedUser (Ok res) ->
+            ( { model | loggedInUser = res }
             , Cmd.none
             )
 
@@ -282,6 +307,9 @@ decodeErrors error =
 
         BadUrl url ->
             [ "Malformed url: " ++ url ]
+
+        BadStatus 401 ->
+            [ "Invalid Username or Password" ]
 
         err ->
             [ "Server error" ]
@@ -322,6 +350,28 @@ routeParser =
         , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register")
         ]
+
+
+
+-- HTTP
+
+
+authHeader : String -> Http.Header
+authHeader token =
+    Http.header "authorization" ("Bearer " ++ token)
+
+
+loadUser : String -> Int -> Cmd Msg
+loadUser token userId =
+    Http.request
+        { method = "GET"
+        , url = "http://localhost:3030/api/users/" ++ String.fromInt userId
+        , expect = Http.expectJson LoadedUser userDecoder
+        , headers = [ authHeader token ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
 
 
 

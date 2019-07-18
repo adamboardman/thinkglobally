@@ -1,10 +1,11 @@
-module Tests exposing (decodeLogin, decodeRegister, failsWithMissingJson, success)
+module Tests exposing (decodeLogin, decodeRegister, decodeUser, failsWithMissingJson, success)
 
 import Expect exposing (Expectation)
 import Json.Decode
 import Login exposing (loginDecoder)
 import Register exposing (registerDecoder)
 import Test exposing (..)
+import Types exposing (userDecoder)
 
 
 decodeLogin : Test
@@ -77,5 +78,34 @@ decodeRegister =
                 (Ok
                     { status = 200
                     , resourceId = 315
+                    }
+                )
+
+
+decodeUser : Test
+decodeUser =
+    test "decode user response json" <|
+        \() ->
+            let
+                input =
+                    """
+                    {"ID":9,"CreatedAt":"2019-07-11T14:50:37.443151+01:00","UpdatedAt":"2019-07-13T21:02:21.214296+01:00","DeletedAt":null,"FirstName":"FNS","MidNames":"MN","LastName":"LN","Location":"LOC","PhotoID":0,"Email":"EAD","Mobile":"MOB","Confirmed":true,"Permissions":1}
+                    """
+
+                decodedOutput =
+                    Json.Decode.decodeString
+                        userDecoder
+                        input
+            in
+            Expect.equal decodedOutput
+                (Ok
+                    { id = 9
+                    , firstName = "FNS"
+                    , midNames = "MN"
+                    , lastName = "LN"
+                    , location = "LOC"
+                    , email = "EAD"
+                    , mobile = "MOB"
+                    , permissions = 1
                     }
                 )

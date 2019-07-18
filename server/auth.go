@@ -128,14 +128,14 @@ func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 		},
 		LoginResponse: func(c *gin.Context, code int, token string, expire time.Time) {
 			c.JSON(http.StatusOK, gin.H{
-				"status":   http.StatusOK,
+				"status": http.StatusOK,
 				"token":  token,
 				"expire": expire.Format(time.RFC3339),
 			})
 		},
 		Unauthorized: func(c *gin.Context, code int, message string) {
 			c.JSON(code, gin.H{
-				"status":    code,
+				"status":  code,
 				"message": message,
 			})
 		},
