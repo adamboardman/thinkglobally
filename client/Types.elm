@@ -24,6 +24,7 @@ type alias Model =
 type Page
     = Home
     | Login
+    | Logout
     | Register
     | NotFound
 

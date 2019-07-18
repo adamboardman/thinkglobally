@@ -1,4 +1,4 @@
-module Login exposing (LoginTrimmedForm(..), login, loginDecoder, loginFieldsToValidate, loginTrimFields, loginUpdateForm, loginValidate, pageLogin, validateField, viewLoginForm)
+module Login exposing (LoginTrimmedForm(..), loggedIn, login, loginDecoder, loginFieldsToValidate, loginTrimFields, loginUpdateForm, loginValidate, pageLogin, validateField, viewLoginForm)
 
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, a, button, div, fieldset, h1, input, p, text, ul)

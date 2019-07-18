@@ -13,7 +13,7 @@ import Html exposing (..)
 import Html.Attributes exposing (class, href, placeholder, type_, value)
 import Http exposing (Error(..))
 import Json.Decode as Decode exposing (Decoder, decodeString, field, string)
-import Login exposing (login, loginUpdateForm, loginValidate, pageLogin)
+import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
 import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..))
 import Url exposing (Url)
@@ -86,7 +86,11 @@ menu model =
         |> Navbar.container
         |> Navbar.brand [ href "#" ] [ text "ThinkGlobally" ]
         |> Navbar.items
-            [ Navbar.itemLink [ href "#login" ] [ text "Sign in" ]
+            [ if loggedIn model then
+                Navbar.itemLink [ href "#logout" ] [ text "Logout" ]
+
+              else
+                Navbar.itemLink [ href "#login" ] [ text "Login" ]
             ]
         |> Navbar.view model.navState
 
@@ -101,6 +105,9 @@ mainContent model =
             Login ->
                 pageLogin model
 
+            Logout ->
+                pageLogout model
+
             Register ->
                 pageRegister model
 
@@ -111,6 +118,12 @@ mainContent model =
 pageHome : Model -> List (Html Msg)
 pageHome model =
     [ text "TG's"
+    ]
+
+
+pageLogout : Model -> List (Html Msg)
+pageLogout model =
+    [ text "Logged Out"
     ]
 
 
@@ -156,8 +169,20 @@ update msg model =
                         , loginForm = { email = "", password = "" }
                         , registerForm = { email = "", password = "", password_confirm = "" }
                         , postResponse = { status = 0, resourceId = 0 }
+                        , session =
+                            case url.fragment of
+                                Just "logout" ->
+                                    { loginExpire = "", loginToken = "" }
+
+                                _ ->
+                                    model.session
                       }
-                    , Nav.pushUrl model.navKey (Url.toString url)
+                    , case url.fragment of
+                        Just "logout" ->
+                            Nav.pushUrl model.navKey "#"
+
+                        _ ->
+                            Nav.pushUrl model.navKey (Url.toString url)
                     )
 
                 Browser.External href ->
@@ -294,6 +319,7 @@ routeParser =
     UrlParser.oneOf
         [ UrlParser.map Home top
         , UrlParser.map Login (s "login")
+        , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register")
         ]
 
