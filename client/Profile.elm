@@ -134,8 +134,15 @@ validateField (ProfileTrimmed form) field =
     List.map (InvalidEntry field) <|
         case field of
             FirstName ->
-                if String.isEmpty form.email then
+                if String.isEmpty form.firstName then
                     [ "first name can't be blank." ]
+
+                else
+                    []
+
+            Email ->
+                if String.isEmpty form.email then
+                    [ "email can't be blank." ]
 
                 else
                     []
