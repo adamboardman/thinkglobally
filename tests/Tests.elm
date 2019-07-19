@@ -1,11 +1,11 @@
-module Tests exposing (decodeLogin, decodeRegister, decodeUser, failsWithMissingJson, success)
+module Tests exposing (decodeConcept, decodeLogin, decodeRegister, decodeUser, failsWithMissingJson, success)
 
 import Expect exposing (Expectation)
 import Json.Decode
 import Login exposing (loginDecoder)
 import Register exposing (registerDecoder)
 import Test exposing (..)
-import Types exposing (userDecoder)
+import Types exposing (conceptDecoder, userDecoder)
 
 
 decodeLogin : Test
@@ -107,5 +107,31 @@ decodeUser =
                     , email = "EAD"
                     , mobile = "MOB"
                     , permissions = 1
+                    }
+                )
+
+
+decodeConcept : Test
+decodeConcept =
+    test "decode concept response json" <|
+        \() ->
+            let
+                input =
+                    """
+                   {"ID":21,"CreatedAt":"2019-07-12T11:27:37.338297+01:00","UpdatedAt":"2019-07-12T12:23:50.763285+01:00","DeletedAt":null,"Name":"Account Recovery","Summary":"lost secret keys","Full":"With TG's"}
+                    """
+
+                decodedOutput =
+                    Json.Decode.decodeString
+                        conceptDecoder
+                        input
+            in
+            Expect.equal decodedOutput
+                (Ok
+                    { id = 21
+                    , name = "Account Recovery"
+                    , summary = "lost secret keys"
+                    , full = "With TG's"
+                    , tags = []
                     }
                 )

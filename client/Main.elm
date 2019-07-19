@@ -1,23 +1,21 @@
 module Main exposing (main)
 
-import Bootstrap.Button as Button
-import Bootstrap.Card as Card
-import Bootstrap.Card.Block as Block
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Col as Col
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
+import Concept exposing (pageConcept)
 import Html exposing (..)
-import Html.Attributes exposing (class, href, placeholder, type_, value)
+import Html.Attributes exposing (href)
 import Http exposing (Error(..), emptyBody)
-import Json.Decode as Decode exposing (Decoder, at, decodeString, field, int, map7, string)
+import Json.Decode as Decode exposing (Decoder, field)
 import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), User, authHeader, profileDecoder, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), User, authHeader, conceptDecoder, profileDecoder, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
 
@@ -83,6 +81,13 @@ init flags url key =
                     , email = ""
                     , mobile = ""
                     }
+                , concept =
+                    { id = 0
+                    , name = ""
+                    , summary = ""
+                    , full = ""
+                    , tags = []
+                    }
                 }
     in
     ( model, Cmd.batch [ urlCmd, navCmd ] )
@@ -132,7 +137,7 @@ mainContent model =
     Grid.container [] <|
         case model.page of
             Home ->
-                pageHome model
+                pageConcept model
 
             Login ->
                 pageLogin model
@@ -148,12 +153,6 @@ mainContent model =
 
             NotFound ->
                 pageNotFound
-
-
-pageHome : Model -> List (Html Msg)
-pageHome model =
-    [ text "TG's"
-    ]
 
 
 pageLogout : Model -> List (Html Msg)
@@ -339,6 +338,16 @@ update msg model =
             , Cmd.none
             )
 
+        LoadedConcept (Err error) ->
+            ( { model | loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedConcept (Ok res) ->
+            ( { model | concept = res, loading = Loading.Off }
+            , Cmd.none
+            )
+
         GotRegisterJson result ->
             case result of
                 Ok res ->
@@ -410,6 +419,9 @@ urlUpdate url model =
             , if page == Profile then
                 loadProfile model.session.loginToken
 
+              else if page == Home then
+                loadConcept "index"
+
               else
                 Cmd.none
             )
@@ -456,6 +468,19 @@ loadProfile token =
         , url = "http://localhost:3030/api/users/0"
         , expect = Http.expectJson LoadedProfile profileDecoder
         , headers = [ authHeader token ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+loadConcept : String -> Cmd Msg
+loadConcept concept =
+    Http.request
+        { method = "GET"
+        , url = "http://localhost:3030/api/concept/" ++ concept
+        , expect = Http.expectJson LoadedConcept conceptDecoder
+        , headers = []
         , body = emptyBody
         , timeout = Nothing
         , tracker = Nothing

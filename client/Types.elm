@@ -1,11 +1,12 @@
-module Types exposing (ApiPostResponse, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, User, ValidatedField(..), authHeader, profileDecoder, userDecoder)
+module Types exposing (ApiPostResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, User, ValidatedField(..), authHeader, conceptDecoder, profileDecoder, userDecoder)
 
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Http
-import Json.Decode exposing (Decoder, at, int, map6, map7, map8, string)
+import Json.Decode as Decode exposing (Decoder, at, int, list, map3, map4, map5, map6, map7, map8, string)
+import Json.Decode.Pipeline exposing (optional, required)
 import Loading
 import Url exposing (Url)
 
@@ -23,6 +24,7 @@ type alias Model =
     , session : Session
     , postResponse : ApiPostResponse
     , loggedInUser : User
+    , concept : Concept
     }
 
 
@@ -56,6 +58,22 @@ type alias User =
     , email : String
     , mobile : String
     , permissions : Int
+    }
+
+
+type alias Concept =
+    { id : Int
+    , name : String
+    , summary : String
+    , full : String
+    , tags : List Tag
+    }
+
+
+type alias Tag =
+    { id : Int
+    , order : Int
+    , tag : String
     }
 
 
@@ -123,6 +141,7 @@ type Msg
     | GotRegisterJson (Result Http.Error ApiPostResponse)
     | LoadedUser (Result Http.Error User)
     | LoadedProfile (Result Http.Error ProfileForm)
+    | LoadedConcept (Result Http.Error Concept)
     | GotUpdateProfileJson (Result Http.Error ApiPostResponse)
 
 
@@ -153,6 +172,24 @@ profileDecoder =
         (at [ "Location" ] string)
         (at [ "Email" ] string)
         (at [ "Mobile" ] string)
+
+
+conceptDecoder : Decoder Concept
+conceptDecoder =
+    Decode.succeed Concept
+        |> required "ID" int
+        |> required "Name" string
+        |> required "Summary" string
+        |> required "Full" string
+        |> optional "Tags" (list tagDecoder) []
+
+
+tagDecoder : Decoder Tag
+tagDecoder =
+    Decode.succeed Tag
+        |> required "ID" int
+        |> required "Order" int
+        |> required "Tag" string
 
 
 
