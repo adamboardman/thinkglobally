@@ -1,8 +1,11 @@
 module Login exposing (LoginTrimmedForm(..), loggedIn, login, loginDecoder, loginFieldsToValidate, loginTrimFields, loginUpdateForm, loginValidate, pageLogin, userIsEditor, validateField, viewLoginForm)
 
+import Bootstrap.Button as Button
+import Bootstrap.Form as Form
+import Bootstrap.Form.Input as Input
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, a, button, div, fieldset, h1, input, p, text, ul)
-import Html.Attributes exposing (class, href, placeholder, type_, value)
+import Html.Attributes exposing (class, for, href, novalidate, placeholder, type_, value)
 import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode exposing (Decoder, at, field, map2, string)
@@ -24,7 +27,7 @@ loggedIn model =
 
 userIsEditor : Model -> Bool
 userIsEditor model =
-    model.loggedInUser.permissions > 0
+    loggedIn model && model.loggedInUser.permissions > 0
 
 
 pageLogin : Model -> List (Html Msg)
@@ -42,44 +45,43 @@ pageLogin model =
                         a [ href "#register" ]
                             [ text "Need an account?" ]
                     ]
-                , ul [ class "error-messages" ]
-                    (List.map viewProblem model.problems)
                 , if loggedIn model then
                     text "Already logged in"
 
                   else
-                    viewLoginForm model.loginForm
+                    viewLoginForm model
                 ]
             ]
         ]
     ]
 
 
-viewLoginForm : LoginForm -> Html Msg
-viewLoginForm form =
-    Html.form [ onSubmit SubmittedLoginForm ]
-        [ fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "Email"
-                , onInput EnteredLoginEmail
-                , value form.email
+viewLoginForm : Model -> Html Msg
+viewLoginForm model =
+    Form.form [ onSubmit SubmittedLoginForm ]
+        [ Form.group []
+            [ Form.label [ for "email" ] [ text "Email address" ]
+            , Input.email
+                [ Input.id "email"
+                , Input.placeholder "Email"
+                , Input.onInput EnteredLoginEmail
+                , Input.value model.loginForm.email
                 ]
-                []
-            , div [ class "invalid-feedback" ] [ text "Please enter your email address" ]
+            , Form.invalidFeedback [] [ text "Please enter your email address" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , type_ "password"
-                , placeholder "Password"
-                , onInput EnteredLoginPassword
-                , value form.password
+        , Form.group []
+            [ Form.label [ for "password" ] [ text "Password" ]
+            , Input.password
+                [ Input.id "password"
+                , Input.placeholder "Password"
+                , Input.onInput EnteredLoginPassword
+                , Input.value model.loginForm.password
                 ]
-                []
-            , div [ class "invalid-feedback" ] [ text "Please enter your password" ]
+            , Form.invalidFeedback [] [ text "Please enter your password" ]
             ]
-        , button [ class "btn btn-lg btn-primary pull-xs-right" ]
+        , ul [ class "error-messages" ]
+            (List.map viewProblem model.problems)
+        , Button.button [ Button.primary ]
             [ text "Sign in" ]
         ]
 

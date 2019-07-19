@@ -1,8 +1,12 @@
 module Profile exposing (ProfileTrimmedForm(..), pageProfile, profile, profileFieldsToValidate, profileTrimFields, profileUpdateForm, profileValidate, updateProfileDecoder, validateField, viewProfileForm)
 
+import Bootstrap.Button as Button
+import Bootstrap.Form as Form
+import Bootstrap.Form.Input as Input
+import Bootstrap.Form.InputGroup exposing (Input)
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, button, div, fieldset, h1, input, text, ul)
-import Html.Attributes exposing (class, placeholder, value)
+import Html.Attributes exposing (class, for, placeholder, value)
 import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode exposing (Decoder, at, int, map2)
@@ -27,73 +31,79 @@ pageProfile model =
         [ div [ class "row" ]
             [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
                 [ h1 [ class "text-xs-center" ] [ text "Edit Profile" ]
-                , ul [ class "error-messages" ]
-                    (List.map viewProblem model.problems)
-                , viewProfileForm model.profileForm
+                , viewProfileForm model
                 ]
             ]
         ]
     ]
 
 
-viewProfileForm : ProfileForm -> Html Msg
-viewProfileForm form =
-    Html.form [ onSubmit SubmittedProfileForm ]
-        [ fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "First Name"
-                , onInput EnteredUserFirstName
-                , value form.firstName
+viewProfileForm : Model -> Html Msg
+viewProfileForm model =
+    Form.form [ onSubmit SubmittedProfileForm ]
+        [ Form.group []
+            [ Form.label [ for "firstName" ] [ text "First Name" ]
+            , Input.text
+                [ Input.id "firstName"
+                , Input.placeholder "First Name"
+                , Input.onInput EnteredUserFirstName
+                , Input.value model.profileForm.firstName
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your first or given name" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "Mid Names"
-                , onInput EnteredUserMidNames
-                , value form.midNames
+        , Form.group []
+            [ Form.label [ for "midNames" ] [ text "Mid Names" ]
+            , Input.text
+                [ Input.id "midNames"
+                , Input.placeholder "Mid Names"
+                , Input.onInput EnteredUserMidNames
+                , Input.value model.profileForm.midNames
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your middle names" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "Last Name"
-                , onInput EnteredUserLastName
-                , value form.lastName
+        , Form.group []
+            [ Form.label [ for "lastName" ] [ text "Last Name" ]
+            , Input.text
+                [ Input.id "lastName"
+                , Input.placeholder "Last Name"
+                , Input.onInput EnteredUserLastName
+                , Input.value model.profileForm.lastName
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your last name or surname" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "Location"
-                , onInput EnteredUserLocation
-                , value form.location
+        , Form.group []
+            [ Form.label [ for "location" ] [ text "Location" ]
+            , Input.text
+                [ Input.id "location"
+                , Input.placeholder "Location"
+                , Input.onInput EnteredUserLocation
+                , Input.value model.profileForm.location
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Home location for display on your profile" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "Email"
-                , onInput EnteredUserEmail
-                , value form.email
+        , Form.group []
+            [ Form.label [ for "email" ] [ text "Email" ]
+            , Input.text
+                [ Input.id "email"
+                , Input.placeholder "Email"
+                , Input.onInput EnteredUserEmail
+                , Input.value model.profileForm.email
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your email" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "Mobile"
-                , onInput EnteredUserMobile
-                , value form.mobile
+        , Form.group []
+            [ Form.label [ for "mobile" ] [ text "Mobile" ]
+            , Input.text
+                [ Input.id "mobile"
+                , Input.placeholder "Mobile"
+                , Input.onInput EnteredUserMobile
+                , Input.value model.profileForm.mobile
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your mobile" ]
             ]
-        , button [ class "btn btn-lg btn-primary pull-xs-right" ]
+        , ul [ class "error-messages" ]
+            (List.map viewProblem model.problems)
+        , Button.button [ Button.primary ]
             [ text "Update Profile" ]
         ]
 

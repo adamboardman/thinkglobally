@@ -1,8 +1,11 @@
 module Register exposing (RegisterTrimmedForm(..), pageRegister, register, registerDecoder, registerFieldsToValidate, registerTrimFields, registerUpdateForm, registerValidate, validateField, viewRegisterForm)
 
+import Bootstrap.Button as Button
+import Bootstrap.Form as Form
+import Bootstrap.Form.Input as Input
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, a, button, div, fieldset, h1, input, p, text, ul)
-import Html.Attributes exposing (class, href, placeholder, type_, value)
+import Html.Attributes exposing (class, for, href, placeholder, type_, value)
 import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode exposing (Decoder, at, field, int, map2, string)
@@ -28,10 +31,8 @@ pageRegister model =
                     [ a [ href "#login" ]
                         [ text "Have an account?" ]
                     ]
-                , ul [ class "error-messages" ]
-                    (List.map viewProblem model.problems)
                 , if model.postResponse.resourceId == 0 then
-                    viewRegisterForm model.registerForm
+                    viewRegisterForm model
 
                   else
                     text "Please check your email (inc spam folder) and click the confirmation link"
@@ -41,39 +42,42 @@ pageRegister model =
     ]
 
 
-viewRegisterForm : RegisterForm -> Html Msg
-viewRegisterForm form =
-    Html.form [ onSubmit SubmittedRegisterForm ]
-        [ fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , placeholder "Email"
-                , onInput EnteredRegisterEmail
-                , value form.email
+viewRegisterForm : Model -> Html Msg
+viewRegisterForm model =
+    Form.form [ onSubmit SubmittedRegisterForm ]
+        [ Form.group []
+            [ Form.label [ for "email" ] [ text "Email address" ]
+            , Input.email
+                [ Input.id "email"
+                , Input.placeholder "Email"
+                , Input.onInput EnteredRegisterEmail
+                , Input.value model.registerForm.email
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your email address" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , type_ "password"
-                , placeholder "Password"
-                , onInput EnteredRegisterPassword
-                , value form.password
+        , Form.group []
+            [ Form.label [ for "password" ] [ text "Password" ]
+            , Input.password
+                [ Input.id "password"
+                , Input.placeholder "Password"
+                , Input.onInput EnteredRegisterPassword
+                , Input.value model.registerForm.password
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your password" ]
             ]
-        , fieldset [ class "form-group" ]
-            [ input
-                [ class "form-control form-control-lg"
-                , type_ "password"
-                , placeholder "Confirm your password"
-                , onInput EnteredRegisterConfirmPassword
-                , value form.password_confirm
+        , Form.group []
+            [ Form.label [ for "passwordConfirm" ] [ text "Confirm Password" ]
+            , Input.password
+                [ Input.id "passwordConfirm"
+                , Input.placeholder "Confirm your password"
+                , Input.onInput EnteredRegisterConfirmPassword
+                , Input.value model.registerForm.password_confirm
                 ]
-                []
+            , Form.invalidFeedback [] [ text "Please enter your password again" ]
             ]
-        , button [ class "btn btn-lg btn-primary pull-xs-right" ]
+        , ul [ class "error-messages" ]
+            (List.map viewProblem model.problems)
+        , Button.button [ Button.primary ]
             [ text "Register" ]
         ]
 
@@ -105,7 +109,7 @@ validateField (RegisterTrimmed form) field =
                 if String.isEmpty form.email then
                     [ "email can't be blank." ]
 
-                else if String.contains form.email "@" then
+                else if String.contains "@" form.email then
                     []
 
                 else
@@ -119,17 +123,14 @@ validateField (RegisterTrimmed form) field =
                     []
 
                 else
-                    [ "Passwords must match" ]
+                    [ "passwords must match" ]
 
             ConfirmPassword ->
                 if String.isEmpty form.password then
                     [ "confirm password can't be blank." ]
 
-                else if form.password == form.password_confirm then
-                    []
-
                 else
-                    [ "Passwords must match" ]
+                    []
 
             _ ->
                 []
