@@ -10,6 +10,7 @@ import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode exposing (Decoder, at, field, int, map2, string)
 import Json.Encode as Encode
+import Loading
 import Types exposing (ApiPostResponse, LoginForm, Model, Msg(..), Problem(..), RegisterForm, Session, ValidatedField(..))
 
 
@@ -79,6 +80,7 @@ viewRegisterForm model =
             (List.map viewProblem model.problems)
         , Button.button [ Button.primary ]
             [ text "Register" ]
+        , Loading.render Loading.DoubleBounce Loading.defaultConfig model.loading
         ]
 
 

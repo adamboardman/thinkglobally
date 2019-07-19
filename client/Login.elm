@@ -10,6 +10,7 @@ import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode exposing (Decoder, at, field, map2, string)
 import Json.Encode as Encode
+import Loading
 import Types exposing (LoginForm, Model, Msg(..), Problem(..), Session, ValidatedField(..))
 
 
@@ -83,6 +84,7 @@ viewLoginForm model =
             (List.map viewProblem model.problems)
         , Button.button [ Button.primary ]
             [ text "Sign in" ]
+        , Loading.render Loading.DoubleBounce Loading.defaultConfig model.loading
         ]
 
 

@@ -11,6 +11,7 @@ import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode exposing (Decoder, at, int, map2)
 import Json.Encode as Encode
+import Loading
 import Types exposing (ApiPostResponse, Model, Msg(..), Problem(..), ProfileForm, User, ValidatedField(..), authHeader)
 
 
@@ -105,6 +106,7 @@ viewProfileForm model =
             (List.map viewProblem model.problems)
         , Button.button [ Button.primary ]
             [ text "Update Profile" ]
+        , Loading.render Loading.DoubleBounce Loading.defaultConfig model.loading
         ]
 
 

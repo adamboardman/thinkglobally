@@ -6,6 +6,7 @@ import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Http
 import Json.Decode exposing (Decoder, at, int, map6, map7, map8, string)
+import Loading
 import Url exposing (Url)
 
 
@@ -13,6 +14,7 @@ type alias Model =
     { navKey : Nav.Key
     , page : Page
     , navState : Navbar.State
+    , loading : Loading.LoadingState
     , modalVisibility : Modal.Visibility
     , problems : List Problem
     , loginForm : LoginForm

@@ -13,6 +13,7 @@ import Html exposing (..)
 import Html.Attributes exposing (class, href, placeholder, type_, value)
 import Http exposing (Error(..), emptyBody)
 import Json.Decode as Decode exposing (Decoder, at, decodeString, field, int, map7, string)
+import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
@@ -56,6 +57,7 @@ init flags url key =
                 { navKey = key
                 , navState = navState
                 , page = Home
+                , loading = Loading.Off
                 , modalVisibility = Modal.hidden
                 , problems = []
                 , loginForm = { email = "", password = "" }
@@ -236,36 +238,36 @@ update msg model =
         SubmittedLoginForm ->
             case loginValidate model.loginForm of
                 Ok validForm ->
-                    ( { model | problems = [] }
+                    ( { model | problems = [], loading = Loading.On }
                     , login validForm
                     )
 
                 Err problems ->
-                    ( { model | problems = problems }
+                    ( { model | problems = problems, loading = Loading.Off }
                     , Cmd.none
                     )
 
         SubmittedRegisterForm ->
             case registerValidate model.registerForm of
                 Ok validForm ->
-                    ( { model | problems = [] }
+                    ( { model | problems = [], loading = Loading.On }
                     , register validForm
                     )
 
                 Err problems ->
-                    ( { model | problems = problems }
+                    ( { model | problems = problems, loading = Loading.Off }
                     , Cmd.none
                     )
 
         SubmittedProfileForm ->
             case profileValidate model.profileForm of
                 Ok validForm ->
-                    ( { model | problems = [] }
+                    ( { model | problems = [], loading = Loading.On }
                     , profile model.session.loginToken validForm
                     )
 
                 Err problems ->
-                    ( { model | problems = problems }
+                    ( { model | problems = problems, loading = Loading.Off }
                     , Cmd.none
                     )
 
@@ -308,39 +310,39 @@ update msg model =
                     decodeErrors error
                         |> List.map ServerError
             in
-            ( { model | problems = List.append model.problems serverErrors }
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
             , Cmd.none
             )
 
         CompletedLogin (Ok res) ->
-            ( { model | session = res }
+            ( { model | session = res, loading = Loading.Off }
             , loadUser res.loginToken 0
             )
 
         LoadedUser (Err error) ->
-            ( model
+            ( { model | loading = Loading.Off }
             , Cmd.none
             )
 
         LoadedUser (Ok res) ->
-            ( { model | loggedInUser = res }
+            ( { model | loggedInUser = res, loading = Loading.Off }
             , Cmd.none
             )
 
         LoadedProfile (Err error) ->
-            ( model
+            ( { model | loading = Loading.Off }
             , Cmd.none
             )
 
         LoadedProfile (Ok res) ->
-            ( { model | profileForm = res }
+            ( { model | profileForm = res, loading = Loading.Off }
             , Cmd.none
             )
 
         GotRegisterJson result ->
             case result of
                 Ok res ->
-                    ( { model | postResponse = res }, Cmd.none )
+                    ( { model | postResponse = res, loading = Loading.Off }, Cmd.none )
 
                 Err error ->
                     let
@@ -348,12 +350,12 @@ update msg model =
                             decodeErrors error
                                 |> List.map ServerError
                     in
-                    ( { model | problems = List.append model.problems serverErrors }, Cmd.none )
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }, Cmd.none )
 
         GotUpdateProfileJson result ->
             case result of
                 Ok res ->
-                    ( { model | postResponse = res }, Cmd.none )
+                    ( { model | postResponse = res, loading = Loading.Off }, Cmd.none )
 
                 Err error ->
                     let
@@ -361,7 +363,7 @@ update msg model =
                             decodeErrors error
                                 |> List.map ServerError
                     in
-                    ( { model | problems = List.append model.problems serverErrors }, Cmd.none )
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }, Cmd.none )
 
 
 decodeErrors : Http.Error -> List String
