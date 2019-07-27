@@ -63,6 +63,19 @@ type ConceptTag struct {
 	Order     uint
 }
 
+type Transaction struct {
+	gorm.Model
+	FromUserId uint
+	ToUserId uint
+	Seconds uint
+	Multiplier float32
+	Commission uint
+	Description string
+	Location string
+	ToPreviousTId uint
+	FromPreviousTId uint
+}
+
 func readPostgresArgs() string {
 	const postgresArgsFileName = "postgres_args.txt"
 	postgresArgs, err := ioutil.ReadFile(postgresArgsFileName)
@@ -89,7 +102,7 @@ func (s *Store) StoreInit(dbName string) {
 
 	_, _ = db.DB().Exec("CREATE EXTENSION postgis;")
 
-	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}).Error
+	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}, &Transaction{}).Error
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,6 +111,8 @@ func (s *Store) StoreInit(dbName string) {
 	//db.LogMode(true)
 
 	db.Model(&ConceptTag{}).AddForeignKey("concept_id", "concepts(id)", "CASCADE", "RESTRICT")
+	db.Model(&Transaction{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
+	db.Model(&Transaction{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
 }
 
 func (s *Store) InsertUser(user *User) (uint, error) {
@@ -240,4 +255,18 @@ func (s *Store) DeleteConceptTag(id uint) error {
 
 func (s *Store) PurgeConceptTag(tag string) {
 	s.db.Unscoped().Where("tag=?", tag).Delete(ConceptTag{})
+}
+
+func (s *Store) InsertTransaction(transaction *Transaction) (uint, error) {
+	if transaction.Multiplier < 0.5 || transaction.Multiplier > 5 {
+		return 0, nil
+	}
+	err := s.db.Create(transaction).Error
+	return transaction.ID, err
+}
+
+func (s *Store) ListTransactionsForUser(userId uint) ([]Transaction, error) {
+	var transactions []Transaction
+	err := s.db.Find(&transactions).Where("id=?", userId).Error
+	return transactions, err
 }
