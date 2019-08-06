@@ -258,7 +258,7 @@ func (s *Store) PurgeConceptTag(tag string) {
 }
 
 func (s *Store) InsertTransaction(transaction *Transaction) (uint, error) {
-	if transaction.Multiplier < 0.5 || transaction.Multiplier > 5 {
+	if transaction.Multiplier < 1 || transaction.Multiplier > 3 {
 		return 0, nil
 	}
 	err := s.db.Create(transaction).Error

@@ -293,7 +293,7 @@ func TestStore_TransactionRejectTooSmallMultipler(t *testing.T) {
 			ToUserId: user2.ID,
 			Seconds: 1 * 60 * 60,
 			Commission: 1,
-			Multiplier: 0.49,
+			Multiplier: 0.99,
 			Description: "Test Transaction"}
 		transactionId, _ := s.InsertTransaction(&transaction)
 		Convey("Invalid transaction should not be created", func() {
@@ -316,7 +316,7 @@ func TestStore_TransactionRejectTooBigMultiplier(t *testing.T) {
 			ToUserId: user2.ID,
 			Seconds: 1 * 60 * 60,
 			Commission: 1,
-			Multiplier: 5.0001,
+			Multiplier: 3.0001,
 			Description: "Test Transaction"}
 		transactionId, _ := s.InsertTransaction(&transaction)
 		Convey("Invalid transaction should not be created", func() {
