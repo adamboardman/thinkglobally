@@ -488,3 +488,600 @@ func TestDeleteTagAsAdmin(t *testing.T) {
 		})
 	})
 }
+
+func checkArrayForTransaction(transactions []store.Transaction, transactionJson TransactionJSON) bool {
+	found := false
+	for _, transaction := range transactions {
+		if transaction.Status == transactionJson.Status && transaction.FromUserId == transactionJson.FromUserId && transaction.Seconds == transactionJson.Seconds && transaction.Multiplier == transactionJson.Multiplier && transaction.ToUserId == transactionJson.ToUserId {
+			found = true
+		}
+	}
+	return found
+}
+
+func TestCreateTransactionOffer(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		const emailAddressOrigin = "test-user1@example.com"
+		user1 := ensureTestUserExists(emailAddressOrigin)
+		user1.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user1)
+		const emailAddressRecipient = "test-user2@example.com"
+		user2 := ensureTestUserExists(emailAddressRecipient)
+		user2.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user2)
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(emailAddressOrigin)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Offer transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user1.ID
+				transactionJSON.ToUserId = user2.ID
+				transactionJSON.Status = store.TransactionOffered
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.Multiplier = 1
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the transaction should be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					So(found, ShouldBeTrue)
+				})
+			})
+		})
+	})
+}
+
+func TestCreateTransactionOfferAsSomeoneElse(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		const emailAddressUser = "test-user@example.com"
+		user := ensureTestUserExists(emailAddressUser)
+		user.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user)
+		const emailAddressFakeOrigin = "test-user1@example.com"
+		user1 := ensureTestUserExists(emailAddressFakeOrigin)
+		user1.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user1)
+		const emailAddressRecipient = "test-user2@example.com"
+		user2 := ensureTestUserExists(emailAddressRecipient)
+		user2.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user2)
+
+		Convey("The user logs in", func() {
+			response := loginToUserJSON(emailAddressUser)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Offer transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user1.ID
+				transactionJSON.ToUserId = user2.ID
+				transactionJSON.Status = store.TransactionOffered
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.Multiplier = 1
+				ClearTransactionsMatchingJSON(transactionJSON)
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusBadRequest and the transaction should not be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func TestCreateTransactionRequest(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		const emailAddressOrigin = "test-user1@example.com"
+		user1 := ensureTestUserExists(emailAddressOrigin)
+		user1.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user1)
+		const emailAddressRecipient = "test-user2@example.com"
+		user2 := ensureTestUserExists(emailAddressRecipient)
+		user2.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user2)
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(emailAddressRecipient)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Request transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user1.ID
+				transactionJSON.ToUserId = user2.ID
+				transactionJSON.Status = store.TransactionRequested
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.Multiplier = 1
+				ClearTransactionsMatchingJSON(transactionJSON)
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the transaction should be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					So(found, ShouldBeTrue)
+				})
+			})
+		})
+	})
+}
+
+func TestCreateTransactionRequestAsSomeoneElse(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		const emailAddressUser = "test-user@example.com"
+		user := ensureTestUserExists(emailAddressUser)
+		user.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user)
+		const emailAddressOrigin = "test-user1@example.com"
+		user1 := ensureTestUserExists(emailAddressOrigin)
+		user1.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user1)
+		const emailAddressRecipient = "test-user2@example.com"
+		user2 := ensureTestUserExists(emailAddressRecipient)
+		user2.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user2)
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(emailAddressUser)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Request transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user1.ID
+				transactionJSON.ToUserId = user2.ID
+				transactionJSON.Status = store.TransactionRequested
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.Multiplier = 1
+				ClearTransactionsMatchingJSON(transactionJSON)
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusBadRequest and the transaction should be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func ClearTransactionsMatchingJSON(transactionJson TransactionJSON) {
+	userTransactions, _ := a.Store.ListTransactionsForUser(transactionJson.FromUserId)
+
+	for _, transaction := range userTransactions {
+		if transaction.Status == transactionJson.Status && transaction.FromUserId == transactionJson.FromUserId && transaction.Seconds == transactionJson.Seconds && transaction.Multiplier == transactionJson.Multiplier && transaction.ToUserId == transactionJson.ToUserId {
+			a.Store.PurgeTransaction(transaction)
+		}
+	}
+}
+
+func ClearTransactionsMatching(transaction store.Transaction) {
+	userTransactions, _ := a.Store.ListTransactionsForUser(transaction.FromUserId)
+
+	for _, transaction := range userTransactions {
+		if transaction.Status == transaction.Status && transaction.FromUserId == transaction.FromUserId && transaction.Seconds == transaction.Seconds && transaction.Multiplier == transaction.Multiplier && transaction.ToUserId == transaction.ToUserId {
+			a.Store.PurgeTransaction(transaction)
+		}
+	}
+}
+
+func TestAcceptTransactionOffer(t *testing.T) {
+	Convey("Given a transaction offer", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionOffered,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The user2 logs in", func() {
+			response := loginToUserJSON(user2.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/accept", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the transaction should be approved", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionOfferApproved)
+				})
+			})
+		})
+	})
+}
+
+func TestAcceptTransactionOfferAsOtherUser(t *testing.T) {
+	Convey("Given a transaction offer", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionOffered,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The other user logs in", func() {
+			const emailAddressUser = "test-user@example.com"
+			user := ensureTestUserExists(emailAddressUser)
+			user.Permissions = store.UserPermissionsUser
+			_, _ = a.Store.UpdateUser(user)
+			response := loginToUserJSON(emailAddressUser)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/accept", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusForbidden and the transaction should not be approved", func() {
+					So(response2.Code, ShouldEqual, http.StatusForbidden)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionOffered)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionOffer(t *testing.T) {
+	Convey("Given a transaction offer", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionOffered,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The user2 logs in", func() {
+			response := loginToUserJSON(user2.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/reject", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the transaction should be rejected", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionOfferRejected)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionOfferAsOtherUser(t *testing.T) {
+	Convey("Given a transaction offer", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionOffered,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The other user logs in", func() {
+			const emailAddressUser = "test-user@example.com"
+			user := ensureTestUserExists(emailAddressUser)
+			user.Permissions = store.UserPermissionsUser
+			_, _ = a.Store.UpdateUser(user)
+			response := loginToUserJSON(emailAddressUser)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/reject", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusForbidden and the transaction should not be approved", func() {
+					So(response2.Code, ShouldEqual, http.StatusForbidden)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionOffered)
+				})
+			})
+		})
+	})
+}
+
+func TestAcceptTransactionRequest(t *testing.T) {
+	Convey("Given a transaction request", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionRequested,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(user1.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/accept", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the transaction should be approved", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionRequestApproved)
+				})
+			})
+		})
+	})
+}
+
+func TestAcceptTransactionRequestAsOtherUser(t *testing.T) {
+	Convey("Given a transaction offer", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionRequested,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The other user logs in", func() {
+			const emailAddressUser = "test-user@example.com"
+			user := ensureTestUserExists(emailAddressUser)
+			user.Permissions = store.UserPermissionsUser
+			_, _ = a.Store.UpdateUser(user)
+			response := loginToUserJSON(emailAddressUser)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/accept", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusForbidden and the transaction should not be approved", func() {
+					So(response2.Code, ShouldEqual, http.StatusForbidden)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionRequested)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionRequest(t *testing.T) {
+	Convey("Given a transaction offer", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionRequested,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(user1.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/reject", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the transaction should be rejected", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionRequestRejected)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionRequestAsOtherUser(t *testing.T) {
+	Convey("Given a transaction offer", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      store.TransactionRequested,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The other user logs in", func() {
+			const emailAddressUser = "test-user@example.com"
+			user := ensureTestUserExists(emailAddressUser)
+			user.Permissions = store.UserPermissionsUser
+			_, _ = a.Store.UpdateUser(user)
+			response := loginToUserJSON(emailAddressUser)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Accept transaction", func() {
+				req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/reject", nil)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusForbidden and the transaction should not be approved", func() {
+					So(response2.Code, ShouldEqual, http.StatusForbidden)
+
+					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
+					So(err, ShouldBeNil)
+					So(approvedTransaction.Status, ShouldEqual, store.TransactionRequested)
+				})
+			})
+		})
+	})
+}

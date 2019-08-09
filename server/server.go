@@ -56,6 +56,9 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.GET("/concept_tags", ConceptTagsList)
 	api.POST("/concept_tags", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), AddConceptTag)
 	api.DELETE("/concept_tags/:conceptTagID", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), DeleteConceptTag)
+	api.POST("/transactions", a.JwtMiddleware.MiddlewareFunc(), AddTransaction)
+	api.PATCH("/transactions/:transactionID/accept", a.JwtMiddleware.MiddlewareFunc(), AcceptTransaction)
+	api.PATCH("/transactions/:transactionID/reject", a.JwtMiddleware.MiddlewareFunc(), RejectTransaction)
 }
 
 func AdminPermissionsRequired() gin.HandlerFunc {
@@ -393,4 +396,169 @@ func LoadConceptTags(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, conceptTags)
+}
+
+type TransactionJSON struct {
+	ID        uint
+	FromUserId      uint
+	ToUserId        uint
+	Seconds         uint
+	Multiplier      float32
+	Commission      uint
+	Description     string
+	Location        string
+	ToPreviousTId   uint
+	FromPreviousTId uint
+	Status          uint
+}
+
+func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, forceUpdate bool) (error) {
+	transactionJSON := TransactionJSON{}
+	err := c.BindJSON(&transactionJSON)
+	if err != nil {
+		return err
+	}
+
+	if forceUpdate || transactionJSON.ID == 0 {
+		transaction.ID = transactionJSON.ID
+		transaction.FromUserId = transactionJSON.FromUserId
+		transaction.ToUserId = transactionJSON.ToUserId
+		transaction.Seconds = transactionJSON.Seconds
+		transaction.Multiplier = transactionJSON.Multiplier
+		transaction.Commission = transactionJSON.Commission
+		transaction.Description = transactionJSON.Description
+		transaction.Location = transactionJSON.Location
+		transaction.ToPreviousTId = transactionJSON.ToPreviousTId
+		transaction.FromPreviousTId = transactionJSON.FromPreviousTId
+		transaction.Status = transactionJSON.Status
+	}
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+
+	switch transaction.Status {
+	case store.TransactionOffered:
+		if transaction.FromUserId != loggedInUserId {
+			return errors.New("You can only offer transactions from yourself")
+		}
+	case store.TransactionRequested:
+		if transaction.ToUserId != loggedInUserId {
+			return errors.New("You can only request transactions to yourself")
+		}
+	}
+
+	return nil
+}
+
+func AddTransaction(c *gin.Context) {
+	transaction := store.Transaction{}
+
+	err := readJSONIntoTransaction(&transaction, c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Transaction failed validation - err: %s", err.Error())})
+		return
+	}
+
+	transactionId, err := App.Store.InsertTransaction(&transaction)
+	if err != nil || transactionId == 0 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Insert Transaction failed"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusCreated, "message": "Transaction created successfully", "resourceId": transactionId,
+	})
+}
+
+func AcceptTransaction (c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+
+	transactionId, err := strconv.Atoi(c.Param("transactionID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Invalid TransactionId"})
+		return
+	}
+	transaction, err := App.Store.LoadTransaction(uint(transactionId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not found"})
+		return
+	}
+	if transaction.Status != store.TransactionOffered && transaction.Status != store.TransactionRequested {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not offered or requested"})
+		return
+	}
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+	if transaction.Status == store.TransactionOffered {
+		if transaction.ToUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only accept offer transactions offered to yourself"})
+			return
+		}
+
+		transaction.Status = store.TransactionOfferApproved
+	}
+	if transaction.Status == store.TransactionRequested {
+		if transaction.FromUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only accept request transactions requested from yourself"})
+			return
+		}
+
+		transaction.Status = store.TransactionRequestApproved
+	}
+	_, err = App.Store.UpdateTransaction(transaction)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusAccepted, "message": "Transaction updated successfully", "resourceId": transactionId,
+	})
+}
+
+func RejectTransaction (c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+
+	transactionId, err := strconv.Atoi(c.Param("transactionID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Invalid TransactionId"})
+		return
+	}
+	transaction, err := App.Store.LoadTransaction(uint(transactionId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not found"})
+		return
+	}
+	if transaction.Status != store.TransactionOffered && transaction.Status != store.TransactionRequested {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not offered or requested"})
+		return
+	}
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+	if transaction.Status == store.TransactionOffered {
+		if transaction.ToUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only reject transactions offered to yourself"})
+			return
+		}
+
+		transaction.Status = store.TransactionOfferRejected
+	}
+	if transaction.Status == store.TransactionRequested {
+		if transaction.FromUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only reject transactions requested from yourself"})
+			return
+		}
+
+		transaction.Status = store.TransactionRequestRejected
+	}
+	_, err = App.Store.UpdateTransaction(transaction)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusAccepted, "message": "Transaction updated successfully", "resourceId": transactionId,
+	})
 }

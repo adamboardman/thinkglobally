@@ -63,17 +63,28 @@ type ConceptTag struct {
 	Order     uint
 }
 
+const (
+	TransactionUnknown = iota
+	TransactionOffered
+	TransactionRequested
+	TransactionOfferApproved
+	TransactionRequestApproved
+	TransactionOfferRejected
+	TransactionRequestRejected
+)
+
 type Transaction struct {
 	gorm.Model
-	FromUserId uint
-	ToUserId uint
-	Seconds uint
-	Multiplier float32
-	Commission uint
-	Description string
-	Location string
-	ToPreviousTId uint
+	FromUserId      uint
+	ToUserId        uint
+	Seconds         uint
+	Multiplier      float32
+	Commission      uint
+	Description     string
+	Location        string
+	ToPreviousTId   uint
 	FromPreviousTId uint
+	Status          uint
 }
 
 func readPostgresArgs() string {
@@ -267,6 +278,21 @@ func (s *Store) InsertTransaction(transaction *Transaction) (uint, error) {
 
 func (s *Store) ListTransactionsForUser(userId uint) ([]Transaction, error) {
 	var transactions []Transaction
-	err := s.db.Find(&transactions).Where("id=?", userId).Error
+	err := s.db.Where("from_user_id=? OR to_user_id=?", userId, userId).Find(&transactions).Error
 	return transactions, err
+}
+
+func (s *Store) PurgeTransaction(transaction Transaction) {
+	s.db.Unscoped().Where("id=?", transaction.ID).Delete(Transaction{})
+}
+
+func (s *Store) LoadTransaction(id uint) (*Transaction, error) {
+	transaction := Transaction{}
+	err := s.db.Where("id=?", id).Find(&transaction).Error
+	return &transaction, err
+}
+
+func (s *Store) UpdateTransaction(transaction *Transaction) (uint, error) {
+	err := s.db.Save(transaction).Error
+	return transaction.ID, err
 }

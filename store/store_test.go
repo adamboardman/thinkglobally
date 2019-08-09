@@ -247,17 +247,33 @@ func TestStore_TransactionCreation(t *testing.T) {
 		s.db.Unscoped().Where("from_user_id=?", user2.ID).Delete(Transaction{})
 		s.db.Unscoped().Where("to_user_id=?", user2.ID).Delete(Transaction{})
 		transaction := Transaction{
-			FromUserId: user1.ID,
-			ToUserId: user2.ID,
-			Seconds: 1 * 60 * 60,
-			Commission: 1,
-			Multiplier: 1,
-			Description: "Test Transaction"}
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      TransactionOffered,
+		}
 		transactionId, _ := s.InsertTransaction(&transaction)
 		Convey("Transaction should be created", func() {
 			transactions, _ := s.ListTransactionsForUser(user1.ID)
 			transactionFromTransactions := getTransactionFromTransactions(transactions, transaction.ID)
 			So(transactionFromTransactions.ID, ShouldEqual, transactionId)
+
+
+			Convey("Updating the transaction", func() {
+				transactionFromTransactions.Status = TransactionOfferApproved
+				transactionId2, _ := s.UpdateTransaction(transactionFromTransactions)
+				Convey("Concept should keep the same ID and content", func() {
+					So(transactionId2, ShouldEqual, transactionId)
+					reloadedTransaction, _ := s.LoadTransaction(transactionId2)
+					So(reloadedTransaction.ID, ShouldEqual, transactionFromTransactions.ID)
+					So(reloadedTransaction.FromUserId, ShouldEqual, transactionFromTransactions.FromUserId)
+					So(reloadedTransaction.ToUserId, ShouldEqual, transactionFromTransactions.ToUserId)
+					So(reloadedTransaction.Status, ShouldEqual, transactionFromTransactions.Status)
+				})
+			})
 		})
 	})
 }
@@ -266,12 +282,14 @@ func TestStore_TransactionRejectNoUser(t *testing.T) {
 	Convey("Create a transaction", t, func() {
 		user1 := ensureTestUserExists("user1@example.com")
 		transaction := Transaction{
-			FromUserId: user1.ID,
-			ToUserId: 0,
-			Seconds: 1 * 60 * 60,
-			Commission: 1,
-			Multiplier: 1,
-			Description: "Test Transaction"}
+			FromUserId:  user1.ID,
+			ToUserId:    0,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  1,
+			Description: "Test Transaction",
+			Status:      TransactionOfferApproved,
+		}
 		transactionId, _ := s.InsertTransaction(&transaction)
 		Convey("Invalid transaction should not be created", func() {
 			So(transactionId, ShouldEqual, 0)
@@ -289,12 +307,14 @@ func TestStore_TransactionRejectTooSmallMultipler(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
-			FromUserId: user1.ID,
-			ToUserId: user2.ID,
-			Seconds: 1 * 60 * 60,
-			Commission: 1,
-			Multiplier: 0.99,
-			Description: "Test Transaction"}
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  0.99,
+			Description: "Test Transaction",
+			Status:      TransactionOfferApproved,
+		}
 		transactionId, _ := s.InsertTransaction(&transaction)
 		Convey("Invalid transaction should not be created", func() {
 			So(transactionId, ShouldEqual, 0)
@@ -312,12 +332,14 @@ func TestStore_TransactionRejectTooBigMultiplier(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
-			FromUserId: user1.ID,
-			ToUserId: user2.ID,
-			Seconds: 1 * 60 * 60,
-			Commission: 1,
-			Multiplier: 3.0001,
-			Description: "Test Transaction"}
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			Commission:  1,
+			Multiplier:  3.0001,
+			Description: "Test Transaction",
+			Status:      TransactionOfferApproved,
+		}
 		transactionId, _ := s.InsertTransaction(&transaction)
 		Convey("Invalid transaction should not be created", func() {
 			So(transactionId, ShouldEqual, 0)
