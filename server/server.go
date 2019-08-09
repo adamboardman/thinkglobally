@@ -258,7 +258,7 @@ func AddConcept(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
-		"status": http.StatusCreated, "message": "Event created successfully", "resourceId": conceptId,
+		"status": http.StatusCreated, "message": "Concept created successfully", "resourceId": conceptId,
 	})
 }
 
@@ -359,7 +359,7 @@ func AddConceptTag(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
-		"status": http.StatusCreated, "message": "Event created successfully", "resourceId": conceptTagId,
+		"status": http.StatusCreated, "message": "Concept Tag created successfully", "resourceId": conceptTagId,
 	})
 }
 

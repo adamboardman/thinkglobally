@@ -325,7 +325,7 @@ func TestAddTagToConceptAsUserShouldFail(t *testing.T) {
 				data, _ := json.Marshal(conceptTagJSON)
 				post_data := bytes.NewReader(data)
 				req2, _ := http.NewRequest("POST", "/api/concept_tags", post_data)
-				req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				req2.Header.Set("Content-Type", "application/json")
 				req2.Header.Set("Authorization", "Bearer "+token)
 				response2 := httptest.NewRecorder()
 				a.Router.ServeHTTP(response2, req2)
@@ -372,7 +372,7 @@ func TestAddTagToConceptAsAdmin(t *testing.T) {
 				data, _ := json.Marshal(conceptTagJSON)
 				post_data := bytes.NewReader(data)
 				req2, _ := http.NewRequest("POST", "/api/concept_tags", post_data)
-				req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				req2.Header.Set("Content-Type", "application/json")
 				req2.Header.Set("Authorization", "Bearer "+token)
 				response2 := httptest.NewRecorder()
 				a.Router.ServeHTTP(response2, req2)
@@ -414,7 +414,7 @@ func TestDeleteTagAsUserFails(t *testing.T) {
 		a.Store.PurgeConceptTag(tagTag)
 		concept := ensureTestConceptExists("testConcept")
 		conceptTag := store.ConceptTag{
-			Tag: tagTag,
+			Tag:       tagTag,
 			ConceptId: concept.ID,
 		}
 		conceptTagId, err := a.Store.InsertConceptTag(&conceptTag)
@@ -454,7 +454,7 @@ func TestDeleteTagAsAdmin(t *testing.T) {
 		a.Store.PurgeConceptTag(tagTag)
 		concept := ensureTestConceptExists("testConcept")
 		conceptTag := store.ConceptTag{
-			Tag: tagTag,
+			Tag:       tagTag,
 			ConceptId: concept.ID,
 		}
 		conceptTagId, err := a.Store.InsertConceptTag(&conceptTag)
