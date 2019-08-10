@@ -79,7 +79,7 @@ type Transaction struct {
 	ToUserId        uint
 	Seconds         uint
 	Multiplier      float32
-	Commission      uint
+	TxFee           uint
 	Description     string
 	Location        string
 	ToPreviousTId   uint

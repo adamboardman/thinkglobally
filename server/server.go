@@ -399,12 +399,12 @@ func LoadConceptTags(c *gin.Context) {
 }
 
 type TransactionJSON struct {
-	ID        uint
+	ID              uint
 	FromUserId      uint
 	ToUserId        uint
 	Seconds         uint
 	Multiplier      float32
-	Commission      uint
+	TxFee           uint
 	Description     string
 	Location        string
 	ToPreviousTId   uint
@@ -425,7 +425,7 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		transaction.ToUserId = transactionJSON.ToUserId
 		transaction.Seconds = transactionJSON.Seconds
 		transaction.Multiplier = transactionJSON.Multiplier
-		transaction.Commission = transactionJSON.Commission
+		transaction.TxFee = transactionJSON.TxFee
 		transaction.Description = transactionJSON.Description
 		transaction.Location = transactionJSON.Location
 		transaction.ToPreviousTId = transactionJSON.ToPreviousTId
