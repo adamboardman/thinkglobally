@@ -16,7 +16,7 @@ import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
-import Transaction exposing (loadTransactions, loadTxUsers, pageTransaction, transaction, transactionUpdateForm, transactionValidate)
+import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionUpdateForm, transactionValidate)
 import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, indexUser, profileDecoder, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
@@ -63,7 +63,7 @@ init flags url key =
                 , loginForm = { email = "", password = "" }
                 , registerForm = { email = "", password = "", password_confirm = "" }
                 , session = { loginExpire = "", loginToken = "" }
-                , postResponse = { status = 0, resourceId = 0 }
+                , apiActionResponse = { status = 0, resourceId = 0 }
                 , loggedInUser =
                     { id = 0
                     , firstName = ""
@@ -221,7 +221,7 @@ update msg model =
                         | problems = []
                         , loginForm = { email = "", password = "" }
                         , registerForm = { email = "", password = "", password_confirm = "" }
-                        , postResponse = { status = 0, resourceId = 0 }
+                        , apiActionResponse = { status = 0, resourceId = 0 }
                         , session =
                             case url.fragment of
                                 Just "logout" ->
@@ -427,7 +427,7 @@ update msg model =
         GotRegisterJson result ->
             case result of
                 Ok res ->
-                    ( { model | postResponse = res, loading = Loading.Off }, Cmd.none )
+                    ( { model | apiActionResponse = res, loading = Loading.Off }, Cmd.none )
 
                 Err error ->
                     let
@@ -440,7 +440,7 @@ update msg model =
         GotUpdateProfileJson result ->
             case result of
                 Ok res ->
-                    ( { model | postResponse = res, loading = Loading.Off }, Cmd.none )
+                    ( { model | apiActionResponse = res, loading = Loading.Off }, Cmd.none )
 
                 Err error ->
                     let
@@ -450,10 +450,25 @@ update msg model =
                     in
                     ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }, Cmd.none )
 
-        GotTransactionJson result ->
+        AddedTransaction result ->
             case result of
                 Ok res ->
-                    ( { model | postResponse = res, loading = Loading.Off }, Cmd.none )
+                    ( { model | apiActionResponse = res, loading = Loading.Off }, loadTransactions model )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        AcceptedTransaction result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off }, loadTransactions model )
 
                 Err error ->
                     let
@@ -464,6 +479,31 @@ update msg model =
                     ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
                     , loadTransactions model
                     )
+
+        RejectedTransaction result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off }, loadTransactions model )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    , loadTransactions model
+                    )
+
+        AcceptTransaction txId ->
+            ( { model | loading = Loading.On }
+            , acceptTransaction model txId
+            )
+
+        RejectTransaction txId ->
+            ( { model | loading = Loading.On }
+            , rejectTransaction model txId
+            )
 
 
 decodeErrors : Http.Error -> List String

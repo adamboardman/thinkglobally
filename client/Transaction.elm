@@ -1,4 +1,4 @@
-module Transaction exposing (TransactionTrimmedForm(..), loadTransactions, loadTxUsers, pageTransaction, transaction, transactionFieldsToValidate, transactionListDecoder, transactionPostDecoder, transactionSummary, transactionTrimFields, transactionUpdateForm, transactionValidate, txUsersListDecoder, validateField, viewCreateTransactionForm)
+module Transaction exposing (TransactionTrimmedForm(..), acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, pendingTransactionSummary, rejectTransaction, transaction, transactionActionDecoder, transactionFieldsToValidate, transactionListDecoder, transactionSummary, transactionTrimFields, transactionUpdateForm, transactionValidate, txUsersListDecoder, validateField, viewCreateTransactionForm)
 
 import Bootstrap.Button as Button
 import Bootstrap.ButtonGroup as ButtonGroup
@@ -8,15 +8,14 @@ import Bootstrap.Table as Table exposing (Row)
 import Dict exposing (Dict)
 import FormValidation exposing (viewProblem)
 import FormatNumber exposing (format)
-import FormatNumber.Locales exposing (usLocale)
-import Html exposing (Html, div, h4, p, text, ul)
+import Html exposing (Html, div, h4, p, span, text, ul)
 import Html.Attributes as Attributes exposing (class, for, href, step)
 import Html.Events exposing (onSubmit)
 import Http exposing (emptyBody)
-import Json.Decode exposing (Decoder, at, dict, field, int, list, map2)
+import Json.Decode exposing (Decoder, at, field, int, list, map2)
 import Json.Encode as Encode
 import Loading
-import Types exposing (ApiPostResponse, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, tgsLocale, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, tgsLocale, transactionDecoder, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField
@@ -42,7 +41,7 @@ transactionSummary txUsers tx =
                     user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
 
                 Nothing ->
-                    String.fromInt tx.fromUserId
+                    " (" ++ String.fromInt tx.fromUserId ++ ")"
 
         toUserName =
             case toUser of
@@ -50,7 +49,7 @@ transactionSummary txUsers tx =
                     user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
 
                 Nothing ->
-                    String.fromInt tx.toUserId
+                    " (" ++ String.fromInt tx.toUserId ++ ")"
 
         time =
             ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600
@@ -66,7 +65,7 @@ transactionSummary txUsers tx =
         ]
 
 
-pendingTransactionSummary : Model -> Transaction -> Row msg
+pendingTransactionSummary : Model -> Transaction -> Row Msg
 pendingTransactionSummary model tx =
     let
         fromUser =
@@ -110,18 +109,6 @@ pendingTransactionSummary model tx =
                     else
                         "Accept or Reject Request"
 
-                3 ->
-                    "Offer Approved"
-
-                4 ->
-                    "Request Approved"
-
-                5 ->
-                    "Offer Rejected"
-
-                6 ->
-                    "Request Rejected"
-
                 _ ->
                     ""
     in
@@ -130,6 +117,20 @@ pendingTransactionSummary model tx =
         , Table.td [] [ text toUserName ]
         , Table.td [] [ text (format tgsLocale time) ]
         , Table.td [] [ text status ]
+        , Table.td []
+            [ if (tx.status == 1 && tx.toUserId == model.loggedInUser.id) || (tx.status == 2 && tx.fromUserId == model.loggedInUser.id) then
+                Button.button [ Button.primary, Button.onClick <| AcceptTransaction tx.id ] [ text "Accept" ]
+
+              else
+                text ""
+            ]
+        , Table.td []
+            [ if (tx.status == 1 && tx.toUserId == model.loggedInUser.id) || (tx.status == 2 && tx.fromUserId == model.loggedInUser.id) then
+                Button.button [ Button.primary, Button.onClick <| RejectTransaction tx.id ] [ text "Reject" ]
+
+              else
+                text ""
+            ]
         ]
 
 
@@ -161,6 +162,8 @@ pageTransaction model =
                 , Table.th [] [ text "To" ]
                 , Table.th [] [ text "TGs" ]
                 , Table.th [] [ text "Status" ]
+                , Table.th [] [ text "" ]
+                , Table.th [] [ text "" ]
                 ]
         , tbody =
             Table.tbody []
@@ -370,7 +373,7 @@ transaction model (TransactionTrimmed form) =
     Http.request
         { method = "POST"
         , url = "/api/transactions"
-        , expect = Http.expectJson GotTransactionJson transactionPostDecoder
+        , expect = Http.expectJson AddedTransaction transactionActionDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = body
         , timeout = Nothing
@@ -378,9 +381,9 @@ transaction model (TransactionTrimmed form) =
         }
 
 
-transactionPostDecoder : Decoder ApiPostResponse
-transactionPostDecoder =
-    map2 ApiPostResponse
+transactionActionDecoder : Decoder ApiActionResponse
+transactionActionDecoder =
+    map2 ApiActionResponse
         (at [ "status" ] int)
         (at [ "resourceId" ] int)
 
@@ -419,3 +422,29 @@ loadTxUsers model =
 txUsersListDecoder : Decoder (List User)
 txUsersListDecoder =
     list userDecoder
+
+
+acceptTransaction : Model -> Int -> Cmd Msg
+acceptTransaction model txId =
+    Http.request
+        { method = "PATCH"
+        , url = "/api/transactions/" ++ String.fromInt txId ++ "/accept"
+        , expect = Http.expectJson AcceptedTransaction transactionActionDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+rejectTransaction : Model -> Int -> Cmd Msg
+rejectTransaction model txId =
+    Http.request
+        { method = "PATCH"
+        , url = "/api/transactions/" ++ String.fromInt txId ++ "/reject"
+        , expect = Http.expectJson RejectedTransaction transactionActionDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }

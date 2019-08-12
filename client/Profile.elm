@@ -12,7 +12,7 @@ import Http
 import Json.Decode exposing (Decoder, at, int, map2)
 import Json.Encode as Encode
 import Loading
-import Types exposing (ApiPostResponse, Model, Msg(..), Problem(..), ProfileForm, User, ValidatedField(..), authHeader)
+import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), ProfileForm, User, ValidatedField(..), authHeader)
 
 
 profileFieldsToValidate : List ValidatedField
@@ -197,8 +197,8 @@ profile token (ProfileTrimmed form) =
         }
 
 
-updateProfileDecoder : Decoder ApiPostResponse
+updateProfileDecoder : Decoder ApiActionResponse
 updateProfileDecoder =
-    map2 ApiPostResponse
+    map2 ApiActionResponse
         (at [ "status" ] int)
         (at [ "resourceId" ] int)

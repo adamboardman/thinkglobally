@@ -11,7 +11,7 @@ import Http
 import Json.Decode exposing (Decoder, at, field, int, map2, string)
 import Json.Encode as Encode
 import Loading
-import Types exposing (ApiPostResponse, LoginForm, Model, Msg(..), Problem(..), RegisterForm, Session, ValidatedField(..))
+import Types exposing (ApiActionResponse, LoginForm, Model, Msg(..), Problem(..), RegisterForm, Session, ValidatedField(..))
 
 
 registerFieldsToValidate : List ValidatedField
@@ -32,7 +32,7 @@ pageRegister model =
                     [ a [ href "#login" ]
                         [ text "Have an account?" ]
                     ]
-                , if model.postResponse.resourceId == 0 then
+                , if model.apiActionResponse.resourceId == 0 then
                     viewRegisterForm model
 
                   else
@@ -177,8 +177,8 @@ register (RegisterTrimmed form) =
         }
 
 
-registerDecoder : Decoder ApiPostResponse
+registerDecoder : Decoder ApiActionResponse
 registerDecoder =
-    map2 ApiPostResponse
+    map2 ApiActionResponse
         (at [ "status" ] int)
         (at [ "resourceId" ] int)

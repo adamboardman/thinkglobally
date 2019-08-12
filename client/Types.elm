@@ -1,4 +1,4 @@
-module Types exposing (ApiPostResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, indexUser, profileDecoder, tagDecoder, tgsLocale, transactionDecoder, userDecoder)
+module Types exposing (ApiActionResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, indexUser, profileDecoder, tagDecoder, tgsLocale, transactionDecoder, userDecoder)
 
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
@@ -25,7 +25,7 @@ type alias Model =
     , profileForm : ProfileForm
     , transactionForm : TransactionForm
     , session : Session
-    , postResponse : ApiPostResponse
+    , apiActionResponse : ApiActionResponse
     , loggedInUser : User
     , concept : Concept
     , creatingTransaction : TransactionType
@@ -51,7 +51,7 @@ type alias Session =
     }
 
 
-type alias ApiPostResponse =
+type alias ApiActionResponse =
     { status : Int
     , resourceId : Int
     }
@@ -176,15 +176,19 @@ type Msg
     | EnteredTransactionTime String
     | EnteredTransactionMultiplier String
     | CompletedLogin (Result Http.Error Session)
-    | GotRegisterJson (Result Http.Error ApiPostResponse)
+    | GotRegisterJson (Result Http.Error ApiActionResponse)
     | LoadedUser (Result Http.Error User)
     | LoadedProfile (Result Http.Error ProfileForm)
     | LoadedConcept (Result Http.Error Concept)
-    | GotUpdateProfileJson (Result Http.Error ApiPostResponse)
+    | GotUpdateProfileJson (Result Http.Error ApiActionResponse)
     | TransactionState TransactionType
-    | GotTransactionJson (Result Http.Error ApiPostResponse)
+    | AddedTransaction (Result Http.Error ApiActionResponse)
     | LoadedTransactions (Result Http.Error (List Transaction))
     | LoadedTxUsers (Result Http.Error (List User))
+    | AcceptedTransaction (Result Http.Error ApiActionResponse)
+    | RejectedTransaction (Result Http.Error ApiActionResponse)
+    | AcceptTransaction Int
+    | RejectTransaction Int
 
 
 tgsLocale : Locale
