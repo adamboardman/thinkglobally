@@ -59,6 +59,8 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.POST("/transactions", a.JwtMiddleware.MiddlewareFunc(), AddTransaction)
 	api.PATCH("/transactions/:transactionID/accept", a.JwtMiddleware.MiddlewareFunc(), AcceptTransaction)
 	api.PATCH("/transactions/:transactionID/reject", a.JwtMiddleware.MiddlewareFunc(), RejectTransaction)
+	api.GET("/transactions", a.JwtMiddleware.MiddlewareFunc(), TransactionsList)
+	api.GET("/users", a.JwtMiddleware.MiddlewareFunc(), UsersList)
 }
 
 func AdminPermissionsRequired() gin.HandlerFunc {
@@ -402,6 +404,7 @@ type TransactionJSON struct {
 	ID              uint
 	FromUserId      uint
 	ToUserId        uint
+	Email			string
 	Seconds         uint
 	Multiplier      float32
 	TxFee           uint
@@ -431,6 +434,25 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		transaction.ToPreviousTId = transactionJSON.ToPreviousTId
 		transaction.FromPreviousTId = transactionJSON.FromPreviousTId
 		transaction.Status = transactionJSON.Status
+
+		switch transaction.Status {
+		case store.TransactionOffered:
+			if transaction.ToUserId == 0 {
+				user, err := App.Store.FindUser(transactionJSON.Email)
+				if err == nil {
+					transaction.ToUserId = user.ID
+				}
+			}
+			break
+		case store.TransactionRequested:
+			if transaction.FromUserId == 0 {
+				user, err := App.Store.FindUser(transactionJSON.Email)
+				if err == nil {
+					transaction.FromUserId = user.ID
+				}
+			}
+			break
+		}
 	}
 
 	claims := jwt.ExtractClaims(c)
@@ -561,4 +583,30 @@ func RejectTransaction (c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"status": http.StatusAccepted, "message": "Transaction updated successfully", "resourceId": transactionId,
 	})
+}
+
+func TransactionsList(c *gin.Context) {
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+
+	c.Header("Content-Type", "application/json")
+	transactions, err := App.Store.ListTransactionsForUser(loggedInUserId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transactions not found"})
+	} else {
+		c.JSON(http.StatusOK, transactions)
+	}
+}
+
+func UsersList(c *gin.Context) {
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+
+	c.Header("Content-Type", "application/json")
+	users, err := App.Store.ListTransactionPartners(loggedInUserId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction Users not found"})
+	} else {
+		c.JSON(http.StatusOK, users)
+	}
 }

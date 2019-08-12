@@ -351,3 +351,28 @@ func TestStore_TransactionRejectTooBigMultiplier(t *testing.T) {
 		})
 	})
 }
+
+func TestStore_TransactionPartners(t *testing.T) {
+	Convey("Create a transaction", t, func() {
+		user1 := ensureTestUserExists("user1@example.com")
+		user2 := ensureTestUserExists("user2@example.com")
+		transaction := Transaction{
+			FromUserId:  user1.ID,
+			ToUserId:    user2.ID,
+			Seconds:     1 * 60 * 60,
+			TxFee:       1,
+			Multiplier:  3,
+			Description: "Test Transaction",
+			Status:      TransactionOfferApproved,
+		}
+		transactionId, _ := s.InsertTransaction(&transaction)
+		Convey("Transaction should be created", func() {
+			So(transactionId, ShouldNotEqual, 0)
+		})
+		Convey("Users list of transaction partners should contain both users", func() {
+			users, _ := s.ListTransactionPartners(user1.ID)
+			So(users[0].ID, ShouldEqual, user1.ID)
+			So(users[1].ID, ShouldEqual, user2.ID)
+		})
+	})
+}

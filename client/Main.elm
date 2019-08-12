@@ -7,6 +7,7 @@ import Bootstrap.Navbar as Navbar
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Concept exposing (pageConcept)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (href)
 import Http exposing (Error(..), emptyBody)
@@ -15,7 +16,8 @@ import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), User, authHeader, conceptDecoder, profileDecoder, userDecoder)
+import Transaction exposing (loadTransactions, loadTxUsers, pageTransaction, transaction, transactionUpdateForm, transactionValidate)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, indexUser, profileDecoder, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
 
@@ -81,6 +83,11 @@ init flags url key =
                     , email = ""
                     , mobile = ""
                     }
+                , transactionForm =
+                    { email = ""
+                    , time = ""
+                    , multiplier = "1"
+                    }
                 , concept =
                     { id = 0
                     , name = ""
@@ -88,6 +95,10 @@ init flags url key =
                     , full = ""
                     , tags = []
                     }
+                , creatingTransaction = TxNone
+                , transactions = []
+                , pendingTransactions = []
+                , txUsers = Dict.empty
                 }
     in
     ( model, Cmd.batch [ urlCmd, navCmd ] )
@@ -124,6 +135,11 @@ menu model =
               else
                 Navbar.itemLink [ href "" ] [ text "" ]
             , if loggedIn model then
+                Navbar.itemLink [ href "#transaction" ] [ text "Transactions" ]
+
+              else
+                Navbar.itemLink [ href "" ] [ text "" ]
+            , if loggedIn model then
                 Navbar.itemLink [ href "#logout" ] [ text "Logout" ]
 
               else
@@ -150,6 +166,9 @@ mainContent model =
 
             Profile ->
                 pageProfile model
+
+            Transactions ->
+                pageTransaction model
 
             NotFound ->
                 pageNotFound
@@ -270,6 +289,18 @@ update msg model =
                     , Cmd.none
                     )
 
+        SubmittedTransactionForm ->
+            case transactionValidate model.transactionForm of
+                Ok validForm ->
+                    ( { model | problems = [], loading = Loading.On }
+                    , transaction model validForm
+                    )
+
+                Err problems ->
+                    ( { model | problems = problems, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
         EnteredLoginEmail email ->
             loginUpdateForm (\form -> { form | email = email }) model
 
@@ -302,6 +333,20 @@ update msg model =
 
         EnteredUserEmail email ->
             profileUpdateForm (\form -> { form | email = email }) model
+
+        EnteredTransactionEmail email ->
+            transactionUpdateForm (\form -> { form | email = email }) model
+
+        EnteredTransactionTime time ->
+            transactionUpdateForm (\form -> { form | time = time }) model
+
+        EnteredTransactionMultiplier multiplier ->
+            transactionUpdateForm (\form -> { form | multiplier = multiplier }) model
+
+        TransactionState state ->
+            ( { model | creatingTransaction = state }
+            , Cmd.none
+            )
 
         CompletedLogin (Err error) ->
             let
@@ -348,6 +393,37 @@ update msg model =
             , Cmd.none
             )
 
+        LoadedTransactions (Err error) ->
+            ( { model | loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedTransactions (Ok res) ->
+            let
+                tx =
+                    List.filter (\t -> t.status > 2) res
+
+                pendingTx =
+                    List.filter (\t -> t.status == 1 || t.status == 2) res
+            in
+            ( { model | transactions = tx, pendingTransactions = pendingTx, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedTxUsers (Err error) ->
+            ( { model | loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedTxUsers (Ok res) ->
+            let
+                userDict =
+                    Dict.fromList (List.map indexUser res)
+            in
+            ( { model | txUsers = userDict, loading = Loading.Off }
+            , Cmd.none
+            )
+
         GotRegisterJson result ->
             case result of
                 Ok res ->
@@ -373,6 +449,21 @@ update msg model =
                                 |> List.map ServerError
                     in
                     ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }, Cmd.none )
+
+        GotTransactionJson result ->
+            case result of
+                Ok res ->
+                    ( { model | postResponse = res, loading = Loading.Off }, Cmd.none )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    , loadTransactions model
+                    )
 
 
 decodeErrors : Http.Error -> List String
@@ -422,6 +513,9 @@ urlUpdate url model =
               else if page == Home then
                 loadConcept "index"
 
+              else if page == Transactions then
+                Cmd.batch [ loadTransactions model, loadTxUsers model ]
+
               else
                 Cmd.none
             )
@@ -440,6 +534,7 @@ routeParser =
         , UrlParser.map Login (s "login")
         , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register")
+        , UrlParser.map Transactions (s "transaction")
         , UrlParser.map Profile (s "profile")
         ]
 
@@ -452,7 +547,7 @@ loadUser : String -> Int -> Cmd Msg
 loadUser token userId =
     Http.request
         { method = "GET"
-        , url = "http://localhost:3030/api/users/" ++ String.fromInt userId
+        , url = "/api/users/" ++ String.fromInt userId
         , expect = Http.expectJson LoadedUser userDecoder
         , headers = [ authHeader token ]
         , body = emptyBody
@@ -465,7 +560,7 @@ loadProfile : String -> Cmd Msg
 loadProfile token =
     Http.request
         { method = "GET"
-        , url = "http://localhost:3030/api/users/0"
+        , url = "/api/users/0"
         , expect = Http.expectJson LoadedProfile profileDecoder
         , headers = [ authHeader token ]
         , body = emptyBody
@@ -478,7 +573,7 @@ loadConcept : String -> Cmd Msg
 loadConcept concept =
     Http.request
         { method = "GET"
-        , url = "http://localhost:3030/api/concept/" ++ concept
+        , url = "/api/concept/" ++ concept
         , expect = Http.expectJson LoadedConcept conceptDecoder
         , headers = []
         , body = emptyBody

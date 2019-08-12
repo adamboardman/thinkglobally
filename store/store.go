@@ -296,3 +296,9 @@ func (s *Store) UpdateTransaction(transaction *Transaction) (uint, error) {
 	err := s.db.Save(transaction).Error
 	return transaction.ID, err
 }
+
+func (s *Store) ListTransactionPartners(userId uint) ([]PublicUser, error) {
+	var users []PublicUser
+	err := s.db.Raw("SELECT * FROM users WHERE users.deleted_at IS NULL AND users.id IN (SELECT to_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?)) UNION SELECT from_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?)))", userId, userId, userId, userId).Scan(&users).Error
+	return users, err
+}
