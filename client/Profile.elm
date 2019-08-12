@@ -188,7 +188,7 @@ profile token (ProfileTrimmed form) =
     in
     Http.request
         { method = "PUT"
-        , url = "http://localhost:3030/api/users/" ++ String.fromInt form.id
+        , url = "/api/users/" ++ String.fromInt form.id
         , expect = Http.expectJson GotUpdateProfileJson updateProfileDecoder
         , headers = [ authHeader token ]
         , body = body

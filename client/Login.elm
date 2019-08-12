@@ -154,7 +154,7 @@ login (LoginTrimmed form) =
     in
     Http.request
         { method = "POST"
-        , url = "http://localhost:3030/api/auth/login"
+        , url = "/api/auth/login"
         , expect = Http.expectJson CompletedLogin loginDecoder
         , headers = []
         , body = body

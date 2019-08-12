@@ -168,7 +168,7 @@ register (RegisterTrimmed form) =
     in
     Http.request
         { method = "POST"
-        , url = "http://localhost:3030/api/auth/register"
+        , url = "/api/auth/register"
         , expect = Http.expectJson GotRegisterJson registerDecoder
         , headers = []
         , body = body
