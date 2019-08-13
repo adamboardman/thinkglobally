@@ -404,7 +404,8 @@ type TransactionJSON struct {
 	ID              uint
 	FromUserId      uint
 	ToUserId        uint
-	Email			string
+	Date            store.PosixDateTime
+	Email           string
 	Seconds         uint
 	Multiplier      float32
 	TxFee           uint
@@ -426,6 +427,7 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		transaction.ID = transactionJSON.ID
 		transaction.FromUserId = transactionJSON.FromUserId
 		transaction.ToUserId = transactionJSON.ToUserId
+		transaction.Date = transactionJSON.Date
 		transaction.Seconds = transactionJSON.Seconds
 		transaction.Multiplier = transactionJSON.Multiplier
 		transaction.TxFee = transactionJSON.TxFee

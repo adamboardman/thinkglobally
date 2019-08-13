@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 type Response struct {
@@ -733,6 +734,7 @@ func TestAcceptTransactionOffer(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -776,6 +778,7 @@ func TestAcceptTransactionOfferAsOtherUser(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -823,6 +826,7 @@ func TestRejectTransactionOffer(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -866,6 +870,7 @@ func TestRejectTransactionOfferAsOtherUser(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -913,6 +918,7 @@ func TestAcceptTransactionRequest(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -956,6 +962,7 @@ func TestAcceptTransactionRequestAsOtherUser(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -1003,6 +1010,7 @@ func TestRejectTransactionRequest(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -1046,6 +1054,7 @@ func TestRejectTransactionRequestAsOtherUser(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -1145,6 +1154,7 @@ func TestListTxUsers(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,
@@ -1193,6 +1203,7 @@ func TestListTransactions(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
+			Date:        time.Now(),
 			Seconds:     1 * 60 * 60,
 			TxFee:       1,
 			Multiplier:  1,

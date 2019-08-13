@@ -4,6 +4,7 @@ import Bootstrap.Button as Button
 import Bootstrap.ButtonGroup as ButtonGroup
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
+import Bootstrap.Grid as Grid
 import Bootstrap.Table as Table exposing (Row)
 import Dict exposing (Dict)
 import FormValidation exposing (viewProblem)
@@ -15,7 +16,8 @@ import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, at, field, int, list, map2)
 import Json.Encode as Encode
 import Loading
-import Types exposing (ApiActionResponse, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, tgsLocale, transactionDecoder, userDecoder)
+import Time
+import Types exposing (ApiActionResponse, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, formatDate, tgsLocale, transactionDecoder, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField
@@ -26,30 +28,38 @@ transactionFieldsToValidate =
     ]
 
 
-transactionSummary : Dict String User -> Transaction -> Row msg
-transactionSummary txUsers tx =
+transactionSummary : Model -> Transaction -> Row msg
+transactionSummary model tx =
     let
         fromUser =
-            Dict.get (String.fromInt tx.fromUserId) txUsers
+            Dict.get (String.fromInt tx.fromUserId) model.txUsers
 
         toUser =
-            Dict.get (String.fromInt tx.toUserId) txUsers
+            Dict.get (String.fromInt tx.toUserId) model.txUsers
 
         fromUserName =
-            case fromUser of
-                Just user ->
-                    user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+            if model.loggedInUser.id == tx.fromUserId then
+                "Yourself"
 
-                Nothing ->
-                    " (" ++ String.fromInt tx.fromUserId ++ ")"
+            else
+                case fromUser of
+                    Just user ->
+                        user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+
+                    Nothing ->
+                        " (" ++ String.fromInt tx.fromUserId ++ ")"
 
         toUserName =
-            case toUser of
-                Just user ->
-                    user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+            if model.loggedInUser.id == tx.toUserId then
+                "Yourself"
 
-                Nothing ->
-                    " (" ++ String.fromInt tx.toUserId ++ ")"
+            else
+                case toUser of
+                    Just user ->
+                        user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+
+                    Nothing ->
+                        " (" ++ String.fromInt tx.toUserId ++ ")"
 
         time =
             ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600
@@ -58,7 +68,8 @@ transactionSummary txUsers tx =
             0
     in
     Table.tr []
-        [ Table.td [] [ text fromUserName ]
+        [ Table.td [] [ text (formatDate model tx.date) ]
+        , Table.td [] [ text fromUserName ]
         , Table.td [] [ text toUserName ]
         , Table.td [] [ text (format tgsLocale time) ]
         , Table.td [] [ text (format tgsLocale balance) ]
@@ -75,20 +86,28 @@ pendingTransactionSummary model tx =
             Dict.get (String.fromInt tx.toUserId) model.txUsers
 
         fromUserName =
-            case fromUser of
-                Just user ->
-                    user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+            if model.loggedInUser.id == tx.fromUserId then
+                "Yourself"
 
-                Nothing ->
-                    String.fromInt tx.fromUserId
+            else
+                case fromUser of
+                    Just user ->
+                        user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+
+                    Nothing ->
+                        String.fromInt tx.fromUserId
 
         toUserName =
-            case toUser of
-                Just user ->
-                    user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+            if model.loggedInUser.id == tx.toUserId then
+                "Yourself"
 
-                Nothing ->
-                    String.fromInt tx.toUserId
+            else
+                case toUser of
+                    Just user ->
+                        user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+
+                    Nothing ->
+                        String.fromInt tx.toUserId
 
         time =
             ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600
@@ -113,7 +132,8 @@ pendingTransactionSummary model tx =
                     ""
     in
     Table.tr []
-        [ Table.td [] [ text fromUserName ]
+        [ Table.td [] [ text (formatDate model tx.date) ]
+        , Table.td [] [ text fromUserName ]
         , Table.td [] [ text toUserName ]
         , Table.td [] [ text (format tgsLocale time) ]
         , Table.td [] [ text status ]
@@ -141,7 +161,8 @@ pageTransaction model =
         { options = [ Table.striped, Table.hover ]
         , thead =
             Table.simpleThead
-                [ Table.th [] [ text "From" ]
+                [ Table.th [] [ text "Date" ]
+                , Table.th [] [ text "From" ]
                 , Table.th [] [ text "To" ]
                 , Table.th [] [ text "TGs" ]
                 , Table.th [] [ text "Balance" ]
@@ -149,7 +170,7 @@ pageTransaction model =
         , tbody =
             Table.tbody []
                 (List.map
-                    (transactionSummary model.txUsers)
+                    (transactionSummary model)
                     model.transactions
                 )
         }
@@ -158,7 +179,8 @@ pageTransaction model =
         { options = [ Table.striped, Table.hover ]
         , thead =
             Table.simpleThead
-                [ Table.th [] [ text "From" ]
+                [ Table.th [] [ text "Date" ]
+                , Table.th [] [ text "From" ]
                 , Table.th [] [ text "To" ]
                 , Table.th [] [ text "TGs" ]
                 , Table.th [] [ text "Status" ]
@@ -197,55 +219,86 @@ pageTransaction model =
 
 viewCreateTransactionForm : Model -> Html Msg
 viewCreateTransactionForm model =
-    Form.form [ onSubmit SubmittedTransactionForm ]
-        [ Form.group []
-            [ Form.label [ for "email" ]
-                [ if model.creatingTransaction == TxOffer then
-                    text "Offer to Recipient Email address"
+    Grid.container []
+        [ Form.form [ onSubmit SubmittedTransactionForm ]
+            [ Grid.row []
+                [ Grid.col []
+                    [ Form.group []
+                        [ Form.label [ for "email" ]
+                            [ if model.creatingTransaction == TxOffer then
+                                text "Offer to Recipient Email address"
 
-                  else
-                    text "Request From Email address"
-                ]
-            , Input.email
-                [ Input.id "email"
-                , Input.placeholder "Email"
-                , Input.onInput EnteredTransactionEmail
-                , Input.value model.transactionForm.email
-                ]
-            , Form.invalidFeedback []
-                [ if model.creatingTransaction == TxOffer then
-                    text "Please enter recipient email address"
+                              else
+                                text "Request From Email address"
+                            ]
+                        , Input.email
+                            [ Input.id "email"
+                            , Input.placeholder "Email"
+                            , Input.onInput EnteredTransactionEmail
+                            , Input.value model.transactionForm.email
+                            ]
+                        , Form.invalidFeedback []
+                            [ if model.creatingTransaction == TxOffer then
+                                text "Please enter recipient email address"
 
-                  else
-                    text "Please enter the email address you are requesting the transaction from"
+                              else
+                                text "Please enter the email address you are requesting the transaction from"
+                            ]
+                        ]
+                    ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ Form.group []
+                        [ Form.label [ for "time" ] [ text "Time (HH:mm)" ]
+                        , Input.time
+                            [ Input.id "time"
+                            , Input.placeholder "Time"
+                            , Input.onInput EnteredTransactionTime
+                            , Input.value model.transactionForm.time
+                            ]
+                        , Form.invalidFeedback [] [ text "Please enter the time duration for the transaction" ]
+                        ]
+                    ]
+                , Grid.col []
+                    [ Form.group []
+                        [ Form.label [ for "multiplier" ] [ text "Multiplier" ]
+                        , Input.number
+                            [ Input.id "multiplier"
+                            , Input.attrs [ Attributes.min "1", Attributes.max "3", Attributes.step "0.01" ]
+                            , Input.placeholder "Multiplier"
+                            , Input.onInput EnteredTransactionMultiplier
+                            , Input.value model.transactionForm.multiplier
+                            ]
+                        , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
+                        ]
+                    ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ ul [ class "error-messages" ]
+                        (List.map viewProblem model.problems)
+                    ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ Form.group []
+                        [ Form.label [] [ text "Transaction Date: " ]
+                        , text (formatDate model model.time)
+                        ]
+                    ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ Button.button [ Button.primary ]
+                        [ text "Submit Transaction" ]
+                    ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ Loading.render Loading.DoubleBounce Loading.defaultConfig model.loading ]
                 ]
             ]
-        , Form.group []
-            [ Form.label [ for "time" ] [ text "Time (HH:mm)" ]
-            , Input.time
-                [ Input.id "time"
-                , Input.placeholder "Time"
-                , Input.onInput EnteredTransactionTime
-                , Input.value model.transactionForm.time
-                ]
-            , Form.invalidFeedback [] [ text "Please enter the time duration for the transaction" ]
-            ]
-        , Form.group []
-            [ Form.label [ for "multiplier" ] [ text "Multiplier" ]
-            , Input.number
-                [ Input.id "multiplier"
-                , Input.attrs [ Attributes.min "1", Attributes.max "3", Attributes.step "0.01" ]
-                , Input.placeholder "Multiplier"
-                , Input.onInput EnteredTransactionMultiplier
-                , Input.value model.transactionForm.multiplier
-                ]
-            , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
-            ]
-        , ul [ class "error-messages" ]
-            (List.map viewProblem model.problems)
-        , Button.button [ Button.primary ]
-            [ text "Submit Transaction" ]
-        , Loading.render Loading.DoubleBounce Loading.defaultConfig model.loading
         ]
 
 
@@ -362,6 +415,7 @@ transaction model (TransactionTrimmed form) =
         body =
             Encode.object
                 [ ( "Email", Encode.string form.email )
+                , ( "Date", Encode.int (Time.posixToMillis model.time) )
                 , ( "Seconds", Encode.int seconds )
                 , ( "Multiplier", Encode.float (Maybe.withDefault 0 (String.toFloat form.multiplier)) )
                 , ( "Status", Encode.int status )

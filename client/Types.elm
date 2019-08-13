@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, indexUser, profileDecoder, tagDecoder, tgsLocale, transactionDecoder, userDecoder)
+module Types exposing (ApiActionResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, formatDate, indexUser, posixTime, profileDecoder, tagDecoder, tgsLocale, toIntMonth, transactionDecoder, userDecoder)
 
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
@@ -10,6 +10,7 @@ import Http
 import Json.Decode as Decode exposing (Decoder, at, float, int, list, map3, map4, map5, map6, map7, map8, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
+import Time exposing (Month)
 import Url exposing (Url)
 
 
@@ -32,6 +33,8 @@ type alias Model =
     , transactions : List Transaction
     , pendingTransactions : List Transaction
     , txUsers : Dict String User
+    , timeZone : Time.Zone
+    , time : Time.Posix
     }
 
 
@@ -87,6 +90,7 @@ type alias Tag =
 
 type alias Transaction =
     { id : Int
+    , date : Time.Posix
     , fromUserId : Int
     , toUserId : Int
     , seconds : Int
@@ -189,11 +193,78 @@ type Msg
     | RejectedTransaction (Result Http.Error ApiActionResponse)
     | AcceptTransaction Int
     | RejectTransaction Int
+    | AdjustTimeZone Time.Zone
+    | TimeTick Time.Posix
+
+
+
+-- FORMATTERS AND LOCALS
 
 
 tgsLocale : Locale
 tgsLocale =
     Locale 3 "," "." "−" "" "" ""
+
+
+toIntMonth : Month -> Int
+toIntMonth month =
+    case month of
+        Time.Jan ->
+            1
+
+        Time.Feb ->
+            2
+
+        Time.Mar ->
+            3
+
+        Time.Apr ->
+            4
+
+        Time.May ->
+            5
+
+        Time.Jun ->
+            6
+
+        Time.Jul ->
+            7
+
+        Time.Aug ->
+            8
+
+        Time.Sep ->
+            9
+
+        Time.Oct ->
+            10
+
+        Time.Nov ->
+            11
+
+        Time.Dec ->
+            12
+
+
+formatDate : Model -> Time.Posix -> String
+formatDate model date =
+    let
+        year =
+            String.fromInt (Time.toYear model.timeZone date)
+
+        month =
+            String.padLeft 2 '0' (String.fromInt (toIntMonth (Time.toMonth model.timeZone date)))
+
+        day =
+            String.padLeft 2 '0' (String.fromInt (Time.toDay model.timeZone date))
+
+        hour =
+            String.padLeft 2 '0' (String.fromInt (Time.toHour model.timeZone date))
+
+        minute =
+            String.padLeft 2 '0' (String.fromInt (Time.toMinute model.timeZone date))
+    in
+    year ++ "-" ++ month ++ "-" ++ day ++ " " ++ hour ++ ":" ++ minute
 
 
 
@@ -252,10 +323,18 @@ tagDecoder =
         |> required "Tag" string
 
 
+posixTime : Decode.Decoder Time.Posix
+posixTime =
+    Decode.int
+        |> Decode.andThen
+            (\ms -> Decode.succeed <| Time.millisToPosix ms)
+
+
 transactionDecoder : Decoder Transaction
 transactionDecoder =
     Decode.succeed Transaction
         |> required "ID" int
+        |> required "Date" posixTime
         |> required "FromUserId" int
         |> required "ToUserId" int
         |> required "Seconds" int

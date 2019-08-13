@@ -16,6 +16,8 @@ import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
+import Task
+import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionUpdateForm, transactionValidate)
 import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, indexUser, profileDecoder, userDecoder)
 import Url exposing (Url)
@@ -99,9 +101,18 @@ init flags url key =
                 , transactions = []
                 , pendingTransactions = []
                 , txUsers = Dict.empty
+                , timeZone = Time.utc
+                , time = Time.millisToPosix 0
                 }
     in
-    ( model, Cmd.batch [ urlCmd, navCmd ] )
+    ( model
+    , Cmd.batch
+        [ urlCmd
+        , navCmd
+        , Task.perform AdjustTimeZone Time.here
+        , Task.perform TimeTick Time.now
+        ]
+    )
 
 
 view : Model -> Document Msg
@@ -505,6 +516,12 @@ update msg model =
             , rejectTransaction model txId
             )
 
+        AdjustTimeZone zone ->
+            ( { model | timeZone = zone }, Cmd.none )
+
+        TimeTick posix ->
+            ( { model | time = posix }, Cmd.none )
+
 
 decodeErrors : Http.Error -> List String
 decodeErrors error =
@@ -628,4 +645,7 @@ loadConcept concept =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Navbar.subscriptions model.navState NavMsg
+    Sub.batch
+        [ Navbar.subscriptions model.navState NavMsg
+        , Time.every (30 * 1000) TimeTick
+        ]

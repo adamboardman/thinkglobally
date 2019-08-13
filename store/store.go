@@ -1,11 +1,14 @@
 package store
 
 import (
+	"database/sql/driver"
 	"errors"
 	"github.com/adamboardman/gorm"
 	_ "github.com/adamboardman/gorm/dialects/postgres"
 	"io/ioutil"
 	"log"
+	"strconv"
+	"time"
 )
 
 type Store struct {
@@ -73,8 +76,39 @@ const (
 	TransactionRequestRejected
 )
 
+type PosixDateTime time.Time
+
+func (d PosixDateTime) MarshalJSON() ([]byte, error) {
+	if time.Time(d).IsZero() {
+		return []byte("0"), nil
+	}
+	return []byte(strconv.FormatInt(time.Time(d).Unix(), 10)), nil
+}
+
+func (d *PosixDateTime) UnmarshalJSON(b []byte) (err error) {
+	p, err := strconv.ParseInt(string(b), 10, 64);
+	if err != nil {
+		return
+	}
+	t := time.Unix(p, 0)
+	*d = PosixDateTime(t)
+	return
+}
+
+func (d PosixDateTime) Value() (driver.Value, error) {
+	return time.Time(d), nil
+}
+
+func (d *PosixDateTime) Scan(src interface{}) error {
+	if val, ok := src.(time.Time); ok {
+		*d = PosixDateTime(val)
+	}
+	return nil
+}
+
 type Transaction struct {
 	gorm.Model
+	Date            PosixDateTime
 	FromUserId      uint
 	ToUserId        uint
 	Seconds         uint

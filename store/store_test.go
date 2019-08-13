@@ -5,6 +5,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"os"
 	"testing"
+	"time"
 )
 
 var s Store
@@ -247,6 +248,7 @@ func TestStore_TransactionCreation(t *testing.T) {
 		s.db.Unscoped().Where("from_user_id=?", user2.ID).Delete(Transaction{})
 		s.db.Unscoped().Where("to_user_id=?", user2.ID).Delete(Transaction{})
 		transaction := Transaction{
+			Date:        time.Now(),
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
 			Seconds:     1 * 60 * 60,
@@ -260,7 +262,6 @@ func TestStore_TransactionCreation(t *testing.T) {
 			transactions, _ := s.ListTransactionsForUser(user1.ID)
 			transactionFromTransactions := getTransactionFromTransactions(transactions, transaction.ID)
 			So(transactionFromTransactions.ID, ShouldEqual, transactionId)
-
 
 			Convey("Updating the transaction", func() {
 				transactionFromTransactions.Status = TransactionOfferApproved
@@ -282,6 +283,7 @@ func TestStore_TransactionRejectNoUser(t *testing.T) {
 	Convey("Create a transaction", t, func() {
 		user1 := ensureTestUserExists("user1@example.com")
 		transaction := Transaction{
+			Date:        time.Now(),
 			FromUserId:  user1.ID,
 			ToUserId:    0,
 			Seconds:     1 * 60 * 60,
@@ -307,6 +309,7 @@ func TestStore_TransactionRejectTooSmallMultipler(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
+			Date:        time.Now(),
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
 			Seconds:     1 * 60 * 60,
@@ -332,6 +335,7 @@ func TestStore_TransactionRejectTooBigMultiplier(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
+			Date:        time.Now(),
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
 			Seconds:     1 * 60 * 60,
@@ -357,6 +361,7 @@ func TestStore_TransactionPartners(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
+			Date:        time.Now(),
 			FromUserId:  user1.ID,
 			ToUserId:    user2.ID,
 			Seconds:     1 * 60 * 60,
