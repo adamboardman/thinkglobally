@@ -98,6 +98,7 @@ type alias Transaction =
     , multiplier : Float
     , txFee : Int
     , status : Int
+    , description : String
     }
 
 
@@ -130,6 +131,7 @@ type alias TransactionForm =
     , tgs : String
     , time : String
     , multiplier : String
+    , description : String
     }
 
 
@@ -182,6 +184,7 @@ type Msg
     | EnteredTransactionTGs String
     | EnteredTransactionTime String
     | EnteredTransactionMultiplier String
+    | EnteredTransactionDescription String
     | CompletedLogin (Result Http.Error Session)
     | GotRegisterJson (Result Http.Error ApiActionResponse)
     | LoadedUser (Result Http.Error User)
@@ -378,6 +381,7 @@ transactionDecoder =
         |> required "Multiplier" float
         |> required "TxFee" int
         |> required "Status" int
+        |> required "Description" string
 
 
 

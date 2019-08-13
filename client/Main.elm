@@ -90,6 +90,7 @@ init flags url key =
                     , tgs = ""
                     , time = ""
                     , multiplier = "1"
+                    , description = ""
                     }
                 , concept =
                     { id = 0
@@ -369,6 +370,9 @@ update msg model =
                     tgsFromTimeAndMultiplier model.transactionForm.time multiplier
             in
             transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier }) model
+
+        EnteredTransactionDescription description ->
+            transactionUpdateForm (\form -> { form | description = description }) model
 
         TransactionState state ->
             ( { model | creatingTransaction = state }

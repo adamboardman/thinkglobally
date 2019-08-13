@@ -4,6 +4,7 @@ import Bootstrap.Button as Button
 import Bootstrap.ButtonGroup as ButtonGroup
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
+import Bootstrap.Form.Textarea as Textarea
 import Bootstrap.Grid as Grid
 import Bootstrap.Table as Table exposing (Row)
 import Dict exposing (Dict)
@@ -288,16 +289,30 @@ viewCreateTransactionForm model =
                 ]
             , Grid.row []
                 [ Grid.col []
-                    [ ul [ class "error-messages" ]
-                        (List.map viewProblem model.problems)
+                    [ Form.group []
+                        [ Form.label [] [ text "Transaction Date: " ]
+                        , text (formatDate model model.time)
+                        ]
                     ]
                 ]
             , Grid.row []
                 [ Grid.col []
                     [ Form.group []
-                        [ Form.label [] [ text "Transaction Date: " ]
-                        , text (formatDate model model.time)
+                        [ Form.label [ for "description" ] [ text "Description" ]
+                        , Textarea.textarea
+                            [ Textarea.id "description"
+                            , Textarea.rows 2
+                            , Textarea.onInput EnteredTransactionDescription
+                            , Textarea.value model.transactionForm.description
+                            ]
+                        , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
                         ]
+                    ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ ul [ class "error-messages" ]
+                        (List.map viewProblem model.problems)
                     ]
                 ]
             , Grid.row []
@@ -387,6 +402,7 @@ transactionTrimFields form =
         , tgs = String.trim form.tgs
         , time = String.trim form.time
         , multiplier = String.trim form.multiplier
+        , description = String.trim form.description
         }
 
 
@@ -432,6 +448,7 @@ transaction model (TransactionTrimmed form) =
                 , ( "Seconds", Encode.int seconds )
                 , ( "Multiplier", Encode.float (Maybe.withDefault 0 (String.toFloat form.multiplier)) )
                 , ( "Status", Encode.int status )
+                , ( "Description", Encode.string form.description )
                 , ( "FromUserId", Encode.int fromId )
                 , ( "ToUserId", Encode.int toId )
                 ]
