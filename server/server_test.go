@@ -732,14 +732,14 @@ func TestAcceptTransactionOffer(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionOffered,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -765,6 +765,9 @@ func TestAcceptTransactionOffer(t *testing.T) {
 					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
 					So(err, ShouldBeNil)
 					So(approvedTransaction.Status, ShouldEqual, store.TransactionOfferApproved)
+					So(approvedTransaction.FromUserBalance, ShouldEqual, -(1*60*60 + 1))
+					So(approvedTransaction.ToUserBalance, ShouldEqual, (1 * 60 * 60))
+					So(time.Time(approvedTransaction.ConfirmedDate).After(time.Time(approvedTransaction.InitiatedDate)), ShouldBeTrue)
 				})
 			})
 		})
@@ -776,14 +779,14 @@ func TestAcceptTransactionOfferAsOtherUser(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionOffered,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -824,14 +827,14 @@ func TestRejectTransactionOffer(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionOffered,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -857,6 +860,7 @@ func TestRejectTransactionOffer(t *testing.T) {
 					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
 					So(err, ShouldBeNil)
 					So(approvedTransaction.Status, ShouldEqual, store.TransactionOfferRejected)
+					So(time.Time(approvedTransaction.ConfirmedDate).After(time.Time(approvedTransaction.InitiatedDate)), ShouldBeTrue)
 				})
 			})
 		})
@@ -868,14 +872,14 @@ func TestRejectTransactionOfferAsOtherUser(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionOffered,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -916,14 +920,14 @@ func TestAcceptTransactionRequest(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionRequested,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -949,6 +953,8 @@ func TestAcceptTransactionRequest(t *testing.T) {
 					approvedTransaction, err := a.Store.LoadTransaction(transactionId)
 					So(err, ShouldBeNil)
 					So(approvedTransaction.Status, ShouldEqual, store.TransactionRequestApproved)
+					So(approvedTransaction.FromUserBalance, ShouldEqual, -(1 * 60 * 60))
+					So(approvedTransaction.ToUserBalance, ShouldEqual, (1*60*60)-1)
 				})
 			})
 		})
@@ -960,14 +966,14 @@ func TestAcceptTransactionRequestAsOtherUser(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionRequested,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -1008,14 +1014,14 @@ func TestRejectTransactionRequest(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionRequested,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -1052,14 +1058,14 @@ func TestRejectTransactionRequestAsOtherUser(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionRequested,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -1152,14 +1158,14 @@ func TestListTxUsers(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionRequested,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
 		_, _ = a.Store.InsertTransaction(&transaction)
@@ -1201,14 +1207,14 @@ func TestListTransactions(t *testing.T) {
 		user1 := ensureTestUserExists("test-user1@example.com")
 		user2 := ensureTestUserExists("test-user2@example.com")
 		transaction := store.Transaction{
-			FromUserId:  user1.ID,
-			ToUserId:    user2.ID,
-			Date:        time.Now(),
-			Seconds:     1 * 60 * 60,
-			TxFee:       1,
-			Multiplier:  1,
-			Description: "Test Transaction",
-			Status:      store.TransactionRequested,
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
 		transactionId, _ := a.Store.InsertTransaction(&transaction)
@@ -1238,6 +1244,48 @@ func TestListTransactions(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					So((*responseData)[0].ID, ShouldEqual, transactionId)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionFromToSameUser(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(user1.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Offer transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user1.ID
+				transactionJSON.ToUserId = user1.ID
+				transactionJSON.Status = store.TransactionOffered
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.Multiplier = 1
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the transaction should be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					So(found, ShouldBeFalse)
 				})
 			})
 		})

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 type WebApp struct {
@@ -404,7 +405,8 @@ type TransactionJSON struct {
 	ID              uint
 	FromUserId      uint
 	ToUserId        uint
-	Date            store.PosixDateTime
+	InitiatedDate   store.PosixDateTime
+	ConfirmedDate   store.PosixDateTime
 	Email           string
 	Seconds         uint
 	Multiplier      float32
@@ -427,7 +429,8 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		transaction.ID = transactionJSON.ID
 		transaction.FromUserId = transactionJSON.FromUserId
 		transaction.ToUserId = transactionJSON.ToUserId
-		transaction.Date = transactionJSON.Date
+		transaction.InitiatedDate = transactionJSON.InitiatedDate
+		transaction.ConfirmedDate = transactionJSON.ConfirmedDate
 		transaction.Seconds = transactionJSON.Seconds
 		transaction.Multiplier = transactionJSON.Multiplier
 		transaction.TxFee = transactionJSON.TxFee
@@ -470,6 +473,9 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 			return errors.New("You can only request transactions to yourself")
 		}
 	}
+	if transaction.FromUserId == transaction.ToUserId {
+		return errors.New("You can not create transactions from and to yourself")
+	}
 
 	return nil
 }
@@ -511,6 +517,9 @@ func AcceptTransaction(c *gin.Context) {
 		return
 	}
 
+	fromUserLastTransaction, _ := App.Store.LastConfirmedTransactionForUser(transaction.FromUserId)
+	toUserLastTransaction, _ := App.Store.LastConfirmedTransactionForUser(transaction.ToUserId)
+
 	claims := jwt.ExtractClaims(c)
 	loggedInUserId := uint(claims["id"].(float64))
 	if transaction.Status == store.TransactionOffered {
@@ -520,6 +529,8 @@ func AcceptTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionOfferApproved
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int(float32(transaction.Seconds)*transaction.Multiplier+float32(transaction.TxFee))
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int(float32(transaction.Seconds)*transaction.Multiplier)
 	}
 	if transaction.Status == store.TransactionRequested {
 		if transaction.FromUserId != loggedInUserId {
@@ -528,7 +539,10 @@ func AcceptTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionRequestApproved
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int(float32(transaction.Seconds)*transaction.Multiplier)
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int(float32(transaction.Seconds)*transaction.Multiplier-float32(transaction.TxFee))
 	}
+	transaction.ConfirmedDate = store.PosixDateTime(time.Now())
 	_, err = App.Store.UpdateTransaction(transaction)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
@@ -576,6 +590,7 @@ func RejectTransaction(c *gin.Context) {
 
 		transaction.Status = store.TransactionRequestRejected
 	}
+	transaction.ConfirmedDate = store.PosixDateTime(time.Now())
 	_, err = App.Store.UpdateTransaction(transaction)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed update - err: %s", err.Error())})

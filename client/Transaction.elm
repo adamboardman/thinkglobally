@@ -10,7 +10,7 @@ import Bootstrap.Table as Table exposing (Row, rowAttr)
 import Dict exposing (Dict)
 import FormValidation exposing (viewProblem)
 import FormatNumber exposing (format)
-import Html exposing (Html, h4, text, ul)
+import Html exposing (Html, div, h4, text, ul)
 import Html.Attributes as Attributes exposing (class, for, style)
 import Html.Events exposing (onSubmit)
 import Http exposing (emptyBody)
@@ -32,6 +32,13 @@ transactionFieldsToValidate =
 transactionSummary : Model -> Transaction -> Row msg
 transactionSummary model tx =
     let
+        date =
+            if Time.posixToMillis tx.initiatedDate > 0 then
+                formatDate model tx.initiatedDate
+
+            else
+                formatDate model tx.confirmedDate
+
         fromUser =
             Dict.get (String.fromInt tx.fromUserId) model.txUsers
 
@@ -94,7 +101,11 @@ transactionSummary model tx =
                     ""
 
         balance =
-            0
+            if model.loggedInUser.id == tx.fromUserId then
+                toFloat tx.fromUserBalance / 3600
+
+            else
+                toFloat tx.toUserBalance / 3600
     in
     Table.tr
         [ if tx.status > 4 then
@@ -103,7 +114,7 @@ transactionSummary model tx =
           else
             rowAttr (style "" "")
         ]
-        [ Table.td [] [ text (formatDate model tx.date) ]
+        [ Table.td [] [ text date ]
         , Table.td [] [ text fromUserName ]
         , Table.td [] [ text toUserName ]
         , Table.td [] [ text status ]
@@ -116,6 +127,13 @@ transactionSummary model tx =
 pendingTransactionSummary : Model -> Transaction -> Row Msg
 pendingTransactionSummary model tx =
     let
+        date =
+            if Time.posixToMillis tx.initiatedDate > 0 then
+                formatDate model tx.initiatedDate
+
+            else
+                formatDate model tx.confirmedDate
+
         fromUser =
             Dict.get (String.fromInt tx.fromUserId) model.txUsers
 
@@ -169,7 +187,7 @@ pendingTransactionSummary model tx =
                     ""
     in
     Table.tr []
-        [ Table.td [] [ text (formatDate model tx.date) ]
+        [ Table.td [] [ text date ]
         , Table.td [] [ text fromUserName ]
         , Table.td [] [ text toUserName ]
         , Table.td [] [ text (format tgsLocale time) ]
@@ -249,7 +267,7 @@ pageTransaction model =
             [ text "Request" ]
         ]
     , if model.creatingTransaction == TxNone then
-        text ""
+        div [] [ text "Select Offer or Request to creat a new transaction" ]
 
       else
         viewCreateTransactionForm model
@@ -482,7 +500,7 @@ transaction model (TransactionTrimmed form) =
         body =
             Encode.object
                 [ ( "Email", Encode.string form.email )
-                , ( "Date", Encode.int (Time.posixToMillis model.time) )
+                , ( "InitiatedDate", Encode.int (Time.posixToMillis model.time) )
                 , ( "Seconds", Encode.int seconds )
                 , ( "Multiplier", Encode.float (Maybe.withDefault 0 (String.toFloat form.multiplier)) )
                 , ( "Status", Encode.int status )

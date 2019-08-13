@@ -108,7 +108,8 @@ func (d *PosixDateTime) Scan(src interface{}) error {
 
 type Transaction struct {
 	gorm.Model
-	Date            PosixDateTime
+	InitiatedDate   PosixDateTime `gorm:"type:timestamp with time zone"`
+	ConfirmedDate   PosixDateTime `gorm:"type:timestamp with time zone"`
 	FromUserId      uint
 	ToUserId        uint
 	Seconds         uint
@@ -119,6 +120,16 @@ type Transaction struct {
 	ToPreviousTId   uint
 	FromPreviousTId uint
 	Status          uint
+	FromUserBalance int
+	ToUserBalance   int
+}
+
+func (t Transaction) Balance(userId uint) int {
+	if userId == t.FromUserId {
+		return t.FromUserBalance
+	} else {
+		return t.ToUserBalance
+	}
 }
 
 func readPostgresArgs() string {
@@ -312,7 +323,7 @@ func (s *Store) InsertTransaction(transaction *Transaction) (uint, error) {
 
 func (s *Store) ListTransactionsForUser(userId uint) ([]Transaction, error) {
 	var transactions []Transaction
-	err := s.db.Where("from_user_id=? OR to_user_id=?", userId, userId).Find(&transactions).Error
+	err := s.db.Where("from_user_id=? OR to_user_id=?", userId, userId).Order("confirmed_date").Find(&transactions).Error
 	return transactions, err
 }
 
@@ -335,4 +346,11 @@ func (s *Store) ListTransactionPartners(userId uint) ([]PublicUser, error) {
 	var users []PublicUser
 	err := s.db.Raw("SELECT * FROM users WHERE users.deleted_at IS NULL AND users.id IN (SELECT to_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?)) UNION SELECT from_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?)))", userId, userId, userId, userId).Scan(&users).Error
 	return users, err
+}
+
+func (s *Store) LastConfirmedTransactionForUser(userId uint) (Transaction, error) {
+	var transaction Transaction
+	err := s.db.Where("status > 2 AND (from_user_id=? OR to_user_id=?)", userId, userId).Order("confirmed_date DESC").Take(&transaction).Error
+	return transaction, err
+
 }

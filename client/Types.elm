@@ -91,7 +91,8 @@ type alias Tag =
 
 type alias Transaction =
     { id : Int
-    , date : Time.Posix
+    , initiatedDate : Time.Posix
+    , confirmedDate : Time.Posix
     , fromUserId : Int
     , toUserId : Int
     , seconds : Int
@@ -99,6 +100,8 @@ type alias Transaction =
     , txFee : Int
     , status : Int
     , description : String
+    , fromUserBalance : Int
+    , toUserBalance : Int
     }
 
 
@@ -374,7 +377,8 @@ transactionDecoder : Decoder Transaction
 transactionDecoder =
     Decode.succeed Transaction
         |> required "ID" int
-        |> required "Date" posixTime
+        |> required "InitiatedDate" posixTime
+        |> required "ConfirmedDate" posixTime
         |> required "FromUserId" int
         |> required "ToUserId" int
         |> required "Seconds" int
@@ -382,6 +386,8 @@ transactionDecoder =
         |> required "TxFee" int
         |> required "Status" int
         |> required "Description" string
+        |> required "FromUserBalance" int
+        |> required "ToUserBalance" int
 
 
 
