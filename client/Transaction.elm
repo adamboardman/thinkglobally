@@ -6,12 +6,12 @@ import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 import Bootstrap.Grid as Grid
-import Bootstrap.Table as Table exposing (Row)
+import Bootstrap.Table as Table exposing (Row, rowAttr)
 import Dict exposing (Dict)
 import FormValidation exposing (viewProblem)
 import FormatNumber exposing (format)
-import Html exposing (Html, div, h4, p, span, text, ul)
-import Html.Attributes as Attributes exposing (class, for, href, step)
+import Html exposing (Html, h4, text, ul)
+import Html.Attributes as Attributes exposing (class, for, style)
 import Html.Events exposing (onSubmit)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, at, field, int, list, map2)
@@ -62,17 +62,53 @@ transactionSummary model tx =
                     Nothing ->
                         " (" ++ String.fromInt tx.toUserId ++ ")"
 
-        time =
-            ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600
+        tgsIn =
+            if model.loggedInUser.id == tx.toUserId then
+                format tgsLocale (((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600)
+
+            else
+                ""
+
+        tgsOut =
+            if model.loggedInUser.id == tx.fromUserId then
+                format tgsLocale (((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600)
+
+            else
+                ""
+
+        status =
+            case tx.status of
+                3 ->
+                    "Offer Approved"
+
+                4 ->
+                    "Request Approved"
+
+                5 ->
+                    "Offer Rejected"
+
+                6 ->
+                    "Request Rejected"
+
+                _ ->
+                    ""
 
         balance =
             0
     in
-    Table.tr []
+    Table.tr
+        [ if tx.status > 4 then
+            rowAttr (style "color" "grey")
+
+          else
+            rowAttr (style "" "")
+        ]
         [ Table.td [] [ text (formatDate model tx.date) ]
         , Table.td [] [ text fromUserName ]
         , Table.td [] [ text toUserName ]
-        , Table.td [] [ text (format tgsLocale time) ]
+        , Table.td [] [ text status ]
+        , Table.td [] [ text tgsIn ]
+        , Table.td [] [ text tgsOut ]
         , Table.td [] [ text (format tgsLocale balance) ]
         ]
 
@@ -165,7 +201,9 @@ pageTransaction model =
                 [ Table.th [] [ text "Date" ]
                 , Table.th [] [ text "From" ]
                 , Table.th [] [ text "To" ]
-                , Table.th [] [ text "TGs" ]
+                , Table.th [] [ text "Status" ]
+                , Table.th [] [ text "TGs In" ]
+                , Table.th [] [ text "TGs Out" ]
                 , Table.th [] [ text "Balance" ]
                 ]
         , tbody =
