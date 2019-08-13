@@ -74,12 +74,12 @@ func AdminPermissionsRequiredImpl(c *gin.Context) {
 	userId := uint(claims[identityId].(float64))
 	user, err := App.Store.LoadUserAsSelf(userId, userId)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"User not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
 		return
 	}
 	u := user.(*store.User)
 	if !(u.Permissions >= store.UserPermissionsEditor) {
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText":"User is not an editor"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "User is not an editor"})
 		return
 	}
 	c.Next();
@@ -116,20 +116,20 @@ func LoadUser(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	userId, err := strconv.Atoi(c.Param("userID"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Invalid UserID"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid UserID"})
 		return
 	}
 	if userId == 0 || uint(userId) == loggedInUserId {
 		user, err := App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"User not found"})
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
 			return
 		}
 		c.JSON(http.StatusOK, user)
 	} else {
 		user, err := App.Store.LoadPublicUser(uint(userId))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"User not found"})
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
 			return
 		}
 		c.JSON(http.StatusOK, user)
@@ -139,13 +139,13 @@ func LoadUser(c *gin.Context) {
 func UpdateUser(c *gin.Context) {
 	userId, err := strconv.Atoi(c.Param("userID"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("UserID - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("UserID - err: %s", err.Error())})
 		return
 	}
 
 	user, err := readJSONIntoUser(uint(userId), c)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("User details failed validation - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("User details failed validation - err: %s", err.Error())})
 		return
 	}
 
@@ -201,7 +201,7 @@ func ConceptsList(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	concepts, err := App.Store.ListConcepts()
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":fmt.Sprintf("Concepts not found")})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": fmt.Sprintf("Concepts not found")})
 	} else {
 		c.JSON(http.StatusOK, concepts)
 	}
@@ -211,12 +211,12 @@ func LoadConcept(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	conceptId, err := strconv.Atoi(c.Param("conceptID"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Invalid ConceptID"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid ConceptID"})
 		return
 	}
 	concept, err := App.Store.LoadConcept(uint(conceptId))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Concept not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Concept not found"})
 		return
 	}
 	conceptJSON := ConceptJSON{}
@@ -232,12 +232,12 @@ func FetchConcept(c *gin.Context) {
 	tag := c.Param("tag")
 	conceptTag, err := App.Store.FindConceptTag(tag)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Concept Tag not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Concept Tag not found"})
 		return
 	}
 	concept, err := App.Store.LoadConcept(conceptTag.ConceptId)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Concept for Tag not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Concept for Tag not found"})
 		return
 	}
 	conceptJSON := ConceptJSON{}
@@ -253,13 +253,13 @@ func AddConcept(c *gin.Context) {
 
 	err := readJSONIntoConcept(&concept, c, true)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Concept failed validation - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Concept failed validation - err: %s", err.Error())})
 		return
 	}
 
 	conceptId, err := App.Store.InsertConcept(&concept)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Insert Concept failed"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert Concept failed"})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -270,20 +270,20 @@ func AddConcept(c *gin.Context) {
 func UpdateConcept(c *gin.Context) {
 	conceptId, err := strconv.Atoi(c.Param("conceptID"));
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("ConceptID invalid - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("ConceptID invalid - err: %s", err.Error())})
 		return
 	}
 
 	concept := &store.Concept{}
 	concept, err = App.Store.LoadConcept(uint(conceptId))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Concept not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Concept not found"})
 		return
 	}
 
 	err = readJSONIntoConcept(concept, c, true)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Concept details failed validation - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Concept details failed validation - err: %s", err.Error())})
 		return
 	}
 
@@ -322,7 +322,7 @@ func ConceptTagsList(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	tags, err := App.Store.ListConceptTags()
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"ConceptTags not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "ConceptTags not found"})
 	} else {
 		c.JSON(http.StatusOK, tags)
 	}
@@ -354,13 +354,13 @@ func AddConceptTag(c *gin.Context) {
 
 	err := readJSONIntoConceptTag(&conceptTag, c, true)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Concept failed validation - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Concept failed validation - err: %s", err.Error())})
 		return
 	}
 
 	conceptTagId, err := App.Store.InsertConceptTag(&conceptTag)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Insert Concept Tag failed - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Insert Concept Tag failed - err: %s", err.Error())})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -372,12 +372,12 @@ func DeleteConceptTag(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	id, err := strconv.Atoi(c.Param("conceptTagID"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Invalid ConceptTagID - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Invalid ConceptTagID - err: %s", err.Error())})
 		return
 	}
 	err = App.Store.DeleteConceptTag(uint(id))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Delete ConceptTag Failed - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Delete ConceptTag Failed - err: %s", err.Error())})
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"status": http.StatusOK, "message": "ConceptTag deleted", "resourceId": id,
@@ -389,12 +389,12 @@ func LoadConceptTags(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	conceptId, err := strconv.Atoi(c.Param("conceptID"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Invalid ConceptId"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid ConceptId"})
 		return
 	}
 	conceptTags, err := App.Store.ConceptTagsForConceptId(uint(conceptId))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"ConceptTags for Concept not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "ConceptTags for Concept not found"})
 		return
 	}
 	c.JSON(http.StatusOK, conceptTags)
@@ -479,13 +479,13 @@ func AddTransaction(c *gin.Context) {
 
 	err := readJSONIntoTransaction(&transaction, c, true)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Transaction failed validation - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed validation - err: %s", err.Error())})
 		return
 	}
 
 	transactionId, err := App.Store.InsertTransaction(&transaction)
 	if err != nil || transactionId == 0 {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Insert Transaction failed"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert Transaction failed"})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -493,21 +493,21 @@ func AddTransaction(c *gin.Context) {
 	})
 }
 
-func AcceptTransaction (c *gin.Context) {
+func AcceptTransaction(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 
 	transactionId, err := strconv.Atoi(c.Param("transactionID"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Invalid TransactionId"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid TransactionId"})
 		return
 	}
 	transaction, err := App.Store.LoadTransaction(uint(transactionId))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Transaction not found"})
 		return
 	}
 	if transaction.Status != store.TransactionOffered && transaction.Status != store.TransactionRequested {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not offered or requested"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Transaction not offered or requested"})
 		return
 	}
 
@@ -531,7 +531,7 @@ func AcceptTransaction (c *gin.Context) {
 	}
 	_, err = App.Store.UpdateTransaction(transaction)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
 		return
 	}
 
@@ -540,21 +540,21 @@ func AcceptTransaction (c *gin.Context) {
 	})
 }
 
-func RejectTransaction (c *gin.Context) {
+func RejectTransaction(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 
 	transactionId, err := strconv.Atoi(c.Param("transactionID"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":"Invalid TransactionId"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid TransactionId"})
 		return
 	}
 	transaction, err := App.Store.LoadTransaction(uint(transactionId))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Transaction not found"})
 		return
 	}
 	if transaction.Status != store.TransactionOffered && transaction.Status != store.TransactionRequested {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction not offered or requested"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Transaction not offered or requested"})
 		return
 	}
 
@@ -578,7 +578,7 @@ func RejectTransaction (c *gin.Context) {
 	}
 	_, err = App.Store.UpdateTransaction(transaction)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText":fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
 		return
 	}
 
@@ -594,7 +594,7 @@ func TransactionsList(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	transactions, err := App.Store.ListTransactionsForUser(loggedInUserId)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transactions not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Transactions not found"})
 	} else {
 		c.JSON(http.StatusOK, transactions)
 	}
@@ -607,7 +607,7 @@ func UsersList(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
 	users, err := App.Store.ListTransactionPartners(loggedInUserId)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText":"Transaction Users not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Transaction Users not found"})
 	} else {
 		c.JSON(http.StatusOK, users)
 	}
