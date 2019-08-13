@@ -1,10 +1,11 @@
-module Types exposing (ApiActionResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, formatDate, indexUser, posixTime, profileDecoder, tagDecoder, tgsLocale, toIntMonth, transactionDecoder, userDecoder)
+module Types exposing (ApiActionResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, formatDate, indexUser, posixTime, profileDecoder, tagDecoder, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, toIntMonth, transactionDecoder, userDecoder)
 
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Dict exposing (Dict)
+import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (Locale)
 import Http
 import Json.Decode as Decode exposing (Decoder, at, float, int, list, map3, map4, map5, map6, map7, map8, string)
@@ -126,6 +127,7 @@ type alias ProfileForm =
 
 type alias TransactionForm =
     { email : String
+    , tgs : String
     , time : String
     , multiplier : String
     }
@@ -177,6 +179,7 @@ type Msg
     | EnteredUserMobile String
     | EnteredUserEmail String
     | EnteredTransactionEmail String
+    | EnteredTransactionTGs String
     | EnteredTransactionTime String
     | EnteredTransactionMultiplier String
     | CompletedLogin (Result Http.Error Session)
@@ -265,6 +268,40 @@ formatDate model date =
             String.padLeft 2 '0' (String.fromInt (Time.toMinute model.timeZone date))
     in
     year ++ "-" ++ month ++ "-" ++ day ++ " " ++ hour ++ ":" ++ minute
+
+
+tgsFromTimeAndMultiplier : String -> String -> String
+tgsFromTimeAndMultiplier time multiplier =
+    let
+        timeParts =
+            String.split ":" time
+
+        seconds =
+            (Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (List.head timeParts))) * 60 * 60)
+                + (Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (List.head (Maybe.withDefault [] (List.tail timeParts))))) * 60)
+
+        multiplied =
+            toFloat seconds * Maybe.withDefault 1.0 (String.toFloat multiplier)
+    in
+    format tgsLocale (multiplied / (60.0 * 60.0))
+
+
+timeFromTgs : String -> String -> String
+timeFromTgs tgs multiplier =
+    let
+        divider =
+            Maybe.withDefault 1 (String.toFloat multiplier)
+
+        tgsFloat =
+            Maybe.withDefault 0 (String.toFloat tgs)
+
+        divided =
+            tgsFloat / divider
+
+        tgsInt =
+            floor divided
+    in
+    String.padLeft 2 '0' (String.fromInt tgsInt) ++ ":" ++ String.padLeft 2 '0' (String.fromInt (floor ((divided - toFloat tgsInt) * 60.0)))
 
 
 

@@ -250,6 +250,18 @@ viewCreateTransactionForm model =
             , Grid.row []
                 [ Grid.col []
                     [ Form.group []
+                        [ Form.label [ for "tgs" ] [ text "TGs (living wage hours)" ]
+                        , Input.text
+                            [ Input.id "tgs"
+                            , Input.placeholder "TGs"
+                            , Input.onInput EnteredTransactionTGs
+                            , Input.value model.transactionForm.tgs
+                            ]
+                        , Form.invalidFeedback [] [ text "Please enter the TGs for the transaction" ]
+                        ]
+                    ]
+                , Grid.col []
+                    [ Form.group []
                         [ Form.label [ for "time" ] [ text "Time (HH:mm)" ]
                         , Input.time
                             [ Input.id "time"
@@ -372,6 +384,7 @@ transactionTrimFields : TransactionForm -> TransactionTrimmedForm
 transactionTrimFields form =
     TransactionTrimmed
         { email = String.trim form.email
+        , tgs = String.trim form.tgs
         , time = String.trim form.time
         , multiplier = String.trim form.multiplier
         }

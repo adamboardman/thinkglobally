@@ -19,7 +19,7 @@ import Register exposing (pageRegister, register, registerUpdateForm, registerVa
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, indexUser, profileDecoder, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, indexUser, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
 
@@ -87,6 +87,7 @@ init flags url key =
                     }
                 , transactionForm =
                     { email = ""
+                    , tgs = ""
                     , time = ""
                     , multiplier = "1"
                     }
@@ -348,11 +349,26 @@ update msg model =
         EnteredTransactionEmail email ->
             transactionUpdateForm (\form -> { form | email = email }) model
 
+        EnteredTransactionTGs tgs ->
+            let
+                newTime =
+                    timeFromTgs tgs model.transactionForm.multiplier
+            in
+            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime }) model
+
         EnteredTransactionTime time ->
-            transactionUpdateForm (\form -> { form | time = time }) model
+            let
+                tgs =
+                    tgsFromTimeAndMultiplier time model.transactionForm.multiplier
+            in
+            transactionUpdateForm (\form -> { form | tgs = tgs, time = time }) model
 
         EnteredTransactionMultiplier multiplier ->
-            transactionUpdateForm (\form -> { form | multiplier = multiplier }) model
+            let
+                tgs =
+                    tgsFromTimeAndMultiplier model.transactionForm.time multiplier
+            in
+            transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier }) model
 
         TransactionState state ->
             ( { model | creatingTransaction = state }
