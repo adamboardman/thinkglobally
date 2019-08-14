@@ -14,6 +14,7 @@ import Http exposing (Error(..), emptyBody)
 import Json.Decode as Decode exposing (Decoder, field)
 import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
+import Ports exposing (storeExpire, storeToken)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
 import Task
@@ -29,7 +30,9 @@ import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
 
 
 type alias Flags =
-    {}
+    { token : Maybe String
+    , expire : Maybe String
+    }
 
 
 
@@ -64,7 +67,7 @@ init flags url key =
                 , problems = []
                 , loginForm = { email = "", password = "" }
                 , registerForm = { email = "", password = "", password_confirm = "" }
-                , session = { loginExpire = "", loginToken = "" }
+                , session = { loginExpire = Maybe.withDefault "" flags.expire, loginToken = Maybe.withDefault "" flags.token }
                 , apiActionResponse = { status = 0, resourceId = 0 }
                 , loggedInUser =
                     { id = 0
@@ -245,7 +248,11 @@ update msg model =
                       }
                     , case url.fragment of
                         Just "logout" ->
-                            Nav.pushUrl model.navKey "#"
+                            Cmd.batch
+                                [ Nav.pushUrl model.navKey "#"
+                                , storeToken Nothing
+                                , storeExpire Nothing
+                                ]
 
                         _ ->
                             Nav.pushUrl model.navKey (Url.toString url)
@@ -386,12 +393,19 @@ update msg model =
                         |> List.map ServerError
             in
             ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
-            , Cmd.none
+            , Cmd.batch
+                [ storeToken Nothing
+                , storeExpire Nothing
+                ]
             )
 
         CompletedLogin (Ok res) ->
             ( { model | session = res, loading = Loading.Off }
-            , loadUser res.loginToken 0
+            , Cmd.batch
+                [ loadUser res.loginToken 0
+                , storeToken (Just res.loginToken)
+                , storeExpire (Just res.loginExpire)
+                ]
             )
 
         LoadedUser (Err error) ->
