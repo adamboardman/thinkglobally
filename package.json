@@ -1,0 +1,29 @@
+{
+  "name": "thinkglobally",
+  "version": "1.0.0",
+  "description": "A time based alternative to currencies",
+  "dependencies": {
+    "@babel/core": "^7.5.5",
+    "@webcomponents/webcomponentsjs": "^2.2.10",
+    "autoprefixer": "^9.6.1",
+    "babel-loader": "^8.0.6",
+    "clean-webpack-plugin": "^3.0.0",
+    "mini-css-extract-plugin": "^0.8.0",
+    "postcss-functions": "^3.0.0",
+    "precss": "^4.0.0",
+    "react": "^16.8.6",
+    "react-dom": "^16.9.0",
+    "react-markdown-concepts": "file:../react-markdown-concepts/react-markdown-concepts-4.1.0.tgz",
+    "webpack": "^4.35.3",
+    "webpack-cli": "^3.3.6"
+  },
+  "scripts": {
+    "eslint": "eslint public/markdown-concepts.jsx",
+    "debug": "webpack --mode=development --progress --colors --bail",
+    "build": "webpack --mode=production --progress --colors --bail"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamboardman/thinkglobally.git"
+  }
+}

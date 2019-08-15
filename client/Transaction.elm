@@ -18,7 +18,7 @@ import Json.Decode exposing (Decoder, at, field, int, list, map2)
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, formatDate, tgsLocale, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, conceptTagDecoder, formatDate, tgsLocale, transactionDecoder, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField

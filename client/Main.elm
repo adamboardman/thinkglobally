@@ -6,7 +6,7 @@ import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
-import Concept exposing (pageConcept)
+import Concept exposing (loadConceptTagsList, loadConcepts, pageConcept)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (href)
@@ -20,9 +20,9 @@ import Register exposing (pageRegister, register, registerUpdateForm, registerVa
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, indexUser, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, indexUser, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, userDecoder)
 import Url exposing (Url)
-import Url.Parser as UrlParser exposing ((</>), Parser, s, top)
+import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
 
 
@@ -108,6 +108,9 @@ init flags url key =
                 , txUsers = Dict.empty
                 , timeZone = Time.utc
                 , time = Time.millisToPosix 0
+                , conceptsList = []
+                , conceptTagsList = []
+                , displayableTagsList = []
                 }
     in
     ( model
@@ -151,7 +154,7 @@ menu model =
               else
                 Navbar.itemLink [ href "" ] [ text "" ]
             , if loggedIn model then
-                Navbar.itemLink [ href "#transaction" ] [ text "Transactions" ]
+                Navbar.itemLink [ href "#transactions" ] [ text "Transactions" ]
 
               else
                 Navbar.itemLink [ href "" ] [ text "" ]
@@ -188,6 +191,9 @@ mainContent model =
 
             NotFound ->
                 pageNotFound
+
+            Concepts _ ->
+                pageConcept model
 
 
 pageLogout : Model -> List (Html Msg)
@@ -438,6 +444,39 @@ update msg model =
             , Cmd.none
             )
 
+        LoadedConcepts (Err error) ->
+            ( { model | loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedConcepts (Ok res) ->
+            let
+                dTags =
+                    displayableTagsListFrom model.conceptTagsList res
+            in
+            ( { model | conceptsList = res, displayableTagsList = dTags, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedConceptTagsList (Err error) ->
+            let
+                serverErrors =
+                    decodeErrors error
+                        |> List.map ServerError
+            in
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedConceptTagsList (Ok res) ->
+            let
+                dTags =
+                    displayableTagsListFrom res model.conceptsList
+            in
+            ( { model | conceptTagsList = res, displayableTagsList = dTags, loading = Loading.Off }
+            , Cmd.none
+            )
+
         LoadedTransactions (Err error) ->
             ( { model | loading = Loading.Off }
             , Cmd.none
@@ -598,17 +637,21 @@ urlUpdate url model =
 
         Just page ->
             ( { model | page = page }
-            , if page == Profile then
-                loadProfile model.session.loginToken
+            , case page of
+                Profile ->
+                    loadProfile model.session.loginToken
 
-              else if page == Home then
-                loadConcept "index"
+                Home ->
+                    Cmd.batch [ loadConcept "index", loadConceptTagsList model, loadConcepts model ]
 
-              else if page == Transactions then
-                Cmd.batch [ loadTransactions model, loadTxUsers model ]
+                Concepts tag ->
+                    Cmd.batch [ loadConcept tag, loadConceptTagsList model, loadConcepts model ]
 
-              else
-                Cmd.none
+                Transactions ->
+                    Cmd.batch [ loadTransactions model, loadTxUsers model ]
+
+                _ ->
+                    Cmd.none
             )
 
 
@@ -625,8 +668,9 @@ routeParser =
         , UrlParser.map Login (s "login")
         , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register")
-        , UrlParser.map Transactions (s "transaction")
+        , UrlParser.map Transactions (s "transactions")
         , UrlParser.map Profile (s "profile")
+        , UrlParser.map Concepts (s "concepts" </> string)
         ]
 
 

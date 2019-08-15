@@ -1,16 +1,18 @@
-module Types exposing (ApiActionResponse, Concept, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, formatDate, indexUser, posixTime, profileDecoder, tagDecoder, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, toIntMonth, transactionDecoder, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptTag, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagsListFrom, formatDate, idFromConcept, indexUser, posixTime, profileDecoder, tagDecoder, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, toIntMonth, transactionDecoder, userDecoder)
 
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Dict exposing (Dict)
+import Dict.Extra exposing (fromListBy)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (Locale)
 import Http
 import Json.Decode as Decode exposing (Decoder, at, float, int, list, map3, map4, map5, map6, map7, map8, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
+import Set
 import Time exposing (Month)
 import Url exposing (Url)
 
@@ -36,6 +38,9 @@ type alias Model =
     , txUsers : Dict String User
     , timeZone : Time.Zone
     , time : Time.Posix
+    , conceptsList : List Concept
+    , conceptTagsList : List ConceptTag
+    , displayableTagsList : List DisplayableTag
     }
 
 
@@ -46,6 +51,7 @@ type Page
     | Register
     | Profile
     | Transactions
+    | Concepts String
     | NotFound
 
 
@@ -86,6 +92,22 @@ type alias Tag =
     { id : Int
     , order : Int
     , tag : String
+    }
+
+
+type alias ConceptTag =
+    { id : Int
+    , tag : String
+    , conceptId : Int
+    , order : Int
+    }
+
+
+type alias DisplayableTag =
+    { id : Int
+    , index : String
+    , summary : String
+    , tags : List String
     }
 
 
@@ -200,6 +222,8 @@ type Msg
     | LoadedTxUsers (Result Http.Error (List User))
     | AcceptedTransaction (Result Http.Error ApiActionResponse)
     | RejectedTransaction (Result Http.Error ApiActionResponse)
+    | LoadedConcepts (Result Http.Error (List Concept))
+    | LoadedConceptTagsList (Result Http.Error (List ConceptTag))
     | AcceptTransaction Int
     | RejectTransaction Int
     | AdjustTimeZone Time.Zone
@@ -319,6 +343,72 @@ indexUser user =
     ( String.fromInt user.id, user )
 
 
+idFromConcept : Concept -> Int
+idFromConcept concept =
+    concept.id
+
+
+conceptIdFromConceptTag : ConceptTag -> Int
+conceptIdFromConceptTag conceptTag =
+    conceptTag.conceptId
+
+
+tagFromConceptTagIfMatching : Int -> ConceptTag -> Maybe String
+tagFromConceptTagIfMatching conceptId conceptTag =
+    if conceptTag.conceptId == conceptId then
+        Just conceptTag.tag
+
+    else
+        Nothing
+
+
+displayableTagFrom : List ConceptTag -> Dict Int Concept -> Int -> DisplayableTag
+displayableTagFrom conceptTags concepts conceptId =
+    let
+        tags =
+            List.filterMap (tagFromConceptTagIfMatching conceptId) conceptTags
+
+        index =
+            case List.head tags of
+                Just tag ->
+                    tag
+
+                Nothing ->
+                    ""
+
+        maybeConcept =
+            Dict.get conceptId concepts
+
+        summary =
+            case maybeConcept of
+                Just concept ->
+                    concept.summary
+
+                Nothing ->
+                    ""
+    in
+    { id = conceptId
+    , index = index
+    , summary = summary
+    , tags = tags
+    }
+
+
+displayableTagsListFrom : List ConceptTag -> List Concept -> List DisplayableTag
+displayableTagsListFrom conceptTags concepts =
+    let
+        conceptIdList =
+            Set.toList (Set.fromList (List.map conceptIdFromConceptTag conceptTags))
+
+        groupedConcepts =
+            fromListBy idFromConcept concepts
+
+        dTags =
+            List.map (displayableTagFrom conceptTags groupedConcepts) conceptIdList
+    in
+    dTags
+
+
 
 -- DECODERS
 
@@ -364,6 +454,15 @@ tagDecoder =
         |> required "ID" int
         |> required "Order" int
         |> required "Tag" string
+
+
+conceptTagDecoder : Decoder ConceptTag
+conceptTagDecoder =
+    Decode.succeed ConceptTag
+        |> required "ID" int
+        |> required "Tag" string
+        |> required "ConceptId" int
+        |> required "Order" int
 
 
 posixTime : Decode.Decoder Time.Posix

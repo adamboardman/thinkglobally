@@ -32,6 +32,25 @@ You'll need to get lots of go dependencies using something similar to:
 
 go get golang.org/x/sys/cpu
 
+### Markdown
+
+Pack markdown with concept highlighting
+
+```
+go get github.com/adamboardman/react-markdown-concepts
+cd go/src/github.com/adamboardman/react-markdown-concepts
+npm install
+npm run-script pack
+```
+
+Install markdown with concept highlighting and the rest of the react parts that are needed
+
+```
+cd go/src/github.com/adamboardman/thinkglobally
+npm install
+npm install ../react-markdown-concepts/react-markdown-concepts-4.1.0.tgz
+```
+
 ## Testing
 
 Should always check that the tests are passing before committing:
@@ -43,6 +62,7 @@ go test ./server
 ## Debugging
 To run the server locally you need to:
 ```
+npm run debug
 elm make client/Main.elm --output public/elm.js --debug
 go run main.go -debugging=true
 ```
@@ -50,6 +70,7 @@ go run main.go -debugging=true
 ## Compile for deployment
 To compile on the server:
 ```
+npm run build
 elm make client/Main.elm --optimize --output=public/elm.js
 uglifyjs public/elm.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | uglifyjs --mangle --output=public/elm.min.js
 go build main.go
