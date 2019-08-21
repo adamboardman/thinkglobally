@@ -1,18 +1,16 @@
-module Profile exposing (ProfileTrimmedForm(..), pageProfile, profile, profileFieldsToValidate, profileTrimFields, profileUpdateForm, profileValidate, updateProfileDecoder, validateField, viewProfileForm)
+module Profile exposing (ProfileTrimmedForm(..), pageProfile, profile, profileFieldsToValidate, profileTrimFields, profileUpdateForm, profileValidate, validateField, viewProfileForm)
 
 import Bootstrap.Button as Button
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
-import Bootstrap.Form.InputGroup exposing (Input)
 import FormValidation exposing (viewProblem)
-import Html exposing (Html, button, div, fieldset, h1, input, text, ul)
-import Html.Attributes exposing (class, for, placeholder, value)
-import Html.Events exposing (onInput, onSubmit)
+import Html exposing (Html, div, h1, text, ul)
+import Html.Attributes exposing (class, for)
+import Html.Events exposing (onSubmit)
 import Http
-import Json.Decode exposing (Decoder, at, int, map2)
 import Json.Encode as Encode
 import Loading
-import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), ProfileForm, User, ValidatedField(..), authHeader)
+import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), ProfileForm, User, ValidatedField(..), apiActionDecoder, authHeader)
 
 
 profileFieldsToValidate : List ValidatedField
@@ -189,16 +187,9 @@ profile token (ProfileTrimmed form) =
     Http.request
         { method = "PUT"
         , url = "/api/users/" ++ String.fromInt form.id
-        , expect = Http.expectJson GotUpdateProfileJson updateProfileDecoder
+        , expect = Http.expectJson GotUpdateProfileJson apiActionDecoder
         , headers = [ authHeader token ]
         , body = body
         , timeout = Nothing
         , tracker = Nothing
         }
-
-
-updateProfileDecoder : Decoder ApiActionResponse
-updateProfileDecoder =
-    map2 ApiActionResponse
-        (at [ "status" ] int)
-        (at [ "resourceId" ] int)

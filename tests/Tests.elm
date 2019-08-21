@@ -3,9 +3,8 @@ module Tests exposing (decodeConcept, decodeLogin, decodeRegister, decodeUser, f
 import Expect exposing (Expectation)
 import Json.Decode
 import Login exposing (loginDecoder)
-import Register exposing (registerDecoder)
 import Test exposing (..)
-import Types exposing (conceptDecoder, userDecoder)
+import Types exposing (apiActionDecoder, conceptDecoder, userDecoder)
 
 
 decodeLogin : Test
@@ -71,13 +70,14 @@ decodeRegister =
 
                 decodedOutput =
                     Json.Decode.decodeString
-                        registerDecoder
+                        apiActionDecoder
                         input
             in
             Expect.equal decodedOutput
                 (Ok
                     { status = 200
                     , resourceId = 315
+                    , resourceIds = []
                     }
                 )
 
@@ -133,5 +133,29 @@ decodeConcept =
                     , summary = "lost secret keys"
                     , full = "With TG's"
                     , tags = []
+                    }
+                )
+
+
+decodeApiAction : Test
+decodeApiAction =
+    test "decode api action response json" <|
+        \() ->
+            let
+                input =
+                    """
+                   {"message":"ConceptTag deleted","resourceIds":[437,34],"status":200}
+                    """
+
+                decodedOutput =
+                    Json.Decode.decodeString
+                        apiActionDecoder
+                        input
+            in
+            Expect.equal decodedOutput
+                (Ok
+                    { resourceId = 0
+                    , resourceIds = [ 437, 34 ]
+                    , status = 200
                     }
                 )

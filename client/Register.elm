@@ -1,17 +1,16 @@
-module Register exposing (RegisterTrimmedForm(..), pageRegister, register, registerDecoder, registerFieldsToValidate, registerTrimFields, registerUpdateForm, registerValidate, validateField, viewRegisterForm)
+module Register exposing (RegisterTrimmedForm(..), pageRegister, register, registerFieldsToValidate, registerTrimFields, registerUpdateForm, registerValidate, validateField, viewRegisterForm)
 
 import Bootstrap.Button as Button
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import FormValidation exposing (viewProblem)
-import Html exposing (Html, a, button, div, fieldset, h1, input, p, text, ul)
-import Html.Attributes exposing (class, for, href, placeholder, type_, value)
-import Html.Events exposing (onInput, onSubmit)
+import Html exposing (Html, a, div, h1, p, text, ul)
+import Html.Attributes exposing (class, for, href)
+import Html.Events exposing (onSubmit)
 import Http
-import Json.Decode exposing (Decoder, at, field, int, map2, string)
 import Json.Encode as Encode
 import Loading
-import Types exposing (ApiActionResponse, LoginForm, Model, Msg(..), Problem(..), RegisterForm, Session, ValidatedField(..))
+import Types exposing (ApiActionResponse, LoginForm, Model, Msg(..), Problem(..), RegisterForm, Session, ValidatedField(..), apiActionDecoder)
 
 
 registerFieldsToValidate : List ValidatedField
@@ -169,16 +168,9 @@ register (RegisterTrimmed form) =
     Http.request
         { method = "POST"
         , url = "/api/auth/register"
-        , expect = Http.expectJson GotRegisterJson registerDecoder
+        , expect = Http.expectJson GotRegisterJson apiActionDecoder
         , headers = []
         , body = body
         , timeout = Nothing
         , tracker = Nothing
         }
-
-
-registerDecoder : Decoder ApiActionResponse
-registerDecoder =
-    map2 ApiActionResponse
-        (at [ "status" ] int)
-        (at [ "resourceId" ] int)

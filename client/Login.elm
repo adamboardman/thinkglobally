@@ -4,9 +4,9 @@ import Bootstrap.Button as Button
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import FormValidation exposing (viewProblem)
-import Html exposing (Html, a, button, div, fieldset, h1, input, p, text, ul)
-import Html.Attributes exposing (class, for, href, novalidate, placeholder, type_, value)
-import Html.Events exposing (onInput, onSubmit)
+import Html exposing (Html, a, div, h1, p, text, ul)
+import Html.Attributes exposing (class, for, href)
+import Html.Events exposing (onSubmit)
 import Http
 import Json.Decode exposing (Decoder, at, field, map2, string)
 import Json.Encode as Encode
@@ -29,6 +29,11 @@ loggedIn model =
 userIsEditor : Model -> Bool
 userIsEditor model =
     loggedIn model && model.loggedInUser.permissions > 0
+
+
+userIsAdmin : Model -> Bool
+userIsAdmin model =
+    loggedIn model && model.loggedInUser.permissions > 1
 
 
 pageLogin : Model -> List (Html Msg)

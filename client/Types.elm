@@ -1,18 +1,20 @@
-module Types exposing (ApiActionResponse, Concept, ConceptTag, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagsListFrom, formatDate, idFromConcept, indexUser, posixTime, profileDecoder, tagDecoder, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, toIntMonth, transactionDecoder, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, userDecoder)
 
+import Array exposing (Array)
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
+import Char exposing (isDigit)
 import Dict exposing (Dict)
 import Dict.Extra exposing (fromListBy)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (Locale)
 import Http
-import Json.Decode as Decode exposing (Decoder, at, float, int, list, map3, map4, map5, map6, map7, map8, string)
+import Json.Decode as Decode exposing (Decoder, at, float, int, list, map7, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
-import Set
+import Set exposing (Set)
 import Time exposing (Month)
 import Url exposing (Url)
 
@@ -22,12 +24,13 @@ type alias Model =
     , page : Page
     , navState : Navbar.State
     , loading : Loading.LoadingState
-    , modalVisibility : Modal.Visibility
     , problems : List Problem
     , loginForm : LoginForm
     , registerForm : RegisterForm
     , profileForm : ProfileForm
     , transactionForm : TransactionForm
+    , conceptForm : ConceptForm
+    , conceptTagForm : ConceptTagForm
     , session : Session
     , apiActionResponse : ApiActionResponse
     , loggedInUser : User
@@ -41,6 +44,7 @@ type alias Model =
     , conceptsList : List Concept
     , conceptTagsList : List ConceptTag
     , displayableTagsList : List DisplayableTag
+    , conceptShowTagModel : Modal.Visibility
     }
 
 
@@ -52,6 +56,8 @@ type Page
     | Profile
     | Transactions
     | Concepts String
+    | ConceptsEdit String
+    | ConceptsList
     | NotFound
 
 
@@ -64,6 +70,7 @@ type alias Session =
 type alias ApiActionResponse =
     { status : Int
     , resourceId : Int
+    , resourceIds : List Int
     }
 
 
@@ -160,6 +167,19 @@ type alias TransactionForm =
     }
 
 
+type alias ConceptForm =
+    { name : String
+    , tags : List ConceptTag
+    , tagsToDelete : Set Int
+    , summary : String
+    , full : String
+    }
+
+
+type alias ConceptTagForm =
+    { tag : String }
+
+
 type ValidatedField
     = Email
     | Password
@@ -171,6 +191,8 @@ type ValidatedField
     | Mobile
     | Time
     | Multiplier
+    | Name
+    | TagTag
 
 
 type Problem
@@ -188,12 +210,12 @@ type Msg
     = ChangedUrl Url
     | ClickedLink UrlRequest
     | NavMsg Navbar.State
-    | CloseModal
-    | ShowModal
     | SubmittedLoginForm
     | SubmittedRegisterForm
     | SubmittedProfileForm
     | SubmittedTransactionForm
+    | SubmittedConceptForm
+    | SubmittedAddConceptTagForm
     | EnteredLoginEmail String
     | EnteredLoginPassword String
     | EnteredRegisterEmail String
@@ -210,14 +232,23 @@ type Msg
     | EnteredTransactionTime String
     | EnteredTransactionMultiplier String
     | EnteredTransactionDescription String
+    | EnteredConceptName String
+    | EnteredConceptTagCheckToDelete Int Bool
+    | EnteredConceptSummary String
+    | EnteredConceptFull String
+    | EnteredAddConceptTag String
     | CompletedLogin (Result Http.Error Session)
     | GotRegisterJson (Result Http.Error ApiActionResponse)
     | LoadedUser (Result Http.Error User)
     | LoadedProfile (Result Http.Error ProfileForm)
     | LoadedConcept (Result Http.Error Concept)
+    | LoadedConceptTags (Result Http.Error (List ConceptTag))
+    | ConceptTagDeleted (Result Http.Error ApiActionResponse)
     | GotUpdateProfileJson (Result Http.Error ApiActionResponse)
     | TransactionState TransactionType
     | AddedTransaction (Result Http.Error ApiActionResponse)
+    | AddedConcept (Result Http.Error ApiActionResponse)
+    | AddedConceptTag Int String (Result Http.Error ApiActionResponse)
     | LoadedTransactions (Result Http.Error (List Transaction))
     | LoadedTxUsers (Result Http.Error (List User))
     | AcceptedTransaction (Result Http.Error ApiActionResponse)
@@ -228,6 +259,9 @@ type Msg
     | RejectTransaction Int
     | AdjustTimeZone Time.Zone
     | TimeTick Time.Posix
+    | ButtonConceptAddTag
+    | ButtonConceptDeleteSelectedTags
+    | CloseConceptAddTagModal
 
 
 
@@ -236,7 +270,7 @@ type Msg
 
 tgsLocale : Locale
 tgsLocale =
-    Locale 3 "," "." "−" "" "" ""
+    Locale 4 "," "." "−" "" "" ""
 
 
 toIntMonth : Month -> Int
@@ -300,20 +334,52 @@ formatDate model date =
     year ++ "-" ++ month ++ "-" ++ day ++ " " ++ hour ++ ":" ++ minute
 
 
+secondsFromTime : String -> Int
+secondsFromTime time =
+    let
+        timeParts =
+            Array.fromList (String.split ":" (timeFromTime time))
+
+        hours =
+            Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (Array.get 0 timeParts)))
+
+        minutes =
+            Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (Array.get 1 timeParts)))
+
+        seconds =
+            Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (Array.get 2 timeParts)))
+    in
+    (hours * (60 * 60)) + (minutes * 60) + seconds
+
+
 tgsFromTimeAndMultiplier : String -> String -> String
 tgsFromTimeAndMultiplier time multiplier =
     let
-        timeParts =
-            String.split ":" time
-
-        seconds =
-            (Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (List.head timeParts))) * 60 * 60)
-                + (Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (List.head (Maybe.withDefault [] (List.tail timeParts))))) * 60)
+        total =
+            secondsFromTime time
 
         multiplied =
-            toFloat seconds * Maybe.withDefault 1.0 (String.toFloat multiplier)
+            toFloat total * Maybe.withDefault 1.0 (String.toFloat multiplier)
     in
     format tgsLocale (multiplied / (60.0 * 60.0))
+
+
+timeFromTime : String -> String
+timeFromTime time =
+    let
+        timeParts =
+            Array.fromList (String.split ":" time)
+
+        hours =
+            String.padLeft 2 '0' (Maybe.withDefault "" (Array.get 0 timeParts))
+
+        minutes =
+            String.padLeft 2 '0' (String.slice 0 2 (Maybe.withDefault "" (Array.get 1 timeParts)))
+
+        seconds =
+            String.padLeft 2 '0' (String.slice 0 2 (Maybe.withDefault "" (Array.get 2 timeParts)))
+    in
+    hours ++ ":" ++ minutes ++ ":" ++ seconds
 
 
 timeFromTgs : String -> String -> String
@@ -323,15 +389,45 @@ timeFromTgs tgs multiplier =
             Maybe.withDefault 1 (String.toFloat multiplier)
 
         tgsFloat =
-            Maybe.withDefault 0 (String.toFloat tgs)
+            Maybe.withDefault 0 (String.toFloat (String.filter isDigitOrPlace tgs))
 
         divided =
             tgsFloat / divider
 
-        tgsInt =
-            floor divided
+        tgsAsSecondsInt =
+            round (divided * 60 * 60)
+
+        tgsSec =
+            String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgsAsSecondsInt))
+
+        tgsMinInt =
+            tgsAsSecondsInt // 60
+
+        tgsHour =
+            String.padLeft 2 '0' (String.fromInt (tgsAsSecondsInt // (60 * 60)))
+
+        tgsMin =
+            String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgsMinInt))
     in
-    String.padLeft 2 '0' (String.fromInt tgsInt) ++ ":" ++ String.padLeft 2 '0' (String.fromInt (floor ((divided - toFloat tgsInt) * 60.0)))
+    tgsHour ++ ":" ++ tgsMin ++ ":" ++ tgsSec
+
+
+isDigitOrPlace : Char -> Bool
+isDigitOrPlace char =
+    if isDigit char || char == '.' then
+        True
+
+    else
+        False
+
+
+isNot : Int -> Int -> Bool
+isNot a b =
+    if a == b then
+        False
+
+    else
+        True
 
 
 
@@ -346,6 +442,11 @@ indexUser user =
 idFromConcept : Concept -> Int
 idFromConcept concept =
     concept.id
+
+
+idFromDisplayable : DisplayableTag -> Int
+idFromDisplayable dTag =
+    dTag.id
 
 
 conceptIdFromConceptTag : ConceptTag -> Int
@@ -411,6 +512,19 @@ displayableTagsListFrom conceptTags concepts =
 
 
 -- DECODERS
+
+
+resourceIdsDecoder : Decoder (List Int)
+resourceIdsDecoder =
+    list int
+
+
+apiActionDecoder : Decoder ApiActionResponse
+apiActionDecoder =
+    Decode.succeed ApiActionResponse
+        |> required "status" int
+        |> optional "resourceId" int 0
+        |> optional "resourceIds" resourceIdsDecoder []
 
 
 userDecoder : Decoder User

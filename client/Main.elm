@@ -1,12 +1,13 @@
 module Main exposing (main)
 
 import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Col as Col
 import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Concept exposing (loadConceptTagsList, loadConcepts, pageConcept)
+import ConceptsEdit exposing (concept, conceptDeleteSelectedTags, conceptTag, conceptTagUpdateForm, conceptTagValidate, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageConceptsEdit, tagIsNotIn)
+import ConceptsList exposing (pageConceptsList)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (href)
@@ -17,10 +18,11 @@ import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogi
 import Ports exposing (storeExpire, storeToken)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
+import Set
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, indexUser, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
@@ -63,12 +65,11 @@ init flags url key =
                 , navState = navState
                 , page = Home
                 , loading = Loading.Off
-                , modalVisibility = Modal.hidden
                 , problems = []
                 , loginForm = { email = "", password = "" }
                 , registerForm = { email = "", password = "", password_confirm = "" }
                 , session = { loginExpire = Maybe.withDefault "" flags.expire, loginToken = Maybe.withDefault "" flags.token }
-                , apiActionResponse = { status = 0, resourceId = 0 }
+                , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                 , loggedInUser =
                     { id = 0
                     , firstName = ""
@@ -95,6 +96,14 @@ init flags url key =
                     , multiplier = "1"
                     , description = ""
                     }
+                , conceptForm =
+                    { name = ""
+                    , tags = []
+                    , tagsToDelete = Set.empty
+                    , summary = ""
+                    , full = ""
+                    }
+                , conceptTagForm = { tag = "" }
                 , concept =
                     { id = 0
                     , name = ""
@@ -111,12 +120,19 @@ init flags url key =
                 , conceptsList = []
                 , conceptTagsList = []
                 , displayableTagsList = []
+                , conceptShowTagModel = Modal.hidden
                 }
     in
     ( model
     , Cmd.batch
         [ urlCmd
         , navCmd
+        , case flags.token of
+            Just token ->
+                loadUser token 0
+
+            Nothing ->
+                Cmd.none
         , Task.perform AdjustTimeZone Time.here
         , Task.perform TimeTick Time.now
         ]
@@ -130,7 +146,6 @@ view model =
         [ div []
             [ menu model
             , mainContent model
-            , modal model
             ]
         ]
     }
@@ -195,6 +210,12 @@ mainContent model =
             Concepts _ ->
                 pageConcept model
 
+            ConceptsList ->
+                pageConceptsList model
+
+            ConceptsEdit _ ->
+                pageConceptsEdit model
+
 
 pageLogout : Model -> List (Html Msg)
 pageLogout model =
@@ -207,26 +228,6 @@ pageNotFound =
     [ h1 [] [ text "Not found" ]
     , text "Sorry couldn't find that page"
     ]
-
-
-modal : Model -> Html Msg
-modal model =
-    Modal.config CloseModal
-        |> Modal.small
-        |> Modal.h4 [] [ text "TGs" ]
-        |> Modal.body []
-            [ Grid.containerFluid []
-                [ Grid.row []
-                    [ Grid.col
-                        [ Col.xs6 ]
-                        [ text "Col 1" ]
-                    , Grid.col
-                        [ Col.xs6 ]
-                        [ text "Col 2" ]
-                    ]
-                ]
-            ]
-        |> Modal.view model.modalVisibility
 
 
 
@@ -243,7 +244,7 @@ update msg model =
                         | problems = []
                         , loginForm = { email = "", password = "" }
                         , registerForm = { email = "", password = "", password_confirm = "" }
-                        , apiActionResponse = { status = 0, resourceId = 0 }
+                        , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                         , session =
                             case url.fragment of
                                 Just "logout" ->
@@ -273,11 +274,8 @@ update msg model =
         NavMsg state ->
             ( { model | navState = state }, Cmd.none )
 
-        CloseModal ->
-            ( { model | modalVisibility = Modal.hidden }, Cmd.none )
-
-        ShowModal ->
-            ( { model | modalVisibility = Modal.shown }, Cmd.none )
+        CloseConceptAddTagModal ->
+            ( { model | conceptShowTagModel = Modal.hidden }, Cmd.none )
 
         SubmittedLoginForm ->
             case loginValidate model.loginForm of
@@ -320,6 +318,30 @@ update msg model =
                 Ok validForm ->
                     ( { model | problems = [], loading = Loading.On }
                     , transaction model validForm
+                    )
+
+                Err problems ->
+                    ( { model | problems = problems, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        SubmittedConceptForm ->
+            case conceptValidate model.conceptForm of
+                Ok validForm ->
+                    ( { model | problems = [], loading = Loading.On }
+                    , concept model validForm
+                    )
+
+                Err problems ->
+                    ( { model | problems = problems, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        SubmittedAddConceptTagForm ->
+            case conceptTagValidate model.conceptTagForm of
+                Ok validForm ->
+                    ( { model | problems = [], loading = Loading.On }
+                    , conceptTag model validForm
                     )
 
                 Err problems ->
@@ -374,8 +396,11 @@ update msg model =
             let
                 tgs =
                     tgsFromTimeAndMultiplier time model.transactionForm.multiplier
+
+                newTime =
+                    timeFromTime time
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, time = time }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime }) model
 
         EnteredTransactionMultiplier multiplier ->
             let
@@ -386,6 +411,35 @@ update msg model =
 
         EnteredTransactionDescription description ->
             transactionUpdateForm (\form -> { form | description = description }) model
+
+        EnteredConceptName name ->
+            conceptUpdateForm (\form -> { form | name = name }) model
+
+        EnteredConceptTagCheckToDelete tagId tagState ->
+            let
+                tags =
+                    if tagState then
+                        Set.insert tagId model.conceptForm.tagsToDelete
+
+                    else
+                        Set.filter (isNot tagId) model.conceptForm.tagsToDelete
+            in
+            conceptUpdateForm (\form -> { form | tagsToDelete = tags }) model
+
+        EnteredConceptSummary summary ->
+            conceptUpdateForm (\form -> { form | summary = summary }) model
+
+        EnteredConceptFull full ->
+            conceptUpdateForm (\form -> { form | full = full }) model
+
+        EnteredAddConceptTag tag ->
+            conceptTagUpdateForm (\form -> { form | tag = tag }) model
+
+        ButtonConceptAddTag ->
+            ( { model | conceptShowTagModel = Modal.shown }, Cmd.none )
+
+        ButtonConceptDeleteSelectedTags ->
+            ( { model | loading = Loading.On }, conceptDeleteSelectedTags model )
 
         TransactionState state ->
             ( { model | creatingTransaction = state }
@@ -435,12 +489,68 @@ update msg model =
             )
 
         LoadedConcept (Err error) ->
-            ( { model | loading = Loading.Off }
+            let
+                concept =
+                    { id = 0
+                    , name = ""
+                    , summary = ""
+                    , full = ""
+                    , tags = []
+                    }
+
+                conceptForm =
+                    { name = ""
+                    , tags = []
+                    , tagsToDelete = Set.empty
+                    , summary = ""
+                    , full = ""
+                    }
+            in
+            ( { model
+                | concept =
+                    concept
+                , conceptForm =
+                    conceptForm
+                , loading = Loading.Off
+              }
             , Cmd.none
             )
 
         LoadedConcept (Ok res) ->
-            ( { model | concept = res, loading = Loading.Off }
+            let
+                conceptForm =
+                    { name = res.name
+                    , tags = model.conceptForm.tags
+                    , tagsToDelete = Set.empty
+                    , summary = res.summary
+                    , full = res.full
+                    }
+            in
+            ( { model | concept = res, conceptForm = conceptForm, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedConceptTags (Err error) ->
+            let
+                serverErrors =
+                    decodeErrors error
+                        |> List.map ServerError
+            in
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedConceptTags (Ok res) ->
+            let
+                conceptForm =
+                    { name = model.conceptForm.name
+                    , tags = res
+                    , tagsToDelete = model.conceptForm.tagsToDelete
+                    , summary = model.conceptForm.summary
+                    , full = model.conceptForm.full
+                    }
+            in
+            ( { model | conceptForm = conceptForm, problems = [], loading = Loading.Off }
             , Cmd.none
             )
 
@@ -474,6 +584,33 @@ update msg model =
                     displayableTagsListFrom res model.conceptsList
             in
             ( { model | conceptTagsList = res, displayableTagsList = dTags, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        ConceptTagDeleted (Err error) ->
+            let
+                serverErrors =
+                    decodeErrors error
+                        |> List.map ServerError
+            in
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        ConceptTagDeleted (Ok res) ->
+            let
+                conceptFormTags =
+                    List.filter (tagIsNotIn (Set.fromList res.resourceIds)) model.conceptForm.tags
+
+                conceptForm =
+                    { name = model.conceptForm.name
+                    , summary = model.conceptForm.summary
+                    , full = model.conceptForm.full
+                    , tagsToDelete = model.conceptForm.tagsToDelete
+                    , tags = conceptFormTags
+                    }
+            in
+            ( { model | conceptForm = conceptForm, loading = Loading.Off }
             , Cmd.none
             )
 
@@ -538,6 +675,71 @@ update msg model =
             case result of
                 Ok res ->
                     ( { model | apiActionResponse = res, loading = Loading.Off }, loadTransactions model )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        AddedConcept result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off }
+                    , loadConceptById res.resourceId
+                    )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        AddedConceptTag conceptId tag result ->
+            case result of
+                Ok res ->
+                    let
+                        conceptTag =
+                            { id = res.resourceId, tag = tag, conceptId = conceptId, order = 0 }
+
+                        conceptFormTags =
+                            model.conceptForm.tags ++ [ conceptTag ]
+
+                        conceptForm =
+                            { name = model.conceptForm.name
+                            , summary = model.conceptForm.summary
+                            , full = model.conceptForm.full
+                            , tagsToDelete = model.conceptForm.tagsToDelete
+                            , tags = conceptFormTags
+                            }
+
+                        tags =
+                            model.concept.tags
+                                ++ [ { id = res.resourceId
+                                     , order = 0
+                                     , tag = tag
+                                     }
+                                   ]
+
+                        concept =
+                            { id = model.concept.id
+                            , name = model.concept.name
+                            , summary = model.concept.summary
+                            , full = model.concept.full
+                            , tags = tags
+                            }
+                    in
+                    ( { model | concept = concept, conceptForm = conceptForm, apiActionResponse = res, loading = Loading.Off }
+                    , Cmd.none
+                    )
 
                 Err error ->
                     let
@@ -647,6 +849,16 @@ urlUpdate url model =
                 Concepts tag ->
                     Cmd.batch [ loadConcept tag, loadConceptTagsList model, loadConcepts model ]
 
+                ConceptsEdit id ->
+                    let
+                        conceptId =
+                            Maybe.withDefault 0 (String.toInt id)
+                    in
+                    Cmd.batch [ loadConceptById conceptId, loadConceptTagsById conceptId ]
+
+                ConceptsList ->
+                    loadConcepts model
+
                 Transactions ->
                     Cmd.batch [ loadTransactions model, loadTxUsers model ]
 
@@ -671,6 +883,8 @@ routeParser =
         , UrlParser.map Transactions (s "transactions")
         , UrlParser.map Profile (s "profile")
         , UrlParser.map Concepts (s "concepts" </> string)
+        , UrlParser.map ConceptsEdit (s "concepts" </> string </> s "edit")
+        , UrlParser.map ConceptsList (s "concepts")
         ]
 
 

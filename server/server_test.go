@@ -490,6 +490,85 @@ func TestDeleteTagAsAdmin(t *testing.T) {
 	})
 }
 
+type ApiActionResponse struct {
+	Message     string
+	ResourceId  uint
+	ResourceIds []uint
+	Status      uint
+}
+
+func TestDeleteTagsAsAdmin(t *testing.T) {
+	Convey("Given a test user", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
+
+		concept := ensureTestConceptExists("testConcept")
+
+		tagTag1 := "LETS"
+		a.Store.PurgeConceptTag(tagTag1)
+		conceptTag1 := store.ConceptTag{
+			Tag:       tagTag1,
+			ConceptId: concept.ID,
+		}
+		conceptTag1Id, err := a.Store.InsertConceptTag(&conceptTag1)
+		So(err, ShouldBeNil)
+
+		tagTag2 := "local exchange trading system"
+		a.Store.PurgeConceptTag(tagTag2)
+		conceptTag2 := store.ConceptTag{
+			Tag:       tagTag2,
+			ConceptId: concept.ID,
+		}
+		conceptTag2Id, err := a.Store.InsertConceptTag(&conceptTag2)
+		So(err, ShouldBeNil)
+
+		Convey("The user logs in", func() {
+			response := loginToUserJSON(emailAddress)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Delete tags", func() {
+				var tags [2]uint
+				tags[0] = conceptTag1Id
+				tags[1] = conceptTag2Id
+				data, _ := json.Marshal(tags)
+				post_data := bytes.NewReader(data)
+
+				req2, _ := http.NewRequest("DELETE", "/api/concept_tags", post_data)
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusOK and the tags should be removed", func() {
+					So(response2.Code, ShouldEqual, http.StatusOK)
+					body, err := ioutil.ReadAll(response2.Body)
+					So(err, ShouldBeNil)
+					responseData := new(ApiActionResponse)
+					err = json.Unmarshal(body, responseData)
+					So(err, ShouldBeNil)
+
+					So (responseData.ResourceIds[0], ShouldEqual, conceptTag1Id)
+					So (responseData.ResourceIds[1], ShouldEqual, conceptTag2Id)
+
+					conceptTags, err := a.Store.ListConceptTags()
+					So(err, ShouldBeNil)
+
+					found1 := checkArrayForConceptTag(conceptTags, tagTag1)
+					So(found1, ShouldBeFalse)
+					found2 := checkArrayForConceptTag(conceptTags, tagTag2)
+					So(found2, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
 func checkArrayForTransaction(transactions []store.Transaction, transactionJson TransactionJSON) bool {
 	found := false
 	for _, transaction := range transactions {

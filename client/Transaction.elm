@@ -1,4 +1,4 @@
-module Transaction exposing (TransactionTrimmedForm(..), acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, pendingTransactionSummary, rejectTransaction, transaction, transactionActionDecoder, transactionFieldsToValidate, transactionListDecoder, transactionSummary, transactionTrimFields, transactionUpdateForm, transactionValidate, txUsersListDecoder, validateField, viewCreateTransactionForm)
+module Transaction exposing (TransactionTrimmedForm(..), acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, pendingTransactionSummary, rejectTransaction, transaction, transactionFieldsToValidate, transactionListDecoder, transactionSummary, transactionTrimFields, transactionUpdateForm, transactionValidate, txUsersListDecoder, validateField, viewCreateTransactionForm)
 
 import Bootstrap.Button as Button
 import Bootstrap.ButtonGroup as ButtonGroup
@@ -14,11 +14,11 @@ import Html exposing (Html, div, h4, text, ul)
 import Html.Attributes as Attributes exposing (class, for, style)
 import Html.Events exposing (onSubmit)
 import Http exposing (emptyBody)
-import Json.Decode exposing (Decoder, at, field, int, list, map2)
+import Json.Decode exposing (Decoder, field, list)
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), authHeader, conceptDecoder, conceptTagDecoder, formatDate, tgsLocale, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, formatDate, secondsFromTime, tgsLocale, transactionDecoder, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField
@@ -319,8 +319,8 @@ viewCreateTransactionForm model =
                     ]
                 , Grid.col []
                     [ Form.group []
-                        [ Form.label [ for "time" ] [ text "Time (HH:mm)" ]
-                        , Input.time
+                        [ Form.label [ for "time" ] [ text "Time (HH:mm:ss)" ]
+                        , Input.text
                             [ Input.id "time"
                             , Input.placeholder "Time"
                             , Input.onInput EnteredTransactionTime
@@ -346,8 +346,16 @@ viewCreateTransactionForm model =
             , Grid.row []
                 [ Grid.col []
                     [ Form.group []
-                        [ Form.label [] [ text "Transaction Date: " ]
+                        [ Form.label [] [ text "Transaction Date:" ]
+                        , text " "
                         , text (formatDate model model.time)
+                        , text ", Transaction Value: "
+                        , text model.transactionForm.tgs
+                        , text "TGs = ("
+                        , text model.transactionForm.time
+                        , text " * "
+                        , text model.transactionForm.multiplier
+                        , text ") - 00:00:01 [Transaction Tax]"
                         ]
                     ]
                 ]
@@ -426,7 +434,7 @@ validateField (TransactionTrimmed form) field =
                 if String.isEmpty form.time then
                     [ "time can't be blank." ]
 
-                else if List.length parts == 2 then
+                else if List.length parts == 3 then
                     []
 
                 else
@@ -490,12 +498,8 @@ transaction model (TransactionTrimmed form) =
             else
                 model.loggedInUser.id
 
-        timeParts =
-            String.split ":" form.time
-
         seconds =
-            (Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (List.head timeParts))) * 60 * 60)
-                + (Maybe.withDefault 0 (String.toInt (Maybe.withDefault "0" (List.head (Maybe.withDefault [] (List.tail timeParts))))) * 60)
+            secondsFromTime form.time
 
         body =
             Encode.object
@@ -513,19 +517,12 @@ transaction model (TransactionTrimmed form) =
     Http.request
         { method = "POST"
         , url = "/api/transactions"
-        , expect = Http.expectJson AddedTransaction transactionActionDecoder
+        , expect = Http.expectJson AddedTransaction apiActionDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = body
         , timeout = Nothing
         , tracker = Nothing
         }
-
-
-transactionActionDecoder : Decoder ApiActionResponse
-transactionActionDecoder =
-    map2 ApiActionResponse
-        (at [ "status" ] int)
-        (at [ "resourceId" ] int)
 
 
 loadTransactions : Model -> Cmd Msg
@@ -569,7 +566,7 @@ acceptTransaction model txId =
     Http.request
         { method = "PATCH"
         , url = "/api/transactions/" ++ String.fromInt txId ++ "/accept"
-        , expect = Http.expectJson AcceptedTransaction transactionActionDecoder
+        , expect = Http.expectJson AcceptedTransaction apiActionDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = emptyBody
         , timeout = Nothing
@@ -582,7 +579,7 @@ rejectTransaction model txId =
     Http.request
         { method = "PATCH"
         , url = "/api/transactions/" ++ String.fromInt txId ++ "/reject"
-        , expect = Http.expectJson RejectedTransaction transactionActionDecoder
+        , expect = Http.expectJson RejectedTransaction apiActionDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = emptyBody
         , timeout = Nothing

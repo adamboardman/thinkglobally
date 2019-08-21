@@ -57,6 +57,7 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.GET("/concept_tags", ConceptTagsList)
 	api.POST("/concept_tags", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), AddConceptTag)
 	api.DELETE("/concept_tags/:conceptTagID", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), DeleteConceptTag)
+	api.DELETE("/concept_tags", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), DeleteConceptTags)
 	api.POST("/transactions", a.JwtMiddleware.MiddlewareFunc(), AddTransaction)
 	api.PATCH("/transactions/:transactionID/accept", a.JwtMiddleware.MiddlewareFunc(), AcceptTransaction)
 	api.PATCH("/transactions/:transactionID/reject", a.JwtMiddleware.MiddlewareFunc(), RejectTransaction)
@@ -386,8 +387,31 @@ func DeleteConceptTag(c *gin.Context) {
 	}
 }
 
+type ConceptTagIDs []uint
+
+func DeleteConceptTags(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	conceptTagIDs := ConceptTagIDs{}
+	err := c.BindJSON(&conceptTagIDs)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Invalid ConceptTagIDs - err: %s", err.Error())})
+		return
+	}
+	for _, id := range conceptTagIDs {
+		err = App.Store.DeleteConceptTag(uint(id))
+	}
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Delete ConceptTag Failed - err: %s", err.Error())})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK, "message": "ConceptTag deleted", "resourceIds": conceptTagIDs,
+		})
+	}
+}
+
 func LoadConceptTags(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
+
 	conceptId, err := strconv.Atoi(c.Param("conceptID"))
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid ConceptId"})
