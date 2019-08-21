@@ -71,14 +71,22 @@ transactionSummary model tx =
 
         tgsIn =
             if model.loggedInUser.id == tx.toUserId then
-                format tgsLocale (((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600)
+                if tx.status == 3 then
+                    format tgsLocale ((toFloat tx.seconds * tx.multiplier) / 3600)
+
+                else
+                    format tgsLocale (((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600)
 
             else
                 ""
 
         tgsOut =
             if model.loggedInUser.id == tx.fromUserId then
-                format tgsLocale (((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600)
+                if tx.status == 3 then
+                    format tgsLocale (((toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee) / 3600)
+
+                else
+                    format tgsLocale ((toFloat tx.seconds * tx.multiplier) / 3600)
 
             else
                 ""
@@ -165,7 +173,23 @@ pendingTransactionSummary model tx =
                         String.fromInt tx.toUserId
 
         time =
-            ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600
+            case tx.status of
+                1 ->
+                    if tx.fromUserId == model.loggedInUser.id then
+                        ((toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee) / 3600
+
+                    else
+                        (toFloat tx.seconds * tx.multiplier) / 3600
+
+                2 ->
+                    if tx.toUserId == model.loggedInUser.id then
+                        ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600
+
+                    else
+                        (toFloat tx.seconds * tx.multiplier) / 3600
+
+                _ ->
+                    0
 
         status =
             case tx.status of
@@ -355,7 +379,11 @@ viewCreateTransactionForm model =
                         , text model.transactionForm.time
                         , text " * "
                         , text model.transactionForm.multiplier
-                        , text ") - "
+                        , if model.creatingTransaction == TxOffer then
+                            text ") + "
+
+                          else
+                            text ") - "
                         , text model.transactionForm.txFee
                         , text " [Transaction Fee]"
                         ]
