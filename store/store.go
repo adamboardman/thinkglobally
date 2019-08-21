@@ -120,11 +120,11 @@ type Transaction struct {
 	ToPreviousTId   uint
 	FromPreviousTId uint
 	Status          uint
-	FromUserBalance int
-	ToUserBalance   int
+	FromUserBalance int64 `gorm:"type:bigint"`
+	ToUserBalance   int64 `gorm:"type:bigint"`
 }
 
-func (t Transaction) Balance(userId uint) int {
+func (t Transaction) Balance(userId uint) int64 {
 	if userId == t.FromUserId {
 		return t.FromUserBalance
 	} else {

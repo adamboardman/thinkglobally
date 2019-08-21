@@ -558,8 +558,8 @@ func AcceptTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionOfferApproved
-		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int(float32(transaction.Seconds)*transaction.Multiplier+float32(transaction.TxFee))
-		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int(float32(transaction.Seconds)*transaction.Multiplier)
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int64(float64(transaction.Seconds)*float64(transaction.Multiplier)+float64(transaction.TxFee))
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int64(float64(transaction.Seconds)*float64(transaction.Multiplier))
 	}
 	if transaction.Status == store.TransactionRequested {
 		if transaction.FromUserId != loggedInUserId {
@@ -568,8 +568,8 @@ func AcceptTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionRequestApproved
-		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int(float32(transaction.Seconds)*transaction.Multiplier)
-		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int(float32(transaction.Seconds)*transaction.Multiplier-float32(transaction.TxFee))
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int64(float64(transaction.Seconds)*float64(transaction.Multiplier))
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int64(float64(transaction.Seconds)*float64(transaction.Multiplier)-float64(transaction.TxFee))
 	}
 	transaction.ConfirmedDate = store.PosixDateTime(time.Now())
 	_, err = App.Store.UpdateTransaction(transaction)
