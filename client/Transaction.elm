@@ -355,7 +355,9 @@ viewCreateTransactionForm model =
                         , text model.transactionForm.time
                         , text " * "
                         , text model.transactionForm.multiplier
-                        , text ") - 00:00:01 [Transaction Fee]"
+                        , text ") - "
+                        , text model.transactionForm.txFee
+                        , text " [Transaction Fee]"
                         ]
                     ]
                 ]
@@ -467,6 +469,7 @@ transactionTrimFields form =
         , time = String.trim form.time
         , multiplier = String.trim form.multiplier
         , description = String.trim form.description
+        , txFee = String.trim form.txFee
         }
 
 

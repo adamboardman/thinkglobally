@@ -22,7 +22,7 @@ import Set
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgsAndMultiplier, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
@@ -95,6 +95,7 @@ init flags url key =
                     , time = ""
                     , multiplier = "1"
                     , description = ""
+                    , txFee = "00:00:01"
                     }
                 , conceptForm =
                     { name = ""
@@ -389,8 +390,11 @@ update msg model =
             let
                 newTime =
                     timeFromTgs tgs model.transactionForm.multiplier
+
+                txFee =
+                    txFeeFromTgsAndMultiplier tgs model.transactionForm.multiplier
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime, txFee = txFee }) model
 
         EnteredTransactionTime time ->
             let
@@ -399,15 +403,21 @@ update msg model =
 
                 newTime =
                     timeFromTime time
+
+                txFee =
+                    txFeeFromTgsAndMultiplier tgs model.transactionForm.multiplier
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime, txFee = txFee }) model
 
         EnteredTransactionMultiplier multiplier ->
             let
                 tgs =
                     tgsFromTimeAndMultiplier model.transactionForm.time multiplier
+
+                txFee =
+                    txFeeFromTgsAndMultiplier tgs multiplier
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier, txFee = txFee }) model
 
         EnteredTransactionDescription description ->
             transactionUpdateForm (\form -> { form | description = description }) model

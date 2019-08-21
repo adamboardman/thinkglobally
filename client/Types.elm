@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgsAndMultiplier, userDecoder)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -164,6 +164,7 @@ type alias TransactionForm =
     , time : String
     , multiplier : String
     , description : String
+    , txFee : String
     }
 
 
@@ -270,7 +271,7 @@ type Msg
 
 tgsLocale : Locale
 tgsLocale =
-    Locale 4 "," "." "−" "" "" ""
+    Locale 4 "" "." "−" "" "" ""
 
 
 toIntMonth : Month -> Int
@@ -362,6 +363,27 @@ tgsFromTimeAndMultiplier time multiplier =
             toFloat total * Maybe.withDefault 1.0 (String.toFloat multiplier)
     in
     format tgsLocale (multiplied / (60.0 * 60.0))
+
+
+txFeeFromTgsAndMultiplier : String -> String -> String
+txFeeFromTgsAndMultiplier tgs multiplier =
+    let
+        fee =
+            max 1 (floor (0.0002 * Maybe.withDefault 0 (String.toFloat tgs) * Maybe.withDefault 1.0 (String.toFloat multiplier)))
+
+        feeSec =
+            String.padLeft 2 '0' (String.fromInt (remainderBy 60 fee))
+
+        feeMinInt =
+            fee // 60
+
+        feeHour =
+            String.padLeft 2 '0' (String.fromInt (fee // (60 * 60)))
+
+        feeMin =
+            String.padLeft 2 '0' (String.fromInt (remainderBy 60 feeMinInt))
+    in
+    feeHour ++ ":" ++ feeMin ++ ":" ++ feeSec
 
 
 timeFromTime : String -> String
