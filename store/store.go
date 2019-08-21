@@ -112,7 +112,7 @@ type Transaction struct {
 	ConfirmedDate   PosixDateTime `gorm:"type:timestamp with time zone"`
 	FromUserId      uint
 	ToUserId        uint
-	Seconds         uint
+	Seconds         uint64 `gorm:"type:bigint"`
 	Multiplier      float32
 	TxFee           uint
 	Description     string

@@ -606,6 +606,7 @@ func TestCreateTransactionOffer(t *testing.T) {
 				transactionJSON.Status = store.TransactionOffered
 				transactionJSON.Seconds = 30 * 60
 				transactionJSON.Multiplier = 1
+				transactionJSON.TxFee = 1
 				data, _ := json.Marshal(transactionJSON)
 				post_data := bytes.NewReader(data)
 				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
@@ -707,8 +708,9 @@ func TestCreateTransactionRequest(t *testing.T) {
 				transactionJSON.FromUserId = user1.ID
 				transactionJSON.ToUserId = user2.ID
 				transactionJSON.Status = store.TransactionRequested
-				transactionJSON.Seconds = 30 * 60
+				transactionJSON.Seconds = 100000 *60 * 60
 				transactionJSON.Multiplier = 1
+				transactionJSON.TxFee = uint(float32(transactionJSON.Seconds) * transactionJSON.Multiplier * 0.0002)
 				ClearTransactionsMatchingJSON(transactionJSON)
 				data, _ := json.Marshal(transactionJSON)
 				post_data := bytes.NewReader(data)
@@ -1208,6 +1210,7 @@ func TestCreateTransactionRequestToEmailAddress(t *testing.T) {
 				transactionJSON.Status = store.TransactionRequested
 				transactionJSON.Seconds = 30 * 60
 				transactionJSON.Multiplier = 1
+				transactionJSON.TxFee = 1
 				ClearTransactionsMatchingJSON(transactionJSON)
 				data, _ := json.Marshal(transactionJSON)
 				post_data := bytes.NewReader(data)

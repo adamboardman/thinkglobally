@@ -501,16 +501,23 @@ transaction model (TransactionTrimmed form) =
         seconds =
             secondsFromTime form.time
 
+        multiplier =
+            Maybe.withDefault 0 (String.toFloat form.multiplier)
+
+        txFee =
+            max 1 (floor ((toFloat seconds * multiplier) * 0.0002))
+
         body =
             Encode.object
                 [ ( "Email", Encode.string form.email )
                 , ( "InitiatedDate", Encode.int (Time.posixToMillis model.time) )
                 , ( "Seconds", Encode.int seconds )
-                , ( "Multiplier", Encode.float (Maybe.withDefault 0 (String.toFloat form.multiplier)) )
+                , ( "Multiplier", Encode.float multiplier )
                 , ( "Status", Encode.int status )
                 , ( "Description", Encode.string form.description )
                 , ( "FromUserId", Encode.int fromId )
                 , ( "ToUserId", Encode.int toId )
+                , ( "TxFee", Encode.int txFee )
                 ]
                 |> Http.jsonBody
     in

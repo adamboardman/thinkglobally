@@ -7,6 +7,7 @@ import (
 	jwt "github.com/appleboy/gin-jwt"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -432,7 +433,7 @@ type TransactionJSON struct {
 	InitiatedDate   store.PosixDateTime
 	ConfirmedDate   store.PosixDateTime
 	Email           string
-	Seconds         uint
+	Seconds         uint64
 	Multiplier      float32
 	TxFee           uint
 	Description     string
@@ -499,6 +500,10 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 	}
 	if transaction.FromUserId == transaction.ToUserId {
 		return errors.New("You can not create transactions from and to yourself")
+	}
+	txFee := uint(math.Floor(0.0002 * float64(transaction.Seconds) * float64(transaction.Multiplier)))
+	if transaction.TxFee < 1 || transaction.TxFee < txFee {
+		return errors.New("You must pay a 0.02% or greater transaction fee")
 	}
 
 	return nil
