@@ -857,7 +857,7 @@ urlUpdate url model =
                     Cmd.batch [ loadConceptById conceptId, loadConceptTagsById conceptId ]
 
                 ConceptsList ->
-                    loadConcepts model
+                    Cmd.batch [ loadConcepts model, loadConceptTagsList model ]
 
                 Transactions ->
                     Cmd.batch [ loadTransactions model, loadTxUsers model ]
