@@ -683,6 +683,53 @@ func TestCreateTransactionOfferAsSomeoneElse(t *testing.T) {
 	})
 }
 
+func TestCreateTransactionOfferToInvalidUser(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		const emailAddressUser = "test-user@example.com"
+		user := ensureTestUserExists(emailAddressUser)
+		user.Permissions = store.UserPermissionsUser
+		_, _ = a.Store.UpdateUser(user)
+		const emailAddressInvalidRecipient = "invalid-user@example.com"
+
+		Convey("The user logs in", func() {
+			response := loginToUserJSON(emailAddressUser)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Offer transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user.ID
+				transactionJSON.Email = emailAddressInvalidRecipient
+				transactionJSON.Status = store.TransactionOffered
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.Multiplier = 1
+				ClearTransactionsMatchingJSON(transactionJSON)
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusBadRequest and the transaction should not be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
 func TestCreateTransactionRequest(t *testing.T) {
 	Convey("Given a test user origin and recipient", t, func() {
 		const emailAddressOrigin = "test-user1@example.com"

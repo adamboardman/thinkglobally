@@ -493,9 +493,15 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		if transaction.FromUserId != loggedInUserId {
 			return errors.New("You can only offer transactions from yourself")
 		}
+		if transaction.ToUserId == 0 {
+			return errors.New("You have to select a valid recipient")
+		}
 	case store.TransactionRequested:
 		if transaction.ToUserId != loggedInUserId {
 			return errors.New("You can only request transactions to yourself")
+		}
+		if transaction.FromUserId == 0 {
+			return errors.New("You have to make a request from a valid user")
 		}
 	}
 	if transaction.FromUserId == transaction.ToUserId {
@@ -514,7 +520,7 @@ func AddTransaction(c *gin.Context) {
 
 	err := readJSONIntoTransaction(&transaction, c, true)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed validation - err: %s", err.Error())})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed validation - error: %s", err.Error())})
 		return
 	}
 
