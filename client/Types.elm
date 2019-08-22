@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgsAndMultiplier, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, emptyUser, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgsAndMultiplier, userDecoder)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -39,6 +39,7 @@ type alias Model =
     , transactions : List Transaction
     , pendingTransactions : List Transaction
     , txUsers : Dict String User
+    , creatingTransactionWithUser : User
     , timeZone : Time.Zone
     , time : Time.Posix
     , conceptsList : List Concept
@@ -83,6 +84,7 @@ type alias User =
     , email : String
     , mobile : String
     , permissions : Int
+    , balance : Int
     }
 
 
@@ -252,12 +254,14 @@ type Msg
     | AddedConceptTag Int String (Result Http.Error ApiActionResponse)
     | LoadedTransactions (Result Http.Error (List Transaction))
     | LoadedTxUsers (Result Http.Error (List User))
+    | LoadedTransactionUserWithBalance (Result Http.Error User)
     | AcceptedTransaction (Result Http.Error ApiActionResponse)
     | RejectedTransaction (Result Http.Error ApiActionResponse)
     | LoadedConcepts (Result Http.Error (List Concept))
     | LoadedConceptTagsList (Result Http.Error (List ConceptTag))
     | AcceptTransaction Int
     | RejectTransaction Int
+    | ButtonTransactionCheckBalance
     | AdjustTimeZone Time.Zone
     | TimeTick Time.Posix
     | ButtonConceptAddTag
@@ -533,6 +537,24 @@ displayableTagsListFrom conceptTags concepts =
 
 
 
+-- EMPTIES
+
+
+emptyUser : User
+emptyUser =
+    { id = 0
+    , firstName = ""
+    , midNames = ""
+    , lastName = ""
+    , location = ""
+    , email = ""
+    , mobile = ""
+    , permissions = 0
+    , balance = 0
+    }
+
+
+
 -- DECODERS
 
 
@@ -560,6 +582,7 @@ userDecoder =
         |> optional "Email" string ""
         |> optional "Mobile" string ""
         |> optional "Permissions" int 0
+        |> optional "Balance" int 0
 
 
 profileDecoder : Decoder ProfileForm

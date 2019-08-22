@@ -1,4 +1,4 @@
-module Transaction exposing (TransactionTrimmedForm(..), acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, pendingTransactionSummary, rejectTransaction, transaction, transactionFieldsToValidate, transactionListDecoder, transactionSummary, transactionTrimFields, transactionUpdateForm, transactionValidate, txUsersListDecoder, validateField, viewCreateTransactionForm)
+module Transaction exposing (TransactionTrimmedForm(..), acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, pendingTransactionSummary, rejectTransaction, transaction, transactionCheckBalance, transactionFieldsToValidate, transactionListDecoder, transactionSummary, transactionTrimFields, transactionUpdateForm, transactionValidate, txUsersListDecoder, validateField, viewCreateTransactionForm)
 
 import Bootstrap.Button as Button
 import Bootstrap.ButtonGroup as ButtonGroup
@@ -328,6 +328,37 @@ viewCreateTransactionForm model =
                         ]
                     ]
                 ]
+            , if model.creatingTransaction == TxRequest then
+                Grid.row []
+                    [ Grid.col []
+                        [ Form.row []
+                            [ Form.col []
+                                [ Button.button
+                                    [ Button.secondary
+                                    , Button.onClick ButtonTransactionCheckBalance
+                                    , Button.disabled (String.length model.transactionForm.email == 0)
+                                    ]
+                                    [ text "Check balance" ]
+                                ]
+                            , Form.col []
+                                [ text "Balance: "
+                                , text (format tgsLocale (toFloat model.creatingTransactionWithUser.balance / 3600))
+                                ]
+                            ]
+                        ]
+                    ]
+
+              else
+                Grid.row []
+                    [ Grid.col []
+                        [ Form.row []
+                            [ Form.col []
+                                [ text "Your balance: "
+                                , text (format tgsLocale (toFloat model.loggedInUser.balance / 3600))
+                                ]
+                            ]
+                        ]
+                    ]
             , Grid.row []
                 [ Grid.col []
                     [ Form.group []
@@ -618,6 +649,19 @@ rejectTransaction model txId =
         { method = "PATCH"
         , url = "/api/transactions/" ++ String.fromInt txId ++ "/reject"
         , expect = Http.expectJson RejectedTransaction apiActionDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+transactionCheckBalance : Model -> Cmd Msg
+transactionCheckBalance model =
+    Http.request
+        { method = "GET"
+        , url = "/api/users?Email=" ++ model.transactionForm.email
+        , expect = Http.expectJson LoadedTransactionUserWithBalance userDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = emptyBody
         , timeout = Nothing

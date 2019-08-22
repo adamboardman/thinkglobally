@@ -108,10 +108,10 @@ func TestConfirmEmail(t *testing.T) {
 		salt := RandomBytes(16)
 		verificationKey := argon2.IDKey([]byte(verification), salt, 1, 64*1024, 4, 32)
 		user := store.User{
-			Email:           emailAddress,
 			Salt:            base64.StdEncoding.EncodeToString(salt),
 			ConfirmVerifier: base64.StdEncoding.EncodeToString(verificationKey),
 		}
+		user.Email = emailAddress
 		_, _ = a.Store.InsertUser(&user)
 
 		Convey("The user confirms email address and is redirected to the web app", func() {
@@ -225,11 +225,11 @@ func ensureTestUserExists(emailAddress string) *store.User {
 		salt := RandomBytes(16)
 		encrypted := argon2.IDKey([]byte("1234"), salt, 1, 64*1024, 4, 32)
 		user = &store.User{
-			Email:     emailAddress,
 			Salt:      base64.StdEncoding.EncodeToString(salt),
 			Password:  base64.StdEncoding.EncodeToString(encrypted),
-			Confirmed: true,
 		}
+		user.Email = emailAddress
+		user.Confirmed = true
 		_, _ = a.Store.InsertUser(user)
 	}
 	return user
@@ -1415,6 +1415,68 @@ func TestRejectTransactionFromToSameUser(t *testing.T) {
 
 					found := checkArrayForTransaction(userTransactions, transactionJSON)
 					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func TestCheckUsersBalance(t *testing.T) {
+	Convey("Given a transaction situation between test user and target user", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+		user2 := ensureTestUserExists("test-user2@example.com")
+		transaction := store.Transaction{
+			FromUserId:    user1.ID,
+			ToUserId:      user2.ID,
+			InitiatedDate: store.PosixDateTime(time.Now()),
+			Seconds:       1 * 60 * 60,
+			TxFee:         1,
+			Multiplier:    1,
+			Description:   "Test Transaction",
+			Status:        store.TransactionRequested,
+		}
+		ClearTransactionsMatching(transaction)
+		transactionId, _ := a.Store.InsertTransaction(&transaction)
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(user1.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+    		Convey("Accept transaction", func() {
+    			req2, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/accept", nil)
+    			req2.Header.Set("Authorization", "Bearer "+token)
+    			response2 := httptest.NewRecorder()
+    			a.Router.ServeHTTP(response2, req2)
+
+    			Convey("The server should respond with StatusCreated and the transaction should be approved", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					Convey("Find balance by email of user2 who we are not logged in as", func() {
+						req2, _ := http.NewRequest("GET", "/api/users?Email="+user2.Email, nil)
+						req2.Header.Set("Content-Type", "application/json")
+						req2.Header.Set("Authorization", "Bearer "+token)
+						response2 := httptest.NewRecorder()
+						a.Router.ServeHTTP(response2, req2)
+
+						Convey("The server should respond with StatusOK and the users public profile should be retruned", func() {
+							So(response2.Code, ShouldEqual, http.StatusOK)
+
+							body, err := ioutil.ReadAll(response2.Body)
+							So(err, ShouldBeNil)
+							responseData := new(store.PublicUserWithBalance)
+							err = json.Unmarshal(body, responseData)
+							So(err, ShouldBeNil)
+
+							So((*responseData).ID, ShouldEqual, user2.ID)
+							So((*responseData).FirstName, ShouldEqual, user2.FirstName)
+							So((*responseData).Balance, ShouldEqual, 3599)
+						})
+					})
 				})
 			})
 		})

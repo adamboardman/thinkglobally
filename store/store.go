@@ -24,6 +24,11 @@ type PublicUser struct {
 	PhotoID   uint
 }
 
+type PublicUserWithBalance struct {
+	PublicUser
+	Balance   int64
+}
+
 func (PublicUser) TableName() string {
 	return "users"
 }
@@ -37,19 +42,28 @@ const (
 )
 
 type User struct {
-	PublicUser
-	Email              string `gorm:"unique_index"`
-	Mobile             string
+	PrivilegedUser
 	Salt               string `json:"-"`
 	Password           string `json:"-"`
 	ConfirmVerifier    string `json:"-"`
+	RecoverVerifier    string `json:"-"`
+	RecoverTokenExpiry string `json:"-"`
+}
+
+type PrivilegedUser struct {
+	PublicUser
+	Email              string `gorm:"unique_index"`
+	Mobile             string
 	Confirmed          bool
 	AttemptCount       int    `json:"-"`
 	LastAttempt        string `json:"-"`
 	Locked             string `json:"-"`
-	RecoverVerifier    string `json:"-"`
-	RecoverTokenExpiry string `json:"-"`
 	Permissions        UserPermissions
+}
+
+type PrivilegedUserWithBalance struct {
+	PrivilegedUser
+	Balance   int64
 }
 
 type Concept struct {
@@ -210,7 +224,19 @@ func (s *Store) LoadPublicUser(id uint) (*PublicUser, error) {
 	return &publicUser, err
 }
 
-func (s *Store) LoadUserAsSelf(userId uint, loggedInUserId uint) (interface{}, error) {
+func (s *Store) LoadPrivilegedUserAsSelf(userId uint, loggedInUserId uint) (*PrivilegedUser, error) {
+	if userId != loggedInUserId {
+		return nil, errors.New("cannot load others users")
+	}
+	user := PrivilegedUser{}
+	err := s.db.Where("id=?", userId).Find(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, err
+}
+
+func (s *Store) LoadUserAsSelf(userId uint, loggedInUserId uint) (*User, error) {
 	if userId != loggedInUserId {
 		return nil, errors.New("cannot load others users")
 	}

@@ -49,6 +49,7 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	//api.POST("/users/:userID/photo", a.JwtMiddleware.MiddlewareFunc(), AddUserPhoto)
 	//api.PUT("/users/:userID/photo", a.JwtMiddleware.MiddlewareFunc(), UpdateUserPhoto)
 	api.PUT("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), UpdateUser)
+	api.GET("/users", a.JwtMiddleware.MiddlewareFunc(), PublicUsersList)
 	api.GET("/concepts", ConceptsList)
 	api.GET("/concepts/:conceptID", LoadConcept)
 	api.GET("/concepts/:conceptID/tags", LoadConceptTags)
@@ -63,7 +64,6 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api.PATCH("/transactions/:transactionID/accept", a.JwtMiddleware.MiddlewareFunc(), AcceptTransaction)
 	api.PATCH("/transactions/:transactionID/reject", a.JwtMiddleware.MiddlewareFunc(), RejectTransaction)
 	api.GET("/transactions", a.JwtMiddleware.MiddlewareFunc(), TransactionsList)
-	api.GET("/users", a.JwtMiddleware.MiddlewareFunc(), UsersList)
 }
 
 func AdminPermissionsRequired() gin.HandlerFunc {
@@ -75,13 +75,12 @@ func AdminPermissionsRequired() gin.HandlerFunc {
 func AdminPermissionsRequiredImpl(c *gin.Context) {
 	claims := jwt.ExtractClaims(c)
 	userId := uint(claims[identityId].(float64))
-	user, err := App.Store.LoadUserAsSelf(userId, userId)
+	user, err := App.Store.LoadPrivilegedUserAsSelf(userId, userId)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
 		return
 	}
-	u := user.(*store.User)
-	if !(u.Permissions >= store.UserPermissionsEditor) {
+	if !(user.Permissions >= store.UserPermissionsEditor) {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "User is not an editor"})
 		return
 	}
@@ -123,12 +122,25 @@ func LoadUser(c *gin.Context) {
 		return
 	}
 	if userId == 0 || uint(userId) == loggedInUserId {
-		user, err := App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId)
+		user, err := App.Store.LoadPrivilegedUserAsSelf(loggedInUserId, loggedInUserId)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
 			return
 		}
-		c.JSON(http.StatusOK, user)
+		transaction, err := App.Store.LastConfirmedTransactionForUser(loggedInUserId)
+		var balance int64 = 0
+		if err == nil {
+			if transaction.FromUserId == loggedInUserId {
+				balance = transaction.FromUserBalance
+			} else {
+				balance = transaction.ToUserBalance
+			}
+		}
+		userWithBalance := store.PrivilegedUserWithBalance{
+			PrivilegedUser: *user,
+			Balance:    balance,
+		}
+		c.JSON(http.StatusOK, userWithBalance)
 	} else {
 		user, err := App.Store.LoadPublicUser(uint(userId))
 		if err != nil {
@@ -160,6 +172,8 @@ func UpdateUser(c *gin.Context) {
 	}
 }
 
+
+
 func readJSONIntoUser(id uint, c *gin.Context) (*store.User, error) {
 	claims := jwt.ExtractClaims(c)
 	loggedInUserId := uint(claims["id"].(float64))
@@ -178,16 +192,15 @@ func readJSONIntoUser(id uint, c *gin.Context) (*store.User, error) {
 		return nil, err
 	}
 
-	u := user.(*store.User)
-	u.FirstName = userJson.FirstName
-	u.MidNames = userJson.MidNames
-	u.LastName = userJson.LastName
-	u.Location = userJson.Location
-	u.PhotoID = userJson.PhotoID
-	u.Email = userJson.Email
-	u.Mobile = userJson.Mobile
+	user.FirstName = userJson.FirstName
+	user.MidNames = userJson.MidNames
+	user.LastName = userJson.LastName
+	user.Location = userJson.Location
+	user.PhotoID = userJson.PhotoID
+	user.Email = userJson.Email
+	user.Mobile = userJson.Mobile
 
-	return u, err
+	return user, err
 }
 
 type UserJSON struct {
@@ -650,15 +663,43 @@ func TransactionsList(c *gin.Context) {
 	}
 }
 
-func UsersList(c *gin.Context) {
+func PublicUsersList(c *gin.Context) {
 	claims := jwt.ExtractClaims(c)
 	loggedInUserId := uint(claims["id"].(float64))
 
 	c.Header("Content-Type", "application/json")
-	users, err := App.Store.ListTransactionPartners(loggedInUserId)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Transaction Users not found"})
+	userQuery := UserJSON{}
+	err := c.Bind(&userQuery)
+	if err == nil && len(userQuery.Email) > 0 {
+		user, err := App.Store.FindUser(userQuery.Email)
+		if err == nil {
+			if user.ID > 0 {
+				publicUser, err := App.Store.LoadPublicUser(uint(user.ID))
+				if err == nil {
+					transaction, err := App.Store.LastConfirmedTransactionForUser(user.ID)
+					var balance int64 = 0
+					if (err == nil) {
+						if (transaction.FromUserId == user.ID) {
+							balance = transaction.FromUserBalance
+						} else {
+							balance = transaction.ToUserBalance
+						}
+					}
+					publicUserWithBalance := store.PublicUserWithBalance{
+						PublicUser: *publicUser,
+						Balance:    balance,
+					}
+					c.JSON(http.StatusOK, publicUserWithBalance)
+					return
+				}
+			}
+		}
 	} else {
-		c.JSON(http.StatusOK, users)
+		users, err := App.Store.ListTransactionPartners(loggedInUserId)
+		if err == nil {
+			c.JSON(http.StatusOK, users)
+			return
+		}
 	}
+	c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Invalid users search"})
 }

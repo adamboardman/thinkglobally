@@ -26,9 +26,11 @@ func ensureTestUserExists(emailAddress string) *User {
 		encrypted, err := bcrypt.GenerateFromPassword([]byte("1234"), 13)
 		So(err, ShouldBeNil)
 		user = &User{
-			Email:     emailAddress,
 			Password:  string(encrypted),
-			Confirmed: true,
+			PrivilegedUser: PrivilegedUser{
+				Email:     emailAddress,
+				Confirmed: true,
+			},
 		}
 		_, _ = s.InsertUser(user)
 	}
@@ -39,7 +41,8 @@ func TestStore_DoubleInsertUser(t *testing.T) {
 	const emailAddress = "joe@example.com"
 	Convey("Insert a user to the store", t, func() {
 		s.PurgeUser(emailAddress)
-		user := User{Email: emailAddress}
+		user := User{}
+		user.Email= emailAddress
 		user.FirstName = "Joe"
 		user.LastName = "Blogs"
 		userId, _ := s.InsertUser(&user)
@@ -49,7 +52,8 @@ func TestStore_DoubleInsertUser(t *testing.T) {
 		})
 
 		Convey("Insert the same email again", func() {
-			user2 := User{Email: emailAddress}
+			user2 := User{}
+			user2.Email = emailAddress
 			user2.FirstName = "John"
 			user2.LastName = "Smith"
 			user2Id, err := s.InsertUser(&user2)

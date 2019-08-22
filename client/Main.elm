@@ -21,8 +21,8 @@ import Register exposing (pageRegister, register, registerUpdateForm, registerVa
 import Set
 import Task
 import Time
-import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgsAndMultiplier, userDecoder)
+import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyUser, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgsAndMultiplier, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
@@ -70,16 +70,7 @@ init flags url key =
                 , registerForm = { email = "", password = "", password_confirm = "" }
                 , session = { loginExpire = Maybe.withDefault "" flags.expire, loginToken = Maybe.withDefault "" flags.token }
                 , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                , loggedInUser =
-                    { id = 0
-                    , firstName = ""
-                    , midNames = ""
-                    , lastName = ""
-                    , location = ""
-                    , email = ""
-                    , mobile = ""
-                    , permissions = 0
-                    }
+                , loggedInUser = emptyUser
                 , profileForm =
                     { id = 0
                     , firstName = ""
@@ -116,6 +107,7 @@ init flags url key =
                 , transactions = []
                 , pendingTransactions = []
                 , txUsers = Dict.empty
+                , creatingTransactionWithUser = emptyUser
                 , timeZone = Time.utc
                 , time = Time.millisToPosix 0
                 , conceptsList = []
@@ -384,7 +376,7 @@ update msg model =
             profileUpdateForm (\form -> { form | email = email }) model
 
         EnteredTransactionEmail email ->
-            transactionUpdateForm (\form -> { form | email = email }) model
+            ( { model | creatingTransactionWithUser = emptyUser, transactionForm = (\form -> { form | email = email }) model.transactionForm }, Cmd.none )
 
         EnteredTransactionTGs tgs ->
             let
@@ -456,6 +448,11 @@ update msg model =
             , Cmd.none
             )
 
+        ButtonTransactionCheckBalance ->
+            ( { model | loading = Loading.On }
+            , transactionCheckBalance model
+            )
+
         CompletedLogin (Err error) ->
             let
                 serverErrors =
@@ -485,6 +482,16 @@ update msg model =
 
         LoadedUser (Ok res) ->
             ( { model | loggedInUser = res, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedTransactionUserWithBalance (Err error) ->
+            ( { model | loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedTransactionUserWithBalance (Ok res) ->
+            ( { model | creatingTransactionWithUser = res, loading = Loading.Off }
             , Cmd.none
             )
 
