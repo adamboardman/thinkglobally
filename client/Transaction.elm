@@ -18,7 +18,7 @@ import Json.Decode exposing (Decoder, field, list)
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, formatDate, secondsFromTime, tgsLocale, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, formatBalance, formatBalanceWithFee, formatBalanceWithMultiplier, formatDate, secondsFromTime, tgsLocale, transactionDecoder, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField
@@ -72,10 +72,10 @@ transactionSummary model tx =
         tgsIn =
             if model.loggedInUser.id == tx.toUserId then
                 if tx.status == 3 then
-                    format tgsLocale ((toFloat tx.seconds * tx.multiplier) / 3600)
+                    formatBalanceWithMultiplier tx.seconds tx.multiplier
 
                 else
-                    format tgsLocale (((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600)
+                    formatBalanceWithFee tx.seconds tx.multiplier tx.txFee
 
             else
                 ""
@@ -83,10 +83,10 @@ transactionSummary model tx =
         tgsOut =
             if model.loggedInUser.id == tx.fromUserId then
                 if tx.status == 3 then
-                    format tgsLocale (((toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee) / 3600)
+                    formatBalanceWithFee tx.seconds tx.multiplier tx.txFee
 
                 else
-                    format tgsLocale ((toFloat tx.seconds * tx.multiplier) / 3600)
+                    formatBalanceWithMultiplier tx.seconds tx.multiplier
 
             else
                 ""
@@ -110,10 +110,10 @@ transactionSummary model tx =
 
         balance =
             if model.loggedInUser.id == tx.fromUserId then
-                toFloat tx.fromUserBalance / 3600
+                tx.fromUserBalance
 
             else
-                toFloat tx.toUserBalance / 3600
+                tx.toUserBalance
     in
     Table.tr
         [ if tx.status > 4 then
@@ -128,7 +128,7 @@ transactionSummary model tx =
         , Table.td [] [ text status ]
         , Table.td [] [ text tgsIn ]
         , Table.td [] [ text tgsOut ]
-        , Table.td [] [ text (format tgsLocale balance) ]
+        , Table.td [] [ text (formatBalance balance) ]
         ]
 
 
@@ -172,21 +172,50 @@ pendingTransactionSummary model tx =
                     Nothing ->
                         String.fromInt tx.toUserId
 
-        time =
+        tgsAsSeconds =
             case tx.status of
                 1 ->
                     if tx.fromUserId == model.loggedInUser.id then
-                        ((toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee) / 3600
+                        (toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee
 
                     else
-                        (toFloat tx.seconds * tx.multiplier) / 3600
+                        toFloat tx.seconds * tx.multiplier
 
                 2 ->
                     if tx.toUserId == model.loggedInUser.id then
-                        ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee) / 3600
+                        (toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee
 
                     else
-                        (toFloat tx.seconds * tx.multiplier) / 3600
+                        toFloat tx.seconds * tx.multiplier
+
+                _ ->
+                    0
+
+        tgs =
+            if tx.fromUserId == model.loggedInUser.id then
+                -tgsAsSeconds / 3600
+
+            else
+                tgsAsSeconds / 3600
+
+        newBalanceFrom =
+            case ( fromUser, tx.status ) of
+                ( Just user, 1 ) ->
+                    user.balance - round ((toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee)
+
+                ( Just user, 2 ) ->
+                    user.balance - round (toFloat tx.seconds * tx.multiplier)
+
+                _ ->
+                    0
+
+        newBalanceTo =
+            case ( toUser, tx.status ) of
+                ( Just user, 1 ) ->
+                    user.balance + round (toFloat tx.seconds * tx.multiplier)
+
+                ( Just user, 2 ) ->
+                    user.balance + round ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee)
 
                 _ ->
                     0
@@ -212,9 +241,9 @@ pendingTransactionSummary model tx =
     in
     Table.tr []
         [ Table.td [] [ text date ]
-        , Table.td [] [ text fromUserName ]
-        , Table.td [] [ text toUserName ]
-        , Table.td [] [ text (format tgsLocale time) ]
+        , Table.td [] [ text "F: ", text fromUserName, Html.br [] [], text "T: ", text toUserName ]
+        , Table.td [] [ text (format tgsLocale tgs) ]
+        , Table.td [] [ text "F: ", text (formatBalance newBalanceFrom), Html.br [] [], text "T: ", text (formatBalance newBalanceTo) ]
         , Table.td [] [ text status ]
         , Table.td []
             [ if (tx.status == 1 && tx.toUserId == model.loggedInUser.id) || (tx.status == 2 && tx.fromUserId == model.loggedInUser.id) then
@@ -261,9 +290,9 @@ pageTransaction model =
         , thead =
             Table.simpleThead
                 [ Table.th [] [ text "Date" ]
-                , Table.th [] [ text "From" ]
-                , Table.th [] [ text "To" ]
+                , Table.th [] [ text "Parties" ]
                 , Table.th [] [ text "TGs" ]
+                , Table.th [] [ text "New Balances" ]
                 , Table.th [] [ text "Status" ]
                 , Table.th [] [ text "" ]
                 , Table.th [] [ text "" ]
@@ -342,7 +371,7 @@ viewCreateTransactionForm model =
                                 ]
                             , Form.col []
                                 [ text "Balance: "
-                                , text (format tgsLocale (toFloat model.creatingTransactionWithUser.balance / 3600))
+                                , text (formatBalance model.creatingTransactionWithUser.balance)
                                 ]
                             ]
                         ]
@@ -354,7 +383,7 @@ viewCreateTransactionForm model =
                         [ Form.row []
                             [ Form.col []
                                 [ text "Your balance: "
-                                , text (format tgsLocale (toFloat model.loggedInUser.balance / 3600))
+                                , text (formatBalance model.loggedInUser.balance)
                                 ]
                             ]
                         ]

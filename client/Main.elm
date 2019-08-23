@@ -22,7 +22,7 @@ import Set
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyUser, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgsAndMultiplier, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgsAndMultiplier, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
@@ -61,8 +61,8 @@ init flags url key =
 
         ( model, urlCmd ) =
             urlUpdate url
-                { navKey = key
-                , navState = navState
+                { navKey = Just key
+                , navState = Just navState
                 , page = Home
                 , loading = Loading.Off
                 , problems = []
@@ -71,38 +71,11 @@ init flags url key =
                 , session = { loginExpire = Maybe.withDefault "" flags.expire, loginToken = Maybe.withDefault "" flags.token }
                 , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                 , loggedInUser = emptyUser
-                , profileForm =
-                    { id = 0
-                    , firstName = ""
-                    , midNames = ""
-                    , lastName = ""
-                    , location = ""
-                    , email = ""
-                    , mobile = ""
-                    }
-                , transactionForm =
-                    { email = ""
-                    , tgs = ""
-                    , time = ""
-                    , multiplier = "1"
-                    , description = ""
-                    , txFee = "00:00:01"
-                    }
-                , conceptForm =
-                    { name = ""
-                    , tags = []
-                    , tagsToDelete = Set.empty
-                    , summary = ""
-                    , full = ""
-                    }
+                , profileForm = emptyProfileForm
+                , transactionForm = emptyTransactionForm
+                , conceptForm = emptyConceptForm
                 , conceptTagForm = { tag = "" }
-                , concept =
-                    { id = 0
-                    , name = ""
-                    , summary = ""
-                    , full = ""
-                    , tags = []
-                    }
+                , concept = emptyConcept
                 , creatingTransaction = TxNone
                 , transactions = []
                 , pendingTransactions = []
@@ -146,33 +119,38 @@ view model =
 
 menu : Model -> Html Msg
 menu model =
-    Navbar.config NavMsg
-        |> Navbar.withAnimation
-        |> Navbar.container
-        |> Navbar.brand [ href "#" ] [ text "ThinkGlobally" ]
-        |> Navbar.items
-            [ if userIsEditor model then
-                Navbar.itemLink [ href "#concepts" ] [ text "Concepts" ]
+    case model.navState of
+        Just navState ->
+            Navbar.config NavMsg
+                |> Navbar.withAnimation
+                |> Navbar.container
+                |> Navbar.brand [ href "#" ] [ text "ThinkGlobally" ]
+                |> Navbar.items
+                    [ if userIsEditor model then
+                        Navbar.itemLink [ href "#concepts" ] [ text "Concepts" ]
 
-              else
-                Navbar.itemLink [ href "" ] [ text "" ]
-            , if loggedIn model then
-                Navbar.itemLink [ href "#profile" ] [ text "Profile" ]
+                      else
+                        Navbar.itemLink [ href "" ] [ text "" ]
+                    , if loggedIn model then
+                        Navbar.itemLink [ href "#profile" ] [ text "Profile" ]
 
-              else
-                Navbar.itemLink [ href "" ] [ text "" ]
-            , if loggedIn model then
-                Navbar.itemLink [ href "#transactions" ] [ text "Transactions" ]
+                      else
+                        Navbar.itemLink [ href "" ] [ text "" ]
+                    , if loggedIn model then
+                        Navbar.itemLink [ href "#transactions" ] [ text "Transactions" ]
 
-              else
-                Navbar.itemLink [ href "" ] [ text "" ]
-            , if loggedIn model then
-                Navbar.itemLink [ href "#logout" ] [ text "Logout" ]
+                      else
+                        Navbar.itemLink [ href "" ] [ text "" ]
+                    , if loggedIn model then
+                        Navbar.itemLink [ href "#logout" ] [ text "Logout" ]
 
-              else
-                Navbar.itemLink [ href "#login" ] [ text "Login" ]
-            ]
-        |> Navbar.view model.navState
+                      else
+                        Navbar.itemLink [ href "#login" ] [ text "Login" ]
+                    ]
+                |> Navbar.view navState
+
+        Nothing ->
+            div [] []
 
 
 mainContent : Model -> Html Msg
@@ -246,16 +224,21 @@ update msg model =
                                 _ ->
                                     model.session
                       }
-                    , case url.fragment of
-                        Just "logout" ->
-                            Cmd.batch
-                                [ Nav.pushUrl model.navKey "#"
-                                , storeToken Nothing
-                                , storeExpire Nothing
-                                ]
+                    , case model.navKey of
+                        Just navKey ->
+                            case url.fragment of
+                                Just "logout" ->
+                                    Cmd.batch
+                                        [ Nav.pushUrl navKey "#"
+                                        , storeToken Nothing
+                                        , storeExpire Nothing
+                                        ]
 
-                        _ ->
-                            Nav.pushUrl model.navKey (Url.toString url)
+                                _ ->
+                                    Nav.pushUrl navKey (Url.toString url)
+
+                        Nothing ->
+                            Cmd.none
                     )
 
                 Browser.External href ->
@@ -265,7 +248,7 @@ update msg model =
             urlUpdate url model
 
         NavMsg state ->
-            ( { model | navState = state }, Cmd.none )
+            ( { model | navState = Just state }, Cmd.none )
 
         CloseConceptAddTagModal ->
             ( { model | conceptShowTagModel = Modal.hidden }, Cmd.none )
@@ -955,6 +938,11 @@ loadConcept concept =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Navbar.subscriptions model.navState NavMsg
+        [ case model.navState of
+            Just navState ->
+                Navbar.subscriptions navState NavMsg
+
+            Nothing ->
+                Sub.none
         , Time.every (30 * 1000) TimeTick
         ]

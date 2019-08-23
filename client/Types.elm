@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, emptyUser, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgsAndMultiplier, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalanceWithFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgsAndMultiplier, userDecoder)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -20,9 +20,9 @@ import Url exposing (Url)
 
 
 type alias Model =
-    { navKey : Nav.Key
+    { navKey : Maybe Nav.Key
     , page : Page
-    , navState : Navbar.State
+    , navState : Maybe Navbar.State
     , loading : Loading.LoadingState
     , problems : List Problem
     , loginForm : LoginForm
@@ -456,6 +456,26 @@ isNot a b =
         True
 
 
+formatBalanceFloat : Float -> String
+formatBalanceFloat balance =
+    format tgsLocale (balance / 3600)
+
+
+formatBalance : Int -> String
+formatBalance balance =
+    formatBalanceFloat (toFloat balance)
+
+
+formatBalanceWithMultiplier : Int -> Float -> String
+formatBalanceWithMultiplier balance multiplier =
+    formatBalanceFloat (toFloat balance * multiplier)
+
+
+formatBalanceWithFee : Int -> Float -> Int -> String
+formatBalanceWithFee balance multiplier fee =
+    formatBalanceFloat ((toFloat balance * multiplier) - toFloat fee)
+
+
 
 -- INDEXERS
 
@@ -551,6 +571,49 @@ emptyUser =
     , mobile = ""
     , permissions = 0
     , balance = 0
+    }
+
+
+emptyConcept : Concept
+emptyConcept =
+    { id = 0
+    , name = ""
+    , summary = ""
+    , full = ""
+    , tags = []
+    }
+
+
+emptyConceptForm : ConceptForm
+emptyConceptForm =
+    { name = ""
+    , tags = []
+    , tagsToDelete = Set.empty
+    , summary = ""
+    , full = ""
+    }
+
+
+emptyProfileForm : ProfileForm
+emptyProfileForm =
+    { id = 0
+    , firstName = ""
+    , midNames = ""
+    , lastName = ""
+    , location = ""
+    , email = ""
+    , mobile = ""
+    }
+
+
+emptyTransactionForm : TransactionForm
+emptyTransactionForm =
+    { email = ""
+    , tgs = ""
+    , time = ""
+    , multiplier = "1"
+    , description = ""
+    , txFee = "00:00:01"
     }
 
 

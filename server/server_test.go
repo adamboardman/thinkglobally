@@ -1319,7 +1319,7 @@ func TestListTxUsers(t *testing.T) {
 					So(response2.Code, ShouldEqual, http.StatusOK)
 					body, err := ioutil.ReadAll(response2.Body)
 					So(err, ShouldBeNil)
-					responseData := new([]store.PublicUser)
+					responseData := new([]store.PublicUserWithBalance)
 					err = json.Unmarshal(body, responseData)
 					So(err, ShouldBeNil)
 

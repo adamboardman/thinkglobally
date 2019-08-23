@@ -172,8 +172,6 @@ func UpdateUser(c *gin.Context) {
 	}
 }
 
-
-
 func readJSONIntoUser(id uint, c *gin.Context) (*store.User, error) {
 	claims := jwt.ExtractClaims(c)
 	loggedInUserId := uint(claims["id"].(float64))
@@ -676,19 +674,7 @@ func PublicUsersList(c *gin.Context) {
 			if user.ID > 0 {
 				publicUser, err := App.Store.LoadPublicUser(uint(user.ID))
 				if err == nil {
-					transaction, err := App.Store.LastConfirmedTransactionForUser(user.ID)
-					var balance int64 = 0
-					if (err == nil) {
-						if (transaction.FromUserId == user.ID) {
-							balance = transaction.FromUserBalance
-						} else {
-							balance = transaction.ToUserBalance
-						}
-					}
-					publicUserWithBalance := store.PublicUserWithBalance{
-						PublicUser: *publicUser,
-						Balance:    balance,
-					}
+					publicUserWithBalance := publicUserWithBalanceFromUser(publicUser)
 					c.JSON(http.StatusOK, publicUserWithBalance)
 					return
 				}
@@ -696,10 +682,31 @@ func PublicUsersList(c *gin.Context) {
 		}
 	} else {
 		users, err := App.Store.ListTransactionPartners(loggedInUserId)
+		var publicUsersWithBalance []store.PublicUserWithBalance
+		for _, user := range users {
+			publicUsersWithBalance = append(publicUsersWithBalance, publicUserWithBalanceFromUser(&user))
+		}
 		if err == nil {
-			c.JSON(http.StatusOK, users)
+			c.JSON(http.StatusOK, publicUsersWithBalance)
 			return
 		}
 	}
 	c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Invalid users search"})
+}
+
+func publicUserWithBalanceFromUser(publicUser *store.PublicUser) store.PublicUserWithBalance {
+	transaction, err := App.Store.LastConfirmedTransactionForUser(publicUser.ID)
+	var balance int64 = 0
+	if (err == nil) {
+		if (transaction.FromUserId == publicUser.ID) {
+			balance = transaction.FromUserBalance
+		} else {
+			balance = transaction.ToUserBalance
+		}
+	}
+	publicUserWithBalance := store.PublicUserWithBalance{
+		PublicUser: *publicUser,
+		Balance:    balance,
+	}
+	return publicUserWithBalance
 }

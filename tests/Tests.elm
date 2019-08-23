@@ -1,10 +1,18 @@
-module Tests exposing (decodeConcept, decodeLogin, decodeRegister, decodeUser, failsWithMissingJson, success)
+module Tests exposing (decodeApiAction, decodeConcept, decodeLogin, decodeRegister, decodeUser, failsWithMissingJson, success, transactionSummaryOfferIn, transactionSummaryOfferOut, transactionSummaryRequestIn, transactionSummaryRequestOut)
 
+import Bootstrap.Button as Button
+import Bootstrap.Modal as Modal
+import Bootstrap.Table as Table
+import Dict
 import Expect exposing (Expectation)
+import Html exposing (text)
 import Json.Decode
+import Loading
 import Login exposing (loginDecoder)
 import Test exposing (..)
-import Types exposing (apiActionDecoder, conceptDecoder, userDecoder)
+import Time
+import Transaction exposing (pendingTransactionSummary)
+import Types exposing (Msg(..), Page(..), TransactionType(..), User, apiActionDecoder, conceptDecoder, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatDate, userDecoder)
 
 
 decodeLogin : Test
@@ -107,6 +115,7 @@ decodeUser =
                     , email = "EAD"
                     , mobile = "MOB"
                     , permissions = 1
+                    , balance = 0
                     }
                 )
 
@@ -158,4 +167,288 @@ decodeApiAction =
                     , resourceIds = [ 437, 34 ]
                     , status = 200
                     }
+                )
+
+
+testUser1 : User
+testUser1 =
+    { id = 1
+    , firstName = "FN1"
+    , midNames = ""
+    , lastName = "LN1"
+    , location = ""
+    , email = ""
+    , mobile = ""
+    , permissions = 0
+    , balance = 0
+    }
+
+
+testUser2 : User
+testUser2 =
+    { id = 2
+    , firstName = "FN2"
+    , midNames = ""
+    , lastName = "LN2"
+    , location = ""
+    , email = ""
+    , mobile = ""
+    , permissions = 0
+    , balance = 0
+    }
+
+
+transactionSummaryOfferOut : Test
+transactionSummaryOfferOut =
+    test "pending transaction summary offer out" <|
+        \() ->
+            let
+                model =
+                    { navKey = Nothing
+                    , navState = Nothing
+                    , page = Home
+                    , loading = Loading.Off
+                    , problems = []
+                    , loginForm = { email = "", password = "" }
+                    , registerForm = { email = "", password = "", password_confirm = "" }
+                    , session = { loginExpire = "", loginToken = "" }
+                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
+                    , loggedInUser = testUser1
+                    , profileForm = emptyProfileForm
+                    , transactionForm = emptyTransactionForm
+                    , conceptForm = emptyConceptForm
+                    , conceptTagForm = { tag = "" }
+                    , concept = emptyConcept
+                    , creatingTransaction = TxNone
+                    , transactions = []
+                    , pendingTransactions = []
+                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
+                    , creatingTransactionWithUser = emptyUser
+                    , timeZone = Time.utc
+                    , time = Time.millisToPosix 0
+                    , conceptsList = []
+                    , conceptTagsList = []
+                    , displayableTagsList = []
+                    , conceptShowTagModel = Modal.hidden
+                    }
+
+                tx =
+                    { id = 1
+                    , initiatedDate = Time.millisToPosix 123
+                    , confirmedDate = Time.millisToPosix 456
+                    , fromUserId = 1
+                    , toUserId = 2
+                    , seconds = 3600
+                    , multiplier = 1
+                    , txFee = 1
+                    , status = 1
+                    , description = ""
+                    , fromUserBalance = 0
+                    , toUserBalance = 0
+                    }
+            in
+            Expect.equal
+                (pendingTransactionSummary model tx)
+                (Table.tr
+                    []
+                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    , Table.td [] [ text "F: ", text "Yourself", Html.br [] [], text "T: ", text "FN2 LN2 (2)" ]
+                    , Table.td [] [ text (formatBalance -3601) ]
+                    , Table.td [] [ text "F: ", text (formatBalance -3601), Html.br [] [], text "T: ", text (formatBalance 3600) ]
+                    , Table.td [] [ text "Offer pending" ]
+                    , Table.td [] [ text "" ]
+                    , Table.td [] [ text "" ]
+                    ]
+                )
+
+
+transactionSummaryOfferIn : Test
+transactionSummaryOfferIn =
+    test "pending transaction summary offer in" <|
+        \() ->
+            let
+                model =
+                    { navKey = Nothing
+                    , navState = Nothing
+                    , page = Home
+                    , loading = Loading.Off
+                    , problems = []
+                    , loginForm = { email = "", password = "" }
+                    , registerForm = { email = "", password = "", password_confirm = "" }
+                    , session = { loginExpire = "", loginToken = "" }
+                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
+                    , loggedInUser = testUser2
+                    , profileForm = emptyProfileForm
+                    , transactionForm = emptyTransactionForm
+                    , conceptForm = emptyConceptForm
+                    , conceptTagForm = { tag = "" }
+                    , concept = emptyConcept
+                    , creatingTransaction = TxNone
+                    , transactions = []
+                    , pendingTransactions = []
+                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
+                    , creatingTransactionWithUser = emptyUser
+                    , timeZone = Time.utc
+                    , time = Time.millisToPosix 0
+                    , conceptsList = []
+                    , conceptTagsList = []
+                    , displayableTagsList = []
+                    , conceptShowTagModel = Modal.hidden
+                    }
+
+                tx =
+                    { id = 1
+                    , initiatedDate = Time.millisToPosix 123
+                    , confirmedDate = Time.millisToPosix 456
+                    , fromUserId = 1
+                    , toUserId = 2
+                    , seconds = 3600
+                    , multiplier = 1
+                    , txFee = 1
+                    , status = 1
+                    , description = ""
+                    , fromUserBalance = 0
+                    , toUserBalance = 0
+                    }
+            in
+            Expect.equal
+                (pendingTransactionSummary model tx)
+                (Table.tr
+                    []
+                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    , Table.td [] [ text "F: ", text "FN1 LN1 (1)", Html.br [] [], text "T: ", text "Yourself" ]
+                    , Table.td [] [ text (formatBalance 3600) ]
+                    , Table.td [] [ text "F: ", text (formatBalance -3601), Html.br [] [], text "T: ", text (formatBalance 3600) ]
+                    , Table.td [] [ text "Accept or Reject Offer" ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| AcceptTransaction tx.id ] [ text "Accept" ] ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| RejectTransaction tx.id ] [ text "Reject" ] ]
+                    ]
+                )
+
+
+transactionSummaryRequestIn : Test
+transactionSummaryRequestIn =
+    test "pending transaction summary request in" <|
+        \() ->
+            let
+                model =
+                    { navKey = Nothing
+                    , navState = Nothing
+                    , page = Home
+                    , loading = Loading.Off
+                    , problems = []
+                    , loginForm = { email = "", password = "" }
+                    , registerForm = { email = "", password = "", password_confirm = "" }
+                    , session = { loginExpire = "", loginToken = "" }
+                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
+                    , loggedInUser = testUser1
+                    , profileForm = emptyProfileForm
+                    , transactionForm = emptyTransactionForm
+                    , conceptForm = emptyConceptForm
+                    , conceptTagForm = { tag = "" }
+                    , concept = emptyConcept
+                    , creatingTransaction = TxNone
+                    , transactions = []
+                    , pendingTransactions = []
+                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
+                    , creatingTransactionWithUser = emptyUser
+                    , timeZone = Time.utc
+                    , time = Time.millisToPosix 0
+                    , conceptsList = []
+                    , conceptTagsList = []
+                    , displayableTagsList = []
+                    , conceptShowTagModel = Modal.hidden
+                    }
+
+                tx =
+                    { id = 1
+                    , initiatedDate = Time.millisToPosix 123
+                    , confirmedDate = Time.millisToPosix 456
+                    , fromUserId = 2
+                    , toUserId = 1
+                    , seconds = 3600
+                    , multiplier = 1
+                    , txFee = 1
+                    , status = 2
+                    , description = ""
+                    , fromUserBalance = 0
+                    , toUserBalance = 0
+                    }
+            in
+            Expect.equal
+                (pendingTransactionSummary model tx)
+                (Table.tr
+                    []
+                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    , Table.td [] [ text "F: ", text "FN2 LN2 (2)", Html.br [] [], text "T: ", text "Yourself" ]
+                    , Table.td [] [ text (formatBalance 3599) ]
+                    , Table.td [] [ text "F: ", text (formatBalance -3600), Html.br [] [], text "T: ", text (formatBalance 3599) ]
+                    , Table.td [] [ text "Request pending" ]
+                    , Table.td [] [ text "" ]
+                    , Table.td [] [ text "" ]
+                    ]
+                )
+
+
+transactionSummaryRequestOut : Test
+transactionSummaryRequestOut =
+    test "pending transaction summary request out" <|
+        \() ->
+            let
+                model =
+                    { navKey = Nothing
+                    , navState = Nothing
+                    , page = Home
+                    , loading = Loading.Off
+                    , problems = []
+                    , loginForm = { email = "", password = "" }
+                    , registerForm = { email = "", password = "", password_confirm = "" }
+                    , session = { loginExpire = "", loginToken = "" }
+                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
+                    , loggedInUser = testUser2
+                    , profileForm = emptyProfileForm
+                    , transactionForm = emptyTransactionForm
+                    , conceptForm = emptyConceptForm
+                    , conceptTagForm = { tag = "" }
+                    , concept = emptyConcept
+                    , creatingTransaction = TxNone
+                    , transactions = []
+                    , pendingTransactions = []
+                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
+                    , creatingTransactionWithUser = emptyUser
+                    , timeZone = Time.utc
+                    , time = Time.millisToPosix 0
+                    , conceptsList = []
+                    , conceptTagsList = []
+                    , displayableTagsList = []
+                    , conceptShowTagModel = Modal.hidden
+                    }
+
+                tx =
+                    { id = 1
+                    , initiatedDate = Time.millisToPosix 123
+                    , confirmedDate = Time.millisToPosix 478988656
+                    , fromUserId = 2
+                    , toUserId = 1
+                    , seconds = 3600
+                    , multiplier = 1
+                    , txFee = 1
+                    , status = 2
+                    , description = ""
+                    , fromUserBalance = 0
+                    , toUserBalance = 0
+                    }
+            in
+            Expect.equal
+                (pendingTransactionSummary model tx)
+                (Table.tr
+                    []
+                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    , Table.td [] [ text "F: ", text "Yourself", Html.br [] [], text "T: ", text "FN1 LN1 (1)" ]
+                    , Table.td [] [ text (formatBalance -3600) ]
+                    , Table.td [] [ text "F: ", text (formatBalance -3600), Html.br [] [], text "T: ", text (formatBalance 3599) ]
+                    , Table.td [] [ text "Accept or Reject Request" ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| AcceptTransaction tx.id ] [ text "Accept" ] ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| RejectTransaction tx.id ] [ text "Reject" ] ]
+                    ]
                 )
