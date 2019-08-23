@@ -18,7 +18,7 @@ import Json.Decode exposing (Decoder, field, list)
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, formatBalance, formatBalanceWithFee, formatBalanceWithMultiplier, formatDate, secondsFromTime, tgsLocale, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, secondsFromTime, tgsLocale, transactionDecoder, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField
@@ -71,11 +71,7 @@ transactionSummary model tx =
 
         tgsIn =
             if model.loggedInUser.id == tx.toUserId then
-                if tx.status == 3 then
-                    formatBalanceWithMultiplier tx.seconds tx.multiplier
-
-                else
-                    formatBalanceWithFee tx.seconds tx.multiplier tx.txFee
+                formatBalanceWithMultiplier tx.seconds tx.multiplier
 
             else
                 ""
@@ -83,7 +79,7 @@ transactionSummary model tx =
         tgsOut =
             if model.loggedInUser.id == tx.fromUserId then
                 if tx.status == 3 then
-                    formatBalanceWithFee tx.seconds tx.multiplier tx.txFee
+                    formatBalancePlusFee tx.seconds tx.multiplier tx.txFee
 
                 else
                     formatBalanceWithMultiplier tx.seconds tx.multiplier
