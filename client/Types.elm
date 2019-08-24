@@ -59,6 +59,7 @@ type Page
     | Concepts String
     | ConceptsEdit String
     | ConceptsList
+    | AddConcept
     | NotFound
 
 

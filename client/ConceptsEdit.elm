@@ -1,4 +1,4 @@
-module ConceptsEdit exposing (ConceptTagTrimmedForm(..), ConceptTrimmedForm(..), concept, conceptAdd, conceptDeleteSelectedTags, conceptFieldsToValidate, conceptTag, conceptTagFieldsToValidate, conceptTagTrimFields, conceptTagUpdateForm, conceptTagValidate, conceptTrimFields, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageConceptsEdit, tagIsNotIn, tagsSetContains, validateField, validateTagField, viewConceptForm, viewConceptFormTag, viewConceptModal)
+module ConceptsEdit exposing (ConceptTagTrimmedForm(..), ConceptTrimmedForm(..), conceptAdd, conceptDeleteSelectedTags, conceptFieldsToValidate, conceptTag, conceptTagFieldsToValidate, conceptTagTrimFields, conceptTagUpdateForm, conceptTagValidate, conceptTrimFields, conceptUpdate, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageAddConcept, pageConceptsEdit, tagIsNotIn, tagsSetContains, validateField, validateTagField, viewConceptForm, viewConceptFormTag, viewConceptModal)
 
 import Bootstrap.Button as Button
 import Bootstrap.Form as Form
@@ -15,7 +15,7 @@ import Http exposing (emptyBody)
 import Json.Encode as Encode exposing (Value)
 import Loading
 import Set exposing (Set)
-import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder)
+import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, emptyConceptForm)
 
 
 pageConceptsEdit : Model -> List (Html Msg)
@@ -24,6 +24,20 @@ pageConceptsEdit model =
         [ div [ class "row" ]
             [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
                 [ h1 [ class "text-xs-center" ] [ text "Edit Concept" ]
+                , viewConceptForm model
+                , viewConceptModal model
+                ]
+            ]
+        ]
+    ]
+
+
+pageAddConcept : Model -> List (Html Msg)
+pageAddConcept model =
+    [ div [ class "container page" ]
+        [ div [ class "row" ]
+            [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
+                [ h1 [ class "text-xs-center" ] [ text "Add Concept" ]
                 , viewConceptForm model
                 , viewConceptModal model
                 ]
@@ -259,8 +273,8 @@ conceptTagTrimFields form =
 -- HTTP
 
 
-concept : Model -> ConceptTrimmedForm -> Cmd Msg
-concept model (ConceptTrimmed form) =
+conceptUpdate : Model -> ConceptTrimmedForm -> Cmd Msg
+conceptUpdate model (ConceptTrimmed form) =
     let
         body =
             Encode.object

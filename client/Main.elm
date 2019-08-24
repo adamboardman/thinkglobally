@@ -6,7 +6,7 @@ import Bootstrap.Navbar as Navbar
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Concept exposing (loadConceptTagsList, loadConcepts, pageConcept)
-import ConceptsEdit exposing (concept, conceptDeleteSelectedTags, conceptTag, conceptTagUpdateForm, conceptTagValidate, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageConceptsEdit, tagIsNotIn)
+import ConceptsEdit exposing (conceptAdd, conceptDeleteSelectedTags, conceptTag, conceptTagUpdateForm, conceptTagValidate, conceptUpdate, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageAddConcept, pageConceptsEdit, tagIsNotIn)
 import ConceptsList exposing (pageConceptsList)
 import Dict
 import Html exposing (..)
@@ -124,28 +124,39 @@ menu model =
             Navbar.config NavMsg
                 |> Navbar.withAnimation
                 |> Navbar.container
-                |> Navbar.brand [ href "#" ] [ text "ThinkGlobally" ]
+                |> Navbar.brand [ href (urlForPage Home) ] [ text "ThinkGlobally" ]
                 |> Navbar.items
                     [ if userIsEditor model then
-                        Navbar.itemLink [ href "#concepts" ] [ text "Concepts" ]
+                        Navbar.dropdown
+                            { id = "concepts_dropdown"
+                            , toggle = Navbar.dropdownToggle [ href (urlForPage model.page) ] [ text "Concepts" ]
+                            , items =
+                                [ Navbar.dropdownItem
+                                    [ href (urlForPage ConceptsList) ]
+                                    [ text "Concepts" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage AddConcept) ]
+                                    [ text "Add Concept" ]
+                                ]
+                            }
 
                       else
                         Navbar.itemLink [ href "" ] [ text "" ]
                     , if loggedIn model then
-                        Navbar.itemLink [ href "#profile" ] [ text "Profile" ]
+                        Navbar.itemLink [ href (urlForPage Profile) ] [ text "Profile" ]
 
                       else
                         Navbar.itemLink [ href "" ] [ text "" ]
                     , if loggedIn model then
-                        Navbar.itemLink [ href "#transactions" ] [ text "Transactions" ]
+                        Navbar.itemLink [ href (urlForPage Transactions) ] [ text "Transactions" ]
 
                       else
                         Navbar.itemLink [ href "" ] [ text "" ]
                     , if loggedIn model then
-                        Navbar.itemLink [ href "#logout" ] [ text "Logout" ]
+                        Navbar.itemLink [ href (urlForPage Logout) ] [ text "Logout" ]
 
                       else
-                        Navbar.itemLink [ href "#login" ] [ text "Login" ]
+                        Navbar.itemLink [ href (urlForPage Login) ] [ text "Login" ]
                     ]
                 |> Navbar.view navState
 
@@ -186,6 +197,9 @@ mainContent model =
 
             ConceptsEdit _ ->
                 pageConceptsEdit model
+
+            AddConcept ->
+                pageAddConcept model
 
 
 pageLogout : Model -> List (Html Msg)
@@ -229,7 +243,7 @@ update msg model =
                             case url.fragment of
                                 Just "logout" ->
                                     Cmd.batch
-                                        [ Nav.pushUrl navKey "#"
+                                        [ Nav.pushUrl navKey (urlForPage Home)
                                         , storeToken Nothing
                                         , storeExpire Nothing
                                         ]
@@ -305,7 +319,11 @@ update msg model =
             case conceptValidate model.conceptForm of
                 Ok validForm ->
                     ( { model | problems = [], loading = Loading.On }
-                    , concept model validForm
+                    , if model.concept.id > 0 then
+                        conceptUpdate model validForm
+
+                      else
+                        conceptAdd model validForm
                     )
 
                 Err problems ->
@@ -455,6 +473,12 @@ update msg model =
                 [ loadUser res.loginToken 0
                 , storeToken (Just res.loginToken)
                 , storeExpire (Just res.loginExpire)
+                , case model.navKey of
+                    Just navKey ->
+                        Nav.pushUrl navKey (urlForPage Home)
+
+                    Nothing ->
+                        Cmd.none
                 ]
             )
 
@@ -831,6 +855,43 @@ fromPair ( field, errors ) =
     List.map (\error -> field ++ " " ++ error) errors
 
 
+urlForPage : Page -> String
+urlForPage page =
+    case page of
+        Profile ->
+            "#profile"
+
+        Home ->
+            "#"
+
+        Login ->
+            "#login"
+
+        Logout ->
+            "#logout"
+
+        Register ->
+            "#register"
+
+        Transactions ->
+            "#transactions"
+
+        Concepts string ->
+            "#concepts/" ++ string
+
+        ConceptsEdit string ->
+            "#concepts/" ++ string ++ "/edit"
+
+        ConceptsList ->
+            "#concepts"
+
+        NotFound ->
+            ""
+
+        AddConcept ->
+            "#add_concept"
+
+
 urlUpdate : Url -> Model -> ( Model, Cmd Msg )
 urlUpdate url model =
     case decode url of
@@ -838,7 +899,12 @@ urlUpdate url model =
             ( { model | page = NotFound }, Cmd.none )
 
         Just page ->
-            ( { model | page = page }
+            ( case page of
+                AddConcept ->
+                    { model | page = page, concept = emptyConcept, conceptForm = emptyConceptForm, conceptTagForm = { tag = "" } }
+
+                _ ->
+                    { model | page = page }
             , case page of
                 Profile ->
                     loadProfile model.session.loginToken
@@ -862,7 +928,19 @@ urlUpdate url model =
                 Transactions ->
                     Cmd.batch [ loadTransactions model, loadTxUsers model ]
 
-                _ ->
+                Login ->
+                    Cmd.none
+
+                Logout ->
+                    Cmd.none
+
+                Register ->
+                    Cmd.none
+
+                AddConcept ->
+                    Cmd.none
+
+                NotFound ->
                     Cmd.none
             )
 
@@ -885,6 +963,7 @@ routeParser =
         , UrlParser.map Concepts (s "concepts" </> string)
         , UrlParser.map ConceptsEdit (s "concepts" </> string </> s "edit")
         , UrlParser.map ConceptsList (s "concepts")
+        , UrlParser.map AddConcept (s "add_concept")
         ]
 
 
