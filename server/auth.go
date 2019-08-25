@@ -232,13 +232,41 @@ func SendEmail(emailAddress string, verificationKey string) {
 	defer c.Close()
 	_ = c.Mail("no-reply@thinkglobally.org")
 	_ = c.Rcpt(emailAddress)
+	boundary := base64.StdEncoding.EncodeToString(RandomBytes(16))
 	wc, err := c.Data()
 	LogFatalError(err)
 	defer wc.Close()
 	buf := bytes.NewBufferString("" +
 		"Subject: Thinkglobally Confirm Email Address\r\n" +
+		"From: ThinkGlobally <no-reply@thinkglobally.org>\r\n" +
+		"Reply-To: ThinkGlobally <no-reply@thinkglobally.org>\r\n" +
+		"MIME-Version: 1.0\r\n" +
+		"Content-Type: multipart/alternative; boundary=\""+boundary+"\"\r\n" +
 		"\r\n" +
-		"Please click on the following link to confirm your account " + confirmUrl)
+		"--"+boundary+"\r\n" +
+		"Content-Type: text/plain; charset=utf-8\r\n" +
+		"Content-Transfer-Encoding: 7bit\r\n" +
+		"\r\n" +
+		"Thanks for signing up for a Think Globally - Trade Locally account\r\n"+
+		"\r\n" +
+		"Please click on the following link to confirm your email address " + confirmUrl+"\r\n"+
+		"\r\n" +
+		"--"+boundary+"\r\n" +
+		"Content-Type: text/html; charset=utf-8\r\n" +
+		"Content-Transfer-Encoding: 7bit\r\n" +
+		"\r\n" +
+		"<!DOCTYPE html>\r\n" +
+		"<html>\r\n" +
+		"<head>\r\n" +
+		"</head>\r\n" +
+		"<body>\r\n" +
+		"<p>Thanks for signing up for a Think Globally - Trade Locally account</p>\r\n"+
+		"\r\n" +
+		"<p>Please click on the following link to confirm your email address <a href="+confirmUrl+">" + confirmUrl+"</a></p>\r\n"+
+		"</body>\r\n" +
+		"</html>\r\n" +
+		"\r\n" +
+		"--"+boundary+"--\r\n")
 	_, err = buf.WriteTo(wc)
 	LogFatalError(err)
 }
