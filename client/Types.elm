@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgsAndMultiplier, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, creatingTransactionSummary, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -15,6 +15,7 @@ import Json.Decode as Decode exposing (Decoder, at, float, int, list, map7, stri
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
 import Set exposing (Set)
+import String exposing (toInt)
 import Time exposing (Month)
 import Url exposing (Url)
 
@@ -36,6 +37,7 @@ type alias Model =
     , loggedInUser : User
     , concept : Concept
     , creatingTransaction : TransactionType
+    , creatingTransactionFrom : TransactionFromType
     , transactions : List Transaction
     , pendingTransactions : List Transaction
     , txUsers : Dict String User
@@ -210,6 +212,12 @@ type TransactionType
     | TxRequest
 
 
+type TransactionFromType
+    = TxFromTGs
+    | TxFromTimeMul
+    | TxFromNational
+
+
 type Msg
     = ChangedUrl Url
     | ClickedLink UrlRequest
@@ -250,6 +258,7 @@ type Msg
     | ConceptTagDeleted (Result Http.Error ApiActionResponse)
     | GotUpdateProfileJson (Result Http.Error ApiActionResponse)
     | TransactionState TransactionType
+    | TransactionFromState TransactionFromType
     | AddedTransaction (Result Http.Error ApiActionResponse)
     | AddedConcept (Result Http.Error ApiActionResponse)
     | AddedConceptTag Int String (Result Http.Error ApiActionResponse)
@@ -370,11 +379,26 @@ tgsFromTimeAndMultiplier time multiplier =
     format tgsLocale (multiplied / (60.0 * 60.0))
 
 
-txFeeFromTgsAndMultiplier : String -> String -> String
-txFeeFromTgsAndMultiplier tgs multiplier =
+secondsFromTgsFloat : String -> Float
+secondsFromTgsFloat tgs =
+    Maybe.withDefault 0 (String.toFloat tgs) * (60.0 * 60.0)
+
+
+secondsFromTgs : String -> Int
+secondsFromTgs tgs =
+    round (secondsFromTgsFloat tgs)
+
+
+txFeeIntFromTgs : String -> Int
+txFeeIntFromTgs tgs =
+    max 1 (floor (0.0002 * secondsFromTgsFloat tgs))
+
+
+txFeeFromTgs : String -> String
+txFeeFromTgs tgs =
     let
         fee =
-            max 1 (floor (0.0002 * Maybe.withDefault 0 (String.toFloat tgs) * Maybe.withDefault 1.0 (String.toFloat multiplier)))
+            txFeeIntFromTgs tgs
 
         feeSec =
             String.padLeft 2 '0' (String.fromInt (remainderBy 60 fee))
@@ -472,9 +496,61 @@ formatBalanceWithMultiplier balance multiplier =
     formatBalanceFloat (toFloat balance * multiplier)
 
 
-formatBalancePlusFee : Int -> Float -> Int -> String
-formatBalancePlusFee balance multiplier fee =
-    formatBalanceFloat ((toFloat balance * multiplier) + toFloat fee)
+formatBalancePlusFee : Int -> Int -> String
+formatBalancePlusFee balance fee =
+    formatBalanceFloat (toFloat (balance + fee))
+
+
+creatingTransactionSummary : Model -> String
+creatingTransactionSummary model =
+    let
+        valCost =
+            if model.creatingTransaction == TxOffer then
+                "cost"
+
+            else
+                "value"
+
+        plusMinus =
+            if model.creatingTransaction == TxOffer then
+                "+"
+
+            else
+                "-"
+
+        tgs =
+            Maybe.withDefault 0 (String.toFloat model.transactionForm.tgs)
+
+        tgsAsSeconds =
+            tgs * 60 * 60
+
+        txFee =
+            toFloat (secondsFromTime model.transactionForm.txFee)
+
+        transactionTgs =
+            if model.creatingTransaction == TxOffer then
+                tgsAsSeconds + txFee
+
+            else
+                tgsAsSeconds - txFee
+    in
+    " "
+        ++ formatDate model model.time
+        ++ ", "
+        ++ valCost
+        ++ " to you: "
+        ++ formatBalanceFloat transactionTgs
+        ++ "TGs, from ("
+        ++ model.transactionForm.tgs
+        ++ "TGs or "
+        ++ model.transactionForm.time
+        ++ " * "
+        ++ model.transactionForm.multiplier
+        ++ ") "
+        ++ plusMinus
+        ++ " "
+        ++ model.transactionForm.txFee
+        ++ " [Transaction Fee]"
 
 
 

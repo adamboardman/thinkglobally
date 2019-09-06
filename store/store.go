@@ -349,7 +349,7 @@ func (s *Store) InsertTransaction(transaction *Transaction) (uint, error) {
 
 func (s *Store) ListTransactionsForUser(userId uint) ([]Transaction, error) {
 	var transactions []Transaction
-	err := s.db.Where("from_user_id=? OR to_user_id=?", userId, userId).Order("confirmed_date").Find(&transactions).Error
+	err := s.db.Where("from_user_id=? OR to_user_id=?", userId, userId).Order("confirmed_date,initiated_date").Find(&transactions).Error
 	return transactions, err
 }
 
@@ -370,7 +370,7 @@ func (s *Store) UpdateTransaction(transaction *Transaction) (uint, error) {
 
 func (s *Store) ListTransactionPartners(userId uint) ([]PublicUser, error) {
 	var users []PublicUser
-	err := s.db.Raw("SELECT * FROM users WHERE users.deleted_at IS NULL AND users.id IN (SELECT to_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?)) UNION SELECT from_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?)))", userId, userId, userId, userId).Scan(&users).Error
+	err := s.db.Raw("SELECT * FROM users WHERE users.deleted_at IS NULL AND users.id IN (SELECT to_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?)) UNION SELECT from_user_id AS user_id FROM transactions WHERE transactions.deleted_at IS NULL AND ((from_user_id=? OR to_user_id=?))) ORDER BY users.id", userId, userId, userId, userId).Scan(&users).Error
 	return users, err
 }
 

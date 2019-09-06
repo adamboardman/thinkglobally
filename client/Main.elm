@@ -22,7 +22,7 @@ import Set
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgsAndMultiplier, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
@@ -77,6 +77,7 @@ init flags url key =
                 , conceptTagForm = { tag = "" }
                 , concept = emptyConcept
                 , creatingTransaction = TxNone
+                , creatingTransactionFrom = TxFromTGs
                 , transactions = []
                 , pendingTransactions = []
                 , txUsers = Dict.empty
@@ -385,7 +386,7 @@ update msg model =
                     timeFromTgs tgs model.transactionForm.multiplier
 
                 txFee =
-                    txFeeFromTgsAndMultiplier tgs model.transactionForm.multiplier
+                    txFeeFromTgs tgs
             in
             transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime, txFee = txFee }) model
 
@@ -398,7 +399,7 @@ update msg model =
                     timeFromTime time
 
                 txFee =
-                    txFeeFromTgsAndMultiplier tgs model.transactionForm.multiplier
+                    txFeeFromTgs tgs
             in
             transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime, txFee = txFee }) model
 
@@ -408,7 +409,7 @@ update msg model =
                     tgsFromTimeAndMultiplier model.transactionForm.time multiplier
 
                 txFee =
-                    txFeeFromTgsAndMultiplier tgs multiplier
+                    txFeeFromTgs tgs
             in
             transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier, txFee = txFee }) model
 
@@ -446,6 +447,11 @@ update msg model =
 
         TransactionState state ->
             ( { model | creatingTransaction = state }
+            , Cmd.none
+            )
+
+        TransactionFromState state ->
+            ( { model | creatingTransactionFrom = state }
             , Cmd.none
             )
 

@@ -13,7 +13,7 @@ import Login exposing (loginDecoder)
 import Test exposing (..)
 import Time
 import Transaction exposing (pendingTransactionSummary, transactionSummary)
-import Types exposing (Msg(..), Page(..), TransactionType(..), User, apiActionDecoder, conceptDecoder, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, userDecoder)
+import Types exposing (Msg(..), Page(..), TransactionFromType(..), TransactionType(..), User, apiActionDecoder, conceptDecoder, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, userDecoder)
 
 
 decodeLogin : Test
@@ -221,6 +221,7 @@ pendingTransactionSummaryOfferOut =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
@@ -285,6 +286,7 @@ pendingTransactionSummaryOfferIn =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
@@ -349,6 +351,7 @@ pendingTransactionSummaryRequestIn =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
@@ -413,6 +416,7 @@ pendingTransactionSummaryRequestOut =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
@@ -481,6 +485,7 @@ transactionSummaryOfferApprovedOut =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
@@ -522,7 +527,7 @@ transactionSummaryOfferApprovedOut =
                     , Table.td [] [ text "FN2 LN2 (2)" ]
                     , Table.td [] [ text "Offer Approved" ]
                     , Table.td [] [ text "" ]
-                    , Table.td [] [ text (formatBalancePlusFee tx.seconds tx.multiplier tx.txFee) ]
+                    , Table.td [] [ text (formatBalancePlusFee tx.seconds tx.txFee) ]
                     , Table.td [] [ text (formatBalance tx.fromUserBalance) ]
                     ]
                 )
@@ -550,6 +555,7 @@ transactionSummaryOfferApprovedIn =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
@@ -619,6 +625,7 @@ transactionSummaryRequestApprovedOut =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
@@ -688,6 +695,7 @@ transactionSummaryRequestApprovedIn =
                     , conceptTagForm = { tag = "" }
                     , concept = emptyConcept
                     , creatingTransaction = TxNone
+                    , creatingTransactionFrom = TxFromTGs
                     , transactions = []
                     , pendingTransactions = []
                     , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]

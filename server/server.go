@@ -138,7 +138,7 @@ func LoadUser(c *gin.Context) {
 		}
 		userWithBalance := store.PrivilegedUserWithBalance{
 			PrivilegedUser: *user,
-			Balance:    balance,
+			Balance:        balance,
 		}
 		c.JSON(http.StatusOK, userWithBalance)
 	} else {
@@ -518,7 +518,7 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 	if transaction.FromUserId == transaction.ToUserId {
 		return errors.New("You can not create transactions from and to yourself")
 	}
-	txFee := uint(math.Floor(0.0002 * float64(transaction.Seconds) * float64(transaction.Multiplier)))
+	txFee := uint(math.Floor(0.0002 * float64(transaction.Seconds)))
 	if transaction.TxFee < 1 || transaction.TxFee < txFee {
 		return errors.New("You must pay a 0.02% or greater transaction fee")
 	}
@@ -575,8 +575,8 @@ func AcceptTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionOfferApproved
-		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int64(float64(transaction.Seconds)*float64(transaction.Multiplier)+float64(transaction.TxFee))
-		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int64(float64(transaction.Seconds)*float64(transaction.Multiplier))
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - (int64(transaction.Seconds) + int64(transaction.TxFee))
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int64(transaction.Seconds)
 	}
 	if transaction.Status == store.TransactionRequested {
 		if transaction.FromUserId != loggedInUserId {
@@ -585,8 +585,8 @@ func AcceptTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionRequestApproved
-		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int64(float64(transaction.Seconds)*float64(transaction.Multiplier))
-		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + int64(float64(transaction.Seconds)*float64(transaction.Multiplier)-float64(transaction.TxFee))
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int64(transaction.Seconds)
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + (int64(transaction.Seconds) - int64(transaction.TxFee))
 	}
 	transaction.ConfirmedDate = store.PosixDateTime(time.Now())
 	_, err = App.Store.UpdateTransaction(transaction)
@@ -697,8 +697,8 @@ func PublicUsersList(c *gin.Context) {
 func publicUserWithBalanceFromUser(publicUser *store.PublicUser) store.PublicUserWithBalance {
 	transaction, err := App.Store.LastConfirmedTransactionForUser(publicUser.ID)
 	var balance int64 = 0
-	if (err == nil) {
-		if (transaction.FromUserId == publicUser.ID) {
+	if err == nil {
+		if transaction.FromUserId == publicUser.ID {
 			balance = transaction.FromUserBalance
 		} else {
 			balance = transaction.ToUserBalance

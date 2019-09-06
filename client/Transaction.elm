@@ -18,7 +18,7 @@ import Json.Decode exposing (Decoder, field, list)
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, secondsFromTime, tgsLocale, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, creatingTransactionSummary, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, secondsFromTgs, secondsFromTime, tgsLocale, transactionDecoder, txFeeIntFromTgs, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField
@@ -71,7 +71,7 @@ transactionSummary model tx =
 
         tgsIn =
             if model.loggedInUser.id == tx.toUserId then
-                formatBalanceWithMultiplier tx.seconds tx.multiplier
+                formatBalance tx.seconds
 
             else
                 ""
@@ -79,10 +79,10 @@ transactionSummary model tx =
         tgsOut =
             if model.loggedInUser.id == tx.fromUserId then
                 if tx.status == 3 then
-                    formatBalancePlusFee tx.seconds tx.multiplier tx.txFee
+                    formatBalancePlusFee tx.seconds tx.txFee
 
                 else
-                    formatBalanceWithMultiplier tx.seconds tx.multiplier
+                    formatBalance tx.seconds
 
             else
                 ""
@@ -172,35 +172,35 @@ pendingTransactionSummary model tx =
             case tx.status of
                 1 ->
                     if tx.fromUserId == model.loggedInUser.id then
-                        (toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee
+                        tx.seconds + tx.txFee
 
                     else
-                        toFloat tx.seconds * tx.multiplier
+                        tx.seconds
 
                 2 ->
                     if tx.toUserId == model.loggedInUser.id then
-                        (toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee
+                        tx.seconds - tx.txFee
 
                     else
-                        toFloat tx.seconds * tx.multiplier
+                        tx.seconds
 
                 _ ->
                     0
 
         tgs =
             if tx.fromUserId == model.loggedInUser.id then
-                -tgsAsSeconds / 3600
+                toFloat -tgsAsSeconds / 3600
 
             else
-                tgsAsSeconds / 3600
+                toFloat tgsAsSeconds / 3600
 
         newBalanceFrom =
             case ( fromUser, tx.status ) of
                 ( Just user, 1 ) ->
-                    user.balance - round ((toFloat tx.seconds * tx.multiplier) + toFloat tx.txFee)
+                    user.balance - round (toFloat tx.seconds + toFloat tx.txFee)
 
                 ( Just user, 2 ) ->
-                    user.balance - round (toFloat tx.seconds * tx.multiplier)
+                    user.balance - round (toFloat tx.seconds)
 
                 _ ->
                     0
@@ -208,10 +208,10 @@ pendingTransactionSummary model tx =
         newBalanceTo =
             case ( toUser, tx.status ) of
                 ( Just user, 1 ) ->
-                    user.balance + round (toFloat tx.seconds * tx.multiplier)
+                    user.balance + round (toFloat tx.seconds)
 
                 ( Just user, 2 ) ->
-                    user.balance + round ((toFloat tx.seconds * tx.multiplier) - toFloat tx.txFee)
+                    user.balance + round (toFloat tx.seconds - toFloat tx.txFee)
 
                 _ ->
                     0
@@ -384,64 +384,76 @@ viewCreateTransactionForm model =
                             ]
                         ]
                     ]
+            , ButtonGroup.radioButtonGroup []
+                [ ButtonGroup.radioButton
+                    (model.creatingTransactionFrom == TxFromTGs)
+                    [ Button.primary, Button.onClick <| TransactionFromState TxFromTGs ]
+                    [ text "Direct TGs" ]
+                , ButtonGroup.radioButton
+                    (model.creatingTransactionFrom == TxFromTimeMul)
+                    [ Button.primary, Button.onClick <| TransactionFromState TxFromTimeMul ]
+                    [ text "Time and Multiplier" ]
+                , ButtonGroup.radioButton
+                    (model.creatingTransactionFrom == TxFromNational)
+                    [ Button.primary, Button.disabled True ]
+                    [ text "Equivalent to national currency" ]
+                ]
             , Grid.row []
-                [ Grid.col []
-                    [ Form.group []
-                        [ Form.label [ for "tgs" ] [ text "TGs (living wage hours)" ]
-                        , Input.text
-                            [ Input.id "tgs"
-                            , Input.placeholder "TGs"
-                            , Input.onInput EnteredTransactionTGs
-                            , Input.value model.transactionForm.tgs
+                [ if model.creatingTransactionFrom == TxFromTGs then
+                    Grid.col []
+                        [ Form.group []
+                            [ Form.label [ for "tgs" ] [ text "TGs (living wage hours)" ]
+                            , Input.text
+                                [ Input.id "tgs"
+                                , Input.placeholder "TGs"
+                                , Input.onInput EnteredTransactionTGs
+                                , Input.value model.transactionForm.tgs
+                                ]
+                            , Form.invalidFeedback [] [ text "Please enter the TGs for the transaction" ]
                             ]
-                        , Form.invalidFeedback [] [ text "Please enter the TGs for the transaction" ]
                         ]
-                    ]
-                , Grid.col []
-                    [ Form.group []
-                        [ Form.label [ for "time" ] [ text "Time (HH:mm:ss)" ]
-                        , Input.text
-                            [ Input.id "time"
-                            , Input.placeholder "Time"
-                            , Input.onInput EnteredTransactionTime
-                            , Input.value model.transactionForm.time
+
+                  else
+                    Grid.col [] []
+                , if model.creatingTransactionFrom == TxFromTimeMul then
+                    Grid.col []
+                        [ Form.group []
+                            [ Form.label [ for "time" ] [ text "Time (HH:mm:ss)" ]
+                            , Input.text
+                                [ Input.id "time"
+                                , Input.placeholder "Time"
+                                , Input.onInput EnteredTransactionTime
+                                , Input.value model.transactionForm.time
+                                ]
+                            , Form.invalidFeedback [] [ text "Please enter the time duration for the transaction" ]
                             ]
-                        , Form.invalidFeedback [] [ text "Please enter the time duration for the transaction" ]
                         ]
-                    ]
-                , Grid.col []
-                    [ Form.group []
-                        [ Form.label [ for "multiplier" ] [ text "Multiplier" ]
-                        , Input.number
-                            [ Input.id "multiplier"
-                            , Input.attrs [ Attributes.min "1", Attributes.max "3", Attributes.step "0.01" ]
-                            , Input.placeholder "Multiplier"
-                            , Input.onInput EnteredTransactionMultiplier
-                            , Input.value model.transactionForm.multiplier
+
+                  else
+                    Grid.col [] []
+                , if model.creatingTransactionFrom == TxFromTimeMul then
+                    Grid.col []
+                        [ Form.group []
+                            [ Form.label [ for "multiplier" ] [ text "Multiplier" ]
+                            , Input.number
+                                [ Input.id "multiplier"
+                                , Input.attrs [ Attributes.min "1", Attributes.max "3", Attributes.step "0.01" ]
+                                , Input.placeholder "Multiplier"
+                                , Input.onInput EnteredTransactionMultiplier
+                                , Input.value model.transactionForm.multiplier
+                                ]
+                            , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
                             ]
-                        , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
                         ]
-                    ]
+
+                  else
+                    Grid.col [] []
                 ]
             , Grid.row []
                 [ Grid.col []
                     [ Form.group []
                         [ Form.label [] [ text "Transaction Date:" ]
-                        , text " "
-                        , text (formatDate model model.time)
-                        , text ", Transaction Value: "
-                        , text model.transactionForm.tgs
-                        , text "TGs = ("
-                        , text model.transactionForm.time
-                        , text " * "
-                        , text model.transactionForm.multiplier
-                        , if model.creatingTransaction == TxOffer then
-                            text ") + "
-
-                          else
-                            text ") - "
-                        , text model.transactionForm.txFee
-                        , text " [Transaction Fee]"
+                        , text (creatingTransactionSummary model)
                         ]
                     ]
                 ]
@@ -586,13 +598,13 @@ transaction model (TransactionTrimmed form) =
                 model.loggedInUser.id
 
         seconds =
-            secondsFromTime form.time
+            secondsFromTgs form.tgs
 
         multiplier =
             Maybe.withDefault 0 (String.toFloat form.multiplier)
 
         txFee =
-            max 1 (floor ((toFloat seconds * multiplier) * 0.0002))
+            txFeeIntFromTgs form.tgs
 
         body =
             Encode.object
