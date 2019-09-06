@@ -398,57 +398,55 @@ viewCreateTransactionForm model =
                     [ Button.primary, Button.disabled True ]
                     [ text "Equivalent to national currency" ]
                 ]
-            , Grid.row []
-                [ if model.creatingTransactionFrom == TxFromTGs then
-                    Grid.col []
-                        [ Form.group []
-                            [ Form.label [ for "tgs" ] [ text "TGs (living wage hours)" ]
-                            , Input.text
-                                [ Input.id "tgs"
-                                , Input.placeholder "TGs"
-                                , Input.onInput EnteredTransactionTGs
-                                , Input.value model.transactionForm.tgs
+            , case model.creatingTransactionFrom of
+                TxFromTGs ->
+                    Grid.row []
+                        [ Grid.col []
+                            [ Form.group []
+                                [ Form.label [ for "tgs" ] [ text "TGs (living wage hours)" ]
+                                , Input.text
+                                    [ Input.id "tgs"
+                                    , Input.placeholder "TGs"
+                                    , Input.onInput EnteredTransactionTGs
+                                    , Input.value model.transactionForm.tgs
+                                    ]
+                                , Form.invalidFeedback [] [ text "Please enter the TGs for the transaction" ]
                                 ]
-                            , Form.invalidFeedback [] [ text "Please enter the TGs for the transaction" ]
                             ]
                         ]
 
-                  else
-                    Grid.col [] []
-                , if model.creatingTransactionFrom == TxFromTimeMul then
-                    Grid.col []
-                        [ Form.group []
-                            [ Form.label [ for "time" ] [ text "Time (HH:mm:ss)" ]
-                            , Input.text
-                                [ Input.id "time"
-                                , Input.placeholder "Time"
-                                , Input.onInput EnteredTransactionTime
-                                , Input.value model.transactionForm.time
+                TxFromTimeMul ->
+                    Grid.row []
+                        [ Grid.col []
+                            [ Form.group []
+                                [ Form.label [ for "time" ] [ text "Time (HH:mm:ss)" ]
+                                , Input.text
+                                    [ Input.id "time"
+                                    , Input.placeholder "Time"
+                                    , Input.onInput EnteredTransactionTime
+                                    , Input.value model.transactionForm.time
+                                    ]
+                                , Form.invalidFeedback [] [ text "Please enter the time duration for the transaction" ]
                                 ]
-                            , Form.invalidFeedback [] [ text "Please enter the time duration for the transaction" ]
+                            ]
+                        , Grid.col []
+                            [ Form.group []
+                                [ Form.label [ for "multiplier" ] [ text "Multiplier" ]
+                                , Input.number
+                                    [ Input.id "multiplier"
+                                    , Input.attrs [ Attributes.min "1", Attributes.max "3", Attributes.step "0.01" ]
+                                    , Input.placeholder "Multiplier"
+                                    , Input.onInput EnteredTransactionMultiplier
+                                    , Input.value model.transactionForm.multiplier
+                                    ]
+                                , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
+                                ]
                             ]
                         ]
 
-                  else
-                    Grid.col [] []
-                , if model.creatingTransactionFrom == TxFromTimeMul then
-                    Grid.col []
-                        [ Form.group []
-                            [ Form.label [ for "multiplier" ] [ text "Multiplier" ]
-                            , Input.number
-                                [ Input.id "multiplier"
-                                , Input.attrs [ Attributes.min "1", Attributes.max "3", Attributes.step "0.01" ]
-                                , Input.placeholder "Multiplier"
-                                , Input.onInput EnteredTransactionMultiplier
-                                , Input.value model.transactionForm.multiplier
-                                ]
-                            , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
-                            ]
-                        ]
-
-                  else
-                    Grid.col [] []
-                ]
+                TxFromNational ->
+                    Grid.row []
+                        [ Grid.col [] [] ]
             , Grid.row []
                 [ Grid.col []
                     [ Form.group []
