@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/adamboardman/thinkglobally/store"
+	"github.com/adamboardman/thinkglobally/tag_updater"
 	jwt "github.com/appleboy/gin-jwt"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
@@ -271,6 +272,10 @@ func AddConcept(c *gin.Context) {
 		return
 	}
 
+	conceptTags, _ := App.Store.ListConceptTags()
+	concepts, _ := App.Store.ListConcepts()
+	concept.Full = tag_updater.UpdateTags(conceptTags, concepts, concept.Full)
+
 	conceptId, err := App.Store.InsertConcept(&concept)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert Concept failed"})
@@ -300,6 +305,10 @@ func UpdateConcept(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Concept details failed validation - err: %s", err.Error())})
 		return
 	}
+
+	conceptTags, _ := App.Store.ListConceptTags()
+	concepts, _ := App.Store.ListConcepts()
+	concept.Full = tag_updater.UpdateTags(conceptTags, concepts, concept.Full)
 
 	_, err = App.Store.UpdateConcept(concept)
 	if err == nil {

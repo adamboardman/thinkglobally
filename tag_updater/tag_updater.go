@@ -44,9 +44,13 @@ func outBodyFromMarkdownAndDisplayableTags(taggedMarkDown string, displayedTags 
 func checkAndWriteTagsToBody(displayableTags []DisplayableTag, inPos int, taggedMarkDown string, outBody *strings.Builder, displayedTags []DisplayableTag, broken bool) (int, []DisplayableTag, bool) {
 	for _, displayableTag := range displayableTags {
 		tag := displayableTag.Tag
-		if checkForTagInMarkdown(inPos, tag, taggedMarkDown) {
+		if found, foundTag:= checkForTagInMarkdown(inPos, tag, taggedMarkDown); found {
 			writeTagToBody(taggedMarkDown, inPos, outBody, tag)
-			displayedTags = append(displayedTags, displayableTag)
+			displayedTags = append(displayedTags, DisplayableTag{
+				FirstTag: displayableTag.FirstTag,
+				Tag:      foundTag,
+				Summary:  displayableTag.Summary,
+			})
 			inPos += len(tag) - 1
 			broken = true
 			break
@@ -55,8 +59,13 @@ func checkAndWriteTagsToBody(displayableTags []DisplayableTag, inPos int, tagged
 	return inPos, displayedTags, broken
 }
 
-func checkForTagInMarkdown(inPos int, tag string, taggedMarkDown string) bool {
-	return inPos+len(tag) < len(taggedMarkDown) && tag == taggedMarkDown[inPos:inPos+len(tag)]
+func checkForTagInMarkdown(inPos int, tag string, taggedMarkDown string) (bool, string) {
+	if inPos+len(tag) < len(taggedMarkDown) {
+		mdTagToCheck := taggedMarkDown[inPos : inPos+len(tag)]
+		return strings.ToLower(tag) == strings.ToLower(mdTagToCheck), mdTagToCheck
+	} else {
+		return false, ""
+	}
 }
 
 func skipExistingTags(inPos int, taggedMarkDown string) int {

@@ -5,6 +5,7 @@ import Html exposing (Html, div, h4, text)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
 import Json.Encode
+import Markdown
 import ReactMarkdownConcepts
 import Types exposing (Concept, ConceptTag, DisplayableTag, Model, Msg(..), authHeader, conceptDecoder, conceptTagDecoder)
 
@@ -27,10 +28,7 @@ encodeDisplayableTags tags =
 pageConcept : Model -> List (Html Msg)
 pageConcept model =
     [ h4 [] [ text model.concept.name ]
-    , ReactMarkdownConcepts.view
-        { source = Json.Encode.string model.concept.full
-        , concepts = encodeDisplayableTags model.displayableTagsList
-        }
+    , div [] <| Markdown.toHtml Nothing model.concept.full
     , div [] (List.map viewProblem model.problems)
     ]
 

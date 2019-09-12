@@ -79,3 +79,43 @@ func TestUpdateTag(t *testing.T) {
 		So(mdOtu, ShouldEqual, "[multi word tag]: /#concepts/multi%20word%20tag \"new summary\"\nSome text with a [multi word tag] in it")
 	})
 }
+
+func TestAddTagIgnoreTagCase(t *testing.T) {
+	tags = []store.ConceptTag{store.ConceptTag{
+		Model:     gorm.Model{ID: 1},
+		Tag:       "multi WORD tag",
+		ConceptId: 1,
+		Order:     0,
+	}}
+	concepts = []store.Concept{store.Concept{
+		Model:   gorm.Model{ID: 1},
+		Name:    "",
+		Summary: "summary",
+		Full:    "",
+	}}
+	Convey("Add a Tag", t, func() {
+		md := "Some text with a multi word tag in it"
+		mdOtu := UpdateTags(tags, concepts, md)
+		So(mdOtu, ShouldEqual, "[multi word tag]: /#concepts/multi%20WORD%20tag \"summary\"\nSome text with a [multi word tag] in it")
+	})
+}
+
+func TestAddTagIgnoreMarkDownCase(t *testing.T) {
+	tags = []store.ConceptTag{store.ConceptTag{
+		Model:     gorm.Model{ID: 1},
+		Tag:       "multi word tag",
+		ConceptId: 1,
+		Order:     0,
+	}}
+	concepts = []store.Concept{store.Concept{
+		Model:   gorm.Model{ID: 1},
+		Name:    "",
+		Summary: "summary",
+		Full:    "",
+	}}
+	Convey("Add a Tag", t, func() {
+		md := "Some text with a MULTI word tag in it"
+		mdOtu := UpdateTags(tags, concepts, md)
+		So(mdOtu, ShouldEqual, "[MULTI word tag]: /#concepts/multi%20word%20tag \"summary\"\nSome text with a [MULTI word tag] in it")
+	})
+}
