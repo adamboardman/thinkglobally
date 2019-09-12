@@ -320,6 +320,11 @@ pageTransaction model =
 
       else
         viewCreateTransactionForm model
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
     ]
 
 

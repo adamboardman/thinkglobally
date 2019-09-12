@@ -1,0 +1,128 @@
+package tag_updater
+
+import (
+	"github.com/adamboardman/thinkglobally/store"
+	"net/url"
+	"sort"
+	"strings"
+)
+
+type DisplayableTag struct {
+	FirstTag string
+	Tag      string
+	Summary  string
+}
+
+func UpdateTags(conceptTags []store.ConceptTag, concepts []store.Concept, taggedMarkDown string) string {
+	var displayedTags []DisplayableTag
+	conceptMap := conceptMapFromConcepts(concepts)
+	conceptTagMap := conceptTagMapFromConcepts(conceptTags)
+	displayableTags := displayableTagsFromTagsMaps(conceptTags, conceptTagMap, conceptMap)
+
+	var outBody strings.Builder
+	displayedTags = outBodyFromMarkdownAndDisplayableTags(taggedMarkDown, displayedTags, displayableTags, &outBody)
+	var outTags strings.Builder
+	outTagsFromDisplayableTags(displayedTags, &outTags)
+
+	return outTags.String() + outBody.String();
+}
+
+func outBodyFromMarkdownAndDisplayableTags(taggedMarkDown string, displayedTags []DisplayableTag, displayableTags []DisplayableTag, outBody *strings.Builder) []DisplayableTag {
+	inPos := 0
+	inPos = skipExistingTags(inPos, taggedMarkDown)
+	for inPos < len(taggedMarkDown) {
+		broken := false
+		inPos, displayedTags, broken = checkAndWriteTagsToBody(displayableTags, inPos, taggedMarkDown, outBody, displayedTags, broken)
+		if !broken {
+			outBody.WriteString(taggedMarkDown[inPos : inPos+1])
+		}
+		inPos += 1
+	}
+	return displayedTags
+}
+
+func checkAndWriteTagsToBody(displayableTags []DisplayableTag, inPos int, taggedMarkDown string, outBody *strings.Builder, displayedTags []DisplayableTag, broken bool) (int, []DisplayableTag, bool) {
+	for _, displayableTag := range displayableTags {
+		tag := displayableTag.Tag
+		if checkForTagInMarkdown(inPos, tag, taggedMarkDown) {
+			writeTagToBody(taggedMarkDown, inPos, outBody, tag)
+			displayedTags = append(displayedTags, displayableTag)
+			inPos += len(tag) - 1
+			broken = true
+			break
+		}
+	}
+	return inPos, displayedTags, broken
+}
+
+func checkForTagInMarkdown(inPos int, tag string, taggedMarkDown string) bool {
+	return inPos+len(tag) < len(taggedMarkDown) && tag == taggedMarkDown[inPos:inPos+len(tag)]
+}
+
+func skipExistingTags(inPos int, taggedMarkDown string) int {
+	hasTags := true
+	for hasTags && inPos < len(taggedMarkDown) {
+		end := strings.Index(taggedMarkDown[inPos:], "\n")
+		if end > 0 {
+			line := taggedMarkDown[inPos : inPos+end]
+			if line[0:1] == "[" && strings.Contains(line, "]") && strings.Contains(line, ":") {
+				inPos += len(line) + 1
+			} else {
+				hasTags = false
+			}
+		} else {
+			hasTags = false
+		}
+	}
+	return inPos
+}
+
+func writeTagToBody(taggedMarkDown string, inPos int, outBody *strings.Builder, tag string) {
+	needsBrackets := taggedMarkDown[inPos-1:inPos] != "["
+	if needsBrackets {
+		outBody.WriteString("[")
+	}
+	outBody.WriteString(taggedMarkDown[inPos : inPos+len(tag)])
+	if needsBrackets {
+		outBody.WriteString("]")
+	}
+}
+
+func outTagsFromDisplayableTags(displayedTags []DisplayableTag, outTags *strings.Builder) {
+	for _, displayableTag := range displayedTags {
+		outTags.WriteString("[" + displayableTag.Tag + "]: /#concepts/" + url.PathEscape(displayableTag.FirstTag) + " \"" + displayableTag.Summary + "\"\n")
+	}
+}
+
+func displayableTagsFromTagsMaps(conceptTags []store.ConceptTag, conceptTagMap map[uint]string, conceptMap map[uint]store.Concept) []DisplayableTag {
+	var displayableTags []DisplayableTag
+	for _, conceptTag := range conceptTags {
+		displayableTags = append(displayableTags, DisplayableTag{
+			FirstTag: conceptTagMap[conceptTag.ID],
+			Tag:      conceptTag.Tag,
+			Summary:  conceptMap[conceptTag.ConceptId].Summary,
+		})
+	}
+	sort.Slice(displayableTags, func(i, j int) bool {
+		return len(displayableTags[i].Tag) > len(displayableTags[j].Tag)
+	})
+	return displayableTags
+}
+
+func conceptTagMapFromConcepts(conceptTags []store.ConceptTag) map[uint]string {
+	conceptTagMap := map[uint]string{}
+	for _, conceptTag := range conceptTags {
+		if _, ok := conceptTagMap[conceptTag.ID]; !ok {
+			conceptTagMap[conceptTag.ID] = conceptTag.Tag
+		}
+	}
+	return conceptTagMap
+}
+
+func conceptMapFromConcepts(concepts []store.Concept) map[uint]store.Concept {
+	conceptMap := map[uint]store.Concept{}
+	for _, concept := range concepts {
+		conceptMap[concept.ID] = concept
+	}
+	return conceptMap
+}

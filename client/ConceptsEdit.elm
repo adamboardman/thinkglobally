@@ -14,6 +14,7 @@ import Html.Events exposing (onSubmit)
 import Http exposing (emptyBody)
 import Json.Encode as Encode exposing (Value)
 import Loading
+import Markdown
 import Set exposing (Set)
 import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, emptyConceptForm)
 
@@ -22,8 +23,10 @@ pageConceptsEdit : Model -> List (Html Msg)
 pageConceptsEdit model =
     [ div [ class "container page" ]
         [ div [ class "row" ]
-            [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
-                [ h1 [ class "text-xs-center" ] [ text "Edit Concept" ]
+            [ div [ class "col-12" ]
+                [ h1 [ class "text-xs-center" ] [ text "Existing Concept" ]
+                , div [] <| Markdown.toHtml Nothing model.concept.full
+                , h1 [ class "text-xs-center" ] [ text "Edit Concept" ]
                 , viewConceptForm model
                 , viewConceptModal model
                 ]
@@ -36,7 +39,7 @@ pageAddConcept : Model -> List (Html Msg)
 pageAddConcept model =
     [ div [ class "container page" ]
         [ div [ class "row" ]
-            [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
+            [ div [ class "col-12" ]
                 [ h1 [ class "text-xs-center" ] [ text "Add Concept" ]
                 , viewConceptForm model
                 , viewConceptModal model
@@ -64,22 +67,18 @@ viewConceptForm model =
             , Form.row []
                 (List.map (viewConceptFormTag model.conceptForm) model.conceptForm.tags)
             ]
-        , Form.group []
-            [ if model.concept.id > 0 then
-                Form.row []
-                    [ Form.col []
-                        [ Button.button [ Button.secondary, Button.onClick ButtonConceptAddTag ]
-                            [ text "Add Tag" ]
-                        ]
-                    , Form.col []
-                        [ Button.button [ Button.secondary, Button.disabled (Set.isEmpty model.conceptForm.tagsToDelete), Button.onClick ButtonConceptDeleteSelectedTags ]
-                            [ text "Delete Selected Tags" ]
-                        ]
-                    ]
+        , if model.concept.id > 0 then
+            Form.group []
+                [ Button.button [ Button.secondary, Button.onClick ButtonConceptAddTag ] [ text "Add Tag" ]
+                , Html.span [] [ text "\u{00A0}\u{00A0}" ]
+                , Button.button [ Button.secondary, Button.disabled (Set.isEmpty model.conceptForm.tagsToDelete), Button.onClick ButtonConceptDeleteSelectedTags ]
+                    [ text "Delete Selected Tags" ]
+                ]
 
-              else
-                Form.label [] [ text "Must save concept before adding tags" ]
-            ]
+          else
+            Form.group []
+                [ Form.label [] [ text "Must save concept before adding tags" ]
+                ]
         , Form.group []
             [ Form.label [ for "summary" ] [ text "Summary" ]
             , Textarea.textarea
