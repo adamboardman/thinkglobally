@@ -13,11 +13,11 @@ type DisplayableTag struct {
 	Summary  string
 }
 
-func UpdateTags(conceptTags []store.ConceptTag, concepts []store.Concept, taggedMarkDown string) string {
+func UpdateTags(conceptTags []store.ConceptTag, concepts []store.Concept, taggedMarkDown string, ignoreId uint) string {
 	var displayedTags []DisplayableTag
 	conceptMap := conceptMapFromConcepts(concepts)
 	conceptTagMap := conceptTagMapFromConcepts(conceptTags)
-	displayableTags := displayableTagsFromTagsMaps(conceptTags, conceptTagMap, conceptMap)
+	displayableTags := displayableTagsFromTagsMaps(conceptTags, conceptTagMap, conceptMap, ignoreId)
 
 	var outBody strings.Builder
 	displayedTags = outBodyFromMarkdownAndDisplayableTags(taggedMarkDown, displayedTags, displayableTags, &outBody)
@@ -71,10 +71,13 @@ func checkForTagInMarkdown(inPos int, tag string, taggedMarkDown string) (bool, 
 func skipExistingTags(inPos int, taggedMarkDown string) int {
 	hasTags := true
 	for hasTags && inPos < len(taggedMarkDown) {
-		end := strings.Index(taggedMarkDown[inPos:], "\n")
-		if end > 0 {
-			line := taggedMarkDown[inPos : inPos+end]
-			if line[0:1] == "[" && strings.Contains(line, "]") && strings.Contains(line, ":") {
+		lineEndPos := strings.Index(taggedMarkDown[inPos:], "\n")
+		if lineEndPos > 0 {
+			line := taggedMarkDown[inPos : inPos+lineEndPos]
+			endBracketPos := strings.Index(line, "]")
+			colonPos := strings.Index(line, ":")
+			lineEnd := line[len(line)-1:]
+			if line[0:1] == "[" && endBracketPos > 2 && colonPos > endBracketPos && lineEnd != ":" {
 				inPos += len(line) + 1
 			} else {
 				hasTags = false
@@ -103,14 +106,16 @@ func outTagsFromDisplayableTags(displayedTags []DisplayableTag, outTags *strings
 	}
 }
 
-func displayableTagsFromTagsMaps(conceptTags []store.ConceptTag, conceptTagMap map[uint]string, conceptMap map[uint]store.Concept) []DisplayableTag {
+func displayableTagsFromTagsMaps(conceptTags []store.ConceptTag, conceptTagMap map[uint]string, conceptMap map[uint]store.Concept, ignoreId uint) []DisplayableTag {
 	var displayableTags []DisplayableTag
 	for _, conceptTag := range conceptTags {
-		displayableTags = append(displayableTags, DisplayableTag{
-			FirstTag: conceptTagMap[conceptTag.ID],
-			Tag:      conceptTag.Tag,
-			Summary:  conceptMap[conceptTag.ConceptId].Summary,
-		})
+		if conceptTag.ConceptId != ignoreId {
+			displayableTags = append(displayableTags, DisplayableTag{
+				FirstTag: conceptTagMap[conceptTag.ID],
+				Tag:      conceptTag.Tag,
+				Summary:  conceptMap[conceptTag.ConceptId].Summary,
+			})
+		}
 	}
 	sort.Slice(displayableTags, func(i, j int) bool {
 		return len(displayableTags[i].Tag) > len(displayableTags[j].Tag)

@@ -274,7 +274,7 @@ func AddConcept(c *gin.Context) {
 
 	conceptTags, _ := App.Store.ListConceptTags()
 	concepts, _ := App.Store.ListConcepts()
-	concept.Full = tag_updater.UpdateTags(conceptTags, concepts, concept.Full)
+	concept.Full = tag_updater.UpdateTags(conceptTags, concepts, concept.Full, concept.ID)
 
 	conceptId, err := App.Store.InsertConcept(&concept)
 	if err != nil {
@@ -308,7 +308,7 @@ func UpdateConcept(c *gin.Context) {
 
 	conceptTags, _ := App.Store.ListConceptTags()
 	concepts, _ := App.Store.ListConcepts()
-	concept.Full = tag_updater.UpdateTags(conceptTags, concepts, concept.Full)
+	concept.Full = tag_updater.UpdateTags(conceptTags, concepts, concept.Full, concept.ID)
 
 	_, err = App.Store.UpdateConcept(concept)
 	if err == nil {

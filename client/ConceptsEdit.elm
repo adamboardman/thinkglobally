@@ -31,6 +31,11 @@ pageConceptsEdit model =
                 ]
             ]
         ]
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
     ]
 
 
@@ -45,6 +50,11 @@ pageAddConcept model =
                 ]
             ]
         ]
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
+    , Html.br [] []
     ]
 
 
