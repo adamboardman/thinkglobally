@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, creatingTransactionSummary, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, conceptTagsListDecoder, creatingTransactionSummary, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTgsFloat, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -745,6 +745,11 @@ conceptDecoder =
         |> required "Summary" string
         |> required "Full" string
         |> optional "Tags" (list tagDecoder) []
+
+
+conceptTagsListDecoder : Decoder (List ConceptTag)
+conceptTagsListDecoder =
+    list conceptTagDecoder
 
 
 tagDecoder : Decoder Tag

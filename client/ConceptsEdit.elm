@@ -6,7 +6,6 @@ import Bootstrap.Form.Checkbox as Checkbox
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 import Bootstrap.Modal as Modal
-import Concept exposing (conceptTagsListDecoder)
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, div, h1, text, ul)
 import Html.Attributes exposing (class, for)
@@ -16,7 +15,7 @@ import Json.Encode as Encode exposing (Value)
 import Loading
 import Markdown
 import Set exposing (Set)
-import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, emptyConceptForm)
+import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptTagsListDecoder, emptyConceptForm)
 
 
 pageConceptsEdit : Model -> List (Html Msg)

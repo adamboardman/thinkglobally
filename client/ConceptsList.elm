@@ -1,11 +1,13 @@
-module ConceptsList exposing (conceptSummary, pageConceptsList)
+module ConceptsList exposing (conceptListDecoder, conceptSummary, findConceptIndex, loadConceptTagsList, loadConcepts, pageConceptsList)
 
 import Dict
 import Dict.Extra exposing (fromListBy)
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, a, div, h4, text)
 import Html.Attributes exposing (href)
-import Types exposing (Concept, Model, Msg, idFromDisplayable)
+import Http exposing (emptyBody)
+import Json.Decode exposing (Decoder, list)
+import Types exposing (Concept, Model, Msg(..), authHeader, conceptDecoder, conceptTagsListDecoder, idFromDisplayable)
 
 
 pageConceptsList : Model -> List (Html Msg)
@@ -39,3 +41,38 @@ findConceptIndex model conceptId =
 
         Nothing ->
             ""
+
+
+
+-- HTTP
+
+
+loadConcepts : Model -> Cmd Msg
+loadConcepts model =
+    Http.request
+        { method = "GET"
+        , url = "/api/concepts"
+        , expect = Http.expectJson LoadedConcepts conceptListDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+conceptListDecoder : Decoder (List Concept)
+conceptListDecoder =
+    list conceptDecoder
+
+
+loadConceptTagsList : Model -> Cmd Msg
+loadConceptTagsList model =
+    Http.request
+        { method = "GET"
+        , url = "/api/concept_tags"
+        , expect = Http.expectJson LoadedConceptTagsList conceptTagsListDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }

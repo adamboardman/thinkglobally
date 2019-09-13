@@ -5,12 +5,12 @@ import Bootstrap.Modal as Modal
 import Bootstrap.Navbar as Navbar
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
-import Concept exposing (loadConceptTagsList, loadConcepts, pageConcept)
+import Concept exposing (pageConcept)
 import ConceptsEdit exposing (conceptAdd, conceptDeleteSelectedTags, conceptTag, conceptTagUpdateForm, conceptTagValidate, conceptUpdate, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageAddConcept, pageConceptsEdit, tagIsNotIn)
-import ConceptsList exposing (pageConceptsList)
+import ConceptsList exposing (loadConceptTagsList, loadConcepts, pageConceptsList)
 import Dict
 import Html exposing (..)
-import Html.Attributes exposing (href)
+import Html.Attributes exposing (class, href)
 import Http exposing (Error(..), emptyBody)
 import Json.Decode as Decode exposing (Decoder, field)
 import Loading
@@ -916,10 +916,10 @@ urlUpdate url model =
                     loadProfile model.session.loginToken
 
                 Home ->
-                    Cmd.batch [ loadConcept "index", loadConceptTagsList model, loadConcepts model ]
+                    Cmd.batch [ loadConcept "index" ]
 
                 Concepts tag ->
-                    Cmd.batch [ loadConcept tag, loadConceptTagsList model, loadConcepts model ]
+                    Cmd.batch [ loadConcept tag ]
 
                 ConceptsEdit id ->
                     let
