@@ -87,7 +87,7 @@ func skipExistingTags(inPos int, taggedMarkDown string) int {
 }
 
 func writeTagToBody(taggedMarkDown string, inPos int, outBody *strings.Builder, tag string) {
-	needsBrackets := taggedMarkDown[inPos-1:inPos] != "["
+	needsBrackets := inPos==0 || taggedMarkDown[inPos-1:inPos] != "["
 	if needsBrackets {
 		outBody.WriteString("[")
 	}
