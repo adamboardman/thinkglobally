@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, conceptTagsListDecoder, creatingTransactionSummary, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, isDigitOrPlace, isNot, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTgsFloat, secondsFromTime, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, conceptTagsListDecoder, creatingTransactionSummary, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isDigitOrPlace, isNot, padAndCapTimePart, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTgsFloat, secondsFromTime, secondsFromTimeHMS, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -166,7 +166,9 @@ type alias ProfileForm =
 type alias TransactionForm =
     { email : String
     , tgs : String
-    , time : String
+    , timeH : String
+    , timeM : String
+    , timeS : String
     , multiplier : String
     , description : String
     , txFee : String
@@ -241,7 +243,9 @@ type Msg
     | EnteredUserEmail String
     | EnteredTransactionEmail String
     | EnteredTransactionTGs String
-    | EnteredTransactionTime String
+    | EnteredTransactionTimeH String
+    | EnteredTransactionTimeM String
+    | EnteredTransactionTimeS String
     | EnteredTransactionMultiplier String
     | EnteredTransactionDescription String
     | EnteredConceptName String
@@ -367,11 +371,38 @@ secondsFromTime time =
     (hours * (60 * 60)) + (minutes * 60) + seconds
 
 
+secondsFromTimeHMS : String -> String -> String -> Int
+secondsFromTimeHMS timeH timeM timeS =
+    let
+        hours =
+            Maybe.withDefault 0 (String.toInt timeH)
+
+        minutes =
+            Maybe.withDefault 0 (String.toInt timeM)
+
+        seconds =
+            Maybe.withDefault 0 (String.toInt timeS)
+    in
+    (hours * (60 * 60)) + (minutes * 60) + seconds
+
+
 tgsFromTimeAndMultiplier : String -> String -> String
 tgsFromTimeAndMultiplier time multiplier =
     let
         total =
             secondsFromTime time
+
+        multiplied =
+            toFloat total * Maybe.withDefault 1.0 (String.toFloat multiplier)
+    in
+    format tgsLocale (multiplied / (60.0 * 60.0))
+
+
+tgsFromTimeHMSAndMultiplier : String -> String -> String -> String -> String
+tgsFromTimeHMSAndMultiplier timeH timeM timeS multiplier =
+    let
+        total =
+            secondsFromTimeHMS timeH timeM timeS
 
         multiplied =
             toFloat total * Maybe.withDefault 1.0 (String.toFloat multiplier)
@@ -413,6 +444,11 @@ txFeeFromTgs tgs =
             String.padLeft 2 '0' (String.fromInt (remainderBy 60 feeMinInt))
     in
     feeHour ++ ":" ++ feeMin ++ ":" ++ feeSec
+
+
+padAndCapTimePart : String -> String
+padAndCapTimePart part =
+    String.padLeft 2 '0' (String.fromInt (min 60 (Maybe.withDefault 0 (String.toInt part))))
 
 
 timeFromTime : String -> String
@@ -461,6 +497,66 @@ timeFromTgs tgs multiplier =
             String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgsMinInt))
     in
     tgsHour ++ ":" ++ tgsMin ++ ":" ++ tgsSec
+
+
+intHoursFromTgs : String -> String -> String
+intHoursFromTgs tgs multiplier =
+    let
+        divider =
+            Maybe.withDefault 1 (String.toFloat multiplier)
+
+        tgsFloat =
+            Maybe.withDefault 0 (String.toFloat (String.filter isDigitOrPlace tgs))
+
+        divided =
+            tgsFloat / divider
+
+        tgsAsSecondsInt =
+            round (divided * 60 * 60)
+
+        tgsHour =
+            String.padLeft 2 '0' (String.fromInt (tgsAsSecondsInt // (60 * 60)))
+    in
+    tgsHour
+
+
+intMinutesFromTgs : String -> String -> String
+intMinutesFromTgs tgs multiplier =
+    let
+        divider =
+            Maybe.withDefault 1 (String.toFloat multiplier)
+
+        tgsFloat =
+            Maybe.withDefault 0 (String.toFloat (String.filter isDigitOrPlace tgs))
+
+        divided =
+            tgsFloat / divider
+
+        tgsAsSecondsInt =
+            round (divided * 60 * 60)
+
+        tgsMinInt =
+            tgsAsSecondsInt // 60
+    in
+    String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgsMinInt))
+
+
+intSecondsFromTgs : String -> String -> String
+intSecondsFromTgs tgs multiplier =
+    let
+        divider =
+            Maybe.withDefault 1 (String.toFloat multiplier)
+
+        tgsFloat =
+            Maybe.withDefault 0 (String.toFloat (String.filter isDigitOrPlace tgs))
+
+        divided =
+            tgsFloat / divider
+
+        tgsAsSecondsInt =
+            round (divided * 60 * 60)
+    in
+    String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgsAsSecondsInt))
 
 
 isDigitOrPlace : Char -> Bool
@@ -543,7 +639,11 @@ creatingTransactionSummary model =
         ++ "TGs, from ("
         ++ model.transactionForm.tgs
         ++ "TGs or "
-        ++ model.transactionForm.time
+        ++ padAndCapTimePart model.transactionForm.timeH
+        ++ ":"
+        ++ padAndCapTimePart model.transactionForm.timeM
+        ++ ":"
+        ++ padAndCapTimePart model.transactionForm.timeS
         ++ " * "
         ++ model.transactionForm.multiplier
         ++ ") "
@@ -687,7 +787,9 @@ emptyTransactionForm : TransactionForm
 emptyTransactionForm =
     { email = ""
     , tgs = ""
-    , time = ""
+    , timeH = ""
+    , timeM = ""
+    , timeS = ""
     , multiplier = "1"
     , description = ""
     , txFee = "00:00:01"

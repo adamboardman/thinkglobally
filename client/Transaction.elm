@@ -424,14 +424,35 @@ viewCreateTransactionForm model =
                     Grid.row []
                         [ Grid.col []
                             [ Form.group []
-                                [ Form.label [ for "time" ] [ text "Time (HH:mm:ss)" ]
+                                [ Form.label [ for "timeH" ] [ text "Time (HH)" ]
                                 , Input.text
-                                    [ Input.id "time"
-                                    , Input.placeholder "Time"
-                                    , Input.onInput EnteredTransactionTime
-                                    , Input.value model.transactionForm.time
+                                    [ Input.id "timeH"
+                                    , Input.placeholder "Hours"
+                                    , Input.onInput EnteredTransactionTimeH
+                                    , Input.value model.transactionForm.timeH
                                     ]
-                                , Form.invalidFeedback [] [ text "Please enter the time duration for the transaction" ]
+                                ]
+                            ]
+                        , Grid.col []
+                            [ Form.group []
+                                [ Form.label [ for "timeM" ] [ text "Time (mm)" ]
+                                , Input.text
+                                    [ Input.id "timeM"
+                                    , Input.placeholder "Minutes"
+                                    , Input.onInput EnteredTransactionTimeM
+                                    , Input.value model.transactionForm.timeM
+                                    ]
+                                ]
+                            ]
+                        , Grid.col []
+                            [ Form.group []
+                                [ Form.label [ for "timeS" ] [ text "Time (ss)" ]
+                                , Input.text
+                                    [ Input.id "timeS"
+                                    , Input.placeholder "Seconds"
+                                    , Input.onInput EnteredTransactionTimeS
+                                    , Input.value model.transactionForm.timeS
+                                    ]
                                 ]
                             ]
                         , Grid.col []
@@ -527,20 +548,6 @@ validateField (TransactionTrimmed form) field =
                 else
                     [ "email must contain '@'" ]
 
-            Time ->
-                let
-                    parts =
-                        String.split ":" form.time
-                in
-                if String.isEmpty form.time then
-                    [ "time can't be blank." ]
-
-                else if List.length parts == 3 then
-                    []
-
-                else
-                    [ "time must contain three parts separated by :'s" ]
-
             Multiplier ->
                 let
                     multiplier =
@@ -565,7 +572,9 @@ transactionTrimFields form =
     TransactionTrimmed
         { email = String.trim form.email
         , tgs = String.trim form.tgs
-        , time = String.trim form.time
+        , timeH = String.trim form.timeH
+        , timeM = String.trim form.timeM
+        , timeS = String.trim form.timeS
         , multiplier = String.trim form.multiplier
         , description = String.trim form.description
         , txFee = String.trim form.txFee

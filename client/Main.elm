@@ -22,7 +22,7 @@ import Set
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, indexUser, isNot, profileDecoder, tgsFromTimeAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgs, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
@@ -382,31 +382,60 @@ update msg model =
 
         EnteredTransactionTGs tgs ->
             let
-                newTime =
-                    timeFromTgs tgs model.transactionForm.multiplier
+                newTimeH =
+                    intHoursFromTgs tgs model.transactionForm.multiplier
+
+                newTimeM =
+                    intMinutesFromTgs tgs model.transactionForm.multiplier
+
+                newTimeS =
+                    intSecondsFromTgs tgs model.transactionForm.multiplier
 
                 txFee =
                     txFeeFromTgs tgs
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime, txFee = txFee }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeH = newTimeH, timeM = newTimeM, timeS = newTimeS, txFee = txFee }) model
 
-        EnteredTransactionTime time ->
+        EnteredTransactionTimeH hours ->
             let
                 tgs =
-                    tgsFromTimeAndMultiplier time model.transactionForm.multiplier
-
-                newTime =
-                    timeFromTime time
+                    tgsFromTimeHMSAndMultiplier hours model.transactionForm.timeM model.transactionForm.timeS model.transactionForm.multiplier
 
                 txFee =
                     txFeeFromTgs tgs
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, time = newTime, txFee = txFee }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeH = hours, txFee = txFee }) model
+
+        EnteredTransactionTimeM minutes ->
+            let
+                newMinutes =
+                    padAndCapTimePart minutes
+
+                tgs =
+                    tgsFromTimeHMSAndMultiplier model.transactionForm.timeH newMinutes model.transactionForm.timeS model.transactionForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+            in
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeM = newMinutes, txFee = txFee }) model
+
+        EnteredTransactionTimeS seconds ->
+            let
+                newSeconds =
+                    padAndCapTimePart seconds
+
+                tgs =
+                    tgsFromTimeHMSAndMultiplier model.transactionForm.timeH model.transactionForm.timeM newSeconds model.transactionForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+            in
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeS = newSeconds, txFee = txFee }) model
 
         EnteredTransactionMultiplier multiplier ->
             let
                 tgs =
-                    tgsFromTimeAndMultiplier model.transactionForm.time multiplier
+                    tgsFromTimeHMSAndMultiplier model.transactionForm.timeH model.transactionForm.timeM model.transactionForm.timeS multiplier
 
                 txFee =
                     txFeeFromTgs tgs
