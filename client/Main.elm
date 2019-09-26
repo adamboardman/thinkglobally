@@ -518,7 +518,7 @@ update msg model =
             )
 
         LoadedUser (Err error) ->
-            ( { model | loading = Loading.Off }
+            ( { model | loggedInUser = emptyUser, loading = Loading.Off }
             , Cmd.none
             )
 
@@ -528,7 +528,7 @@ update msg model =
             )
 
         LoadedTransactionUserWithBalance (Err error) ->
-            ( { model | loading = Loading.Off }
+            ( { model | creatingTransactionWithUser = emptyUser, loading = Loading.Off }
             , Cmd.none
             )
 
@@ -538,7 +538,7 @@ update msg model =
             )
 
         LoadedProfile (Err error) ->
-            ( { model | loading = Loading.Off }
+            ( { model | profileForm = emptyProfileForm, loading = Loading.Off }
             , Cmd.none
             )
 
@@ -548,28 +548,9 @@ update msg model =
             )
 
         LoadedConcept (Err error) ->
-            let
-                concept =
-                    { id = 0
-                    , name = ""
-                    , summary = ""
-                    , full = ""
-                    , tags = []
-                    }
-
-                conceptForm =
-                    { name = ""
-                    , tags = []
-                    , tagsToDelete = Set.empty
-                    , summary = ""
-                    , full = ""
-                    }
-            in
             ( { model
-                | concept =
-                    concept
-                , conceptForm =
-                    conceptForm
+                | concept = emptyConcept
+                , conceptForm = emptyConceptForm
                 , loading = Loading.Off
               }
             , Cmd.none
