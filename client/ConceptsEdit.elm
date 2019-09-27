@@ -22,13 +22,22 @@ pageConceptsEdit : Model -> List (Html Msg)
 pageConceptsEdit model =
     [ div [ class "container page" ]
         [ div [ class "row" ]
-            [ div [ class "col-12" ]
-                [ h1 [ class "text-xs-center" ] [ text "Existing Concept" ]
-                , div [] <| Markdown.toHtml Nothing model.concept.full
-                , h1 [ class "text-xs-center" ] [ text "Edit Concept" ]
-                , viewConceptForm model
-                , viewConceptModal model
-                ]
+            [ if model.loading == Loading.Off && model.concept.id > 0 then
+                div [ class "col-12" ]
+                    [ h1 [ class "text-xs-center" ] [ text "Existing Concept" ]
+                    , div [] <| Markdown.toHtml Nothing model.concept.full
+                    , h1 [ class "text-xs-center" ] [ text "Edit Concept" ]
+                    , viewConceptForm model
+                    , viewConceptModal model
+                    ]
+
+              else if model.loading == Loading.Off then
+                div [ class "col-12" ]
+                    [ h1 [ class "text-xs-center" ] [ text "Loading Concept Failed" ]
+                    ]
+
+              else
+                div [ class "col-12" ] [ h1 [ class "text-xs-center" ] [ text "Loading Concept" ] ]
             ]
         ]
     , Html.br [] []
