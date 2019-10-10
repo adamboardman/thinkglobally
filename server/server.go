@@ -484,25 +484,6 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		transaction.ToPreviousTId = transactionJSON.ToPreviousTId
 		transaction.FromPreviousTId = transactionJSON.FromPreviousTId
 		transaction.Status = transactionJSON.Status
-
-		switch transaction.Status {
-		case store.TransactionOffered:
-			if transaction.ToUserId == 0 {
-				user, err := App.Store.FindUser(transactionJSON.Email)
-				if err == nil {
-					transaction.ToUserId = user.ID
-				}
-			}
-			break
-		case store.TransactionRequested:
-			if transaction.FromUserId == 0 {
-				user, err := App.Store.FindUser(transactionJSON.Email)
-				if err == nil {
-					transaction.FromUserId = user.ID
-				}
-			}
-			break
-		}
 	}
 
 	claims := jwt.ExtractClaims(c)
@@ -513,15 +494,9 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		if transaction.FromUserId != loggedInUserId {
 			return errors.New("You can only offer transactions from yourself")
 		}
-		if transaction.ToUserId == 0 {
-			return errors.New("You have to select a valid recipient")
-		}
 	case store.TransactionRequested:
 		if transaction.ToUserId != loggedInUserId {
 			return errors.New("You can only request transactions to yourself")
-		}
-		if transaction.FromUserId == 0 {
-			return errors.New("You have to make a request from a valid user")
 		}
 	}
 	if transaction.FromUserId == transaction.ToUserId {
@@ -532,7 +507,41 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		return errors.New("You must pay a 0.02% or greater transaction fee")
 	}
 
+	switch transaction.Status {
+	case store.TransactionOffered:
+		if transaction.ToUserId == 0 {
+			transaction.ToUserId = FindOrAddUserForTransaction(transactionJSON, loggedInUserId)
+		}
+		break
+	case store.TransactionRequested:
+		if transaction.FromUserId == 0 {
+			transaction.FromUserId = FindOrAddUserForTransaction(transactionJSON, loggedInUserId)
+		}
+		break
+	}
+
 	return nil
+}
+
+func FindOrAddUserForTransaction(transactionJSON TransactionJSON, loggedInUserId uint) uint {
+	user, err := App.Store.FindUser(transactionJSON.Email)
+	self, err2 := App.Store.LoadPublicUser(loggedInUserId)
+	if err != nil && err2 == nil {
+		invite := self.FirstName + " " + self.LastName
+		if transactionJSON.Status == store.TransactionOffered {
+			invite += " offered "
+		} else {
+			invite += " requested "
+		}
+		invite += "the following transaction "
+		invite += fmt.Sprintf("%g", float64(transactionJSON.Seconds)/3600.0)
+		invite += "TGs"
+		err, user = InviteUser(transactionJSON.Email, invite, transactionJSON.Description)
+		if err != nil {
+			return 0
+		}
+	}
+	return user.ID
 }
 
 func AddTransaction(c *gin.Context) {

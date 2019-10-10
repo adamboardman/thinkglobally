@@ -211,14 +211,33 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-	SendEmail(registerJSON.Email, base64.StdEncoding.EncodeToString(verification))
+	SendEmail(registerJSON.Email, base64.StdEncoding.EncodeToString(verification), "", "")
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": http.StatusOK, "message": "User registered successfully", "resourceId": user.ID,
 	})
 }
 
-func SendEmail(emailAddress string, verificationKey string) {
+func InviteUser(email string, invite string, description string) (error, *store.User) {
+	user := store.User{}
+	user.Email = email
+	salt := RandomBytes(16)
+	user.Salt = base64.StdEncoding.EncodeToString(salt)
+
+	verification := RandomBytes(20)
+	verificationKey := argon2.IDKey(verification, salt, 1, 64*1024, 4, 32)
+	user.ConfirmVerifier = base64.StdEncoding.EncodeToString(verificationKey)
+
+	_, err := App.Store.InsertUser(&user)
+	if err != nil {
+		return err, &user
+	}
+	SendEmail(email, base64.StdEncoding.EncodeToString(verification), invite, description)
+
+	return nil, &user
+}
+
+func SendEmail(emailAddress string, verificationKey string, invite string, description string) {
 	data := url.Values{}
 	data.Set("email", emailAddress)
 	data.Set("verification", verificationKey)
@@ -236,22 +255,37 @@ func SendEmail(emailAddress string, verificationKey string) {
 	wc, err := c.Data()
 	LogFatalError(err)
 	defer wc.Close()
+
+	subject := "Think Globally Confirm Email Address"
+	opening := "Thanks for signing up for a"
+	middling := ""
+	middlingHTML := ""
+	ending := ""
+	if len(invite) > 0 {
+		subject = "Invite to Think Globally and Trade Locally"
+		opening = "You've been invited open a"
+		middling = invite + "\r\nDescription: " + description + "\r\n"
+		middlingHTML = "<p>" + invite + "</p>" + "\r\n<p>Description: " + description + "</p>" + "\r\n"
+		ending = "and select a password "
+	}
+
 	buf := bytes.NewBufferString("" +
-		"Subject: Thinkglobally Confirm Email Address\r\n" +
+		"Subject: " + subject + "\r\n" +
 		"From: ThinkGlobally <no-reply@thinkglobally.org>\r\n" +
 		"Reply-To: ThinkGlobally <no-reply@thinkglobally.org>\r\n" +
 		"MIME-Version: 1.0\r\n" +
-		"Content-Type: multipart/alternative; boundary=\""+boundary+"\"\r\n" +
+		"Content-Type: multipart/alternative; boundary=\"" + boundary + "\"\r\n" +
 		"\r\n" +
-		"--"+boundary+"\r\n" +
+		"--" + boundary + "\r\n" +
 		"Content-Type: text/plain; charset=utf-8\r\n" +
 		"Content-Transfer-Encoding: 7bit\r\n" +
 		"\r\n" +
-		"Thanks for signing up for a Think Globally - Trade Locally account\r\n"+
+		opening + " Think Globally - Trade Locally account\r\n" +
 		"\r\n" +
-		"Please click on the following link to confirm your email address " + confirmUrl+"\r\n"+
+		middling +
+		"Please click on the following link to confirm your email address " + ending + confirmUrl + "\r\n" +
 		"\r\n" +
-		"--"+boundary+"\r\n" +
+		"--" + boundary + "\r\n" +
 		"Content-Type: text/html; charset=utf-8\r\n" +
 		"Content-Transfer-Encoding: 7bit\r\n" +
 		"\r\n" +
@@ -260,13 +294,14 @@ func SendEmail(emailAddress string, verificationKey string) {
 		"<head>\r\n" +
 		"</head>\r\n" +
 		"<body>\r\n" +
-		"<p>Thanks for signing up for a Think Globally - Trade Locally account</p>\r\n"+
+		"<p>" + opening + " Think Globally - Trade Locally account</p>\r\n" +
 		"\r\n" +
-		"<p>Please click on the following link to confirm your email address <a href="+confirmUrl+">" + confirmUrl+"</a></p>\r\n"+
+		middlingHTML +
+		"<p>Please click on the following link to confirm your email address " + ending + "<a href=" + confirmUrl + ">" + confirmUrl + "</a></p>\r\n" +
 		"</body>\r\n" +
 		"</html>\r\n" +
 		"\r\n" +
-		"--"+boundary+"--\r\n")
+		"--" + boundary + "--\r\n")
 	_, err = buf.WriteTo(wc)
 	LogFatalError(err)
 }

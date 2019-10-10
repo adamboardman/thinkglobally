@@ -205,6 +205,11 @@ func (s *Store) FindUser(email string) (*User, error) {
 }
 
 func (s *Store) PurgeUser(email string) {
+	user := User{}
+	err := s.db.Where("email=?", email).Find(&user).Error
+	if err != nil {
+		s.db.Unscoped().Where("from_user_id=? OR to_user_id=?",user.ID,user.ID).Delete(Transaction{})
+	}
 	s.db.Unscoped().Where("email=?", email).Delete(User{})
 }
 

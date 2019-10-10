@@ -8,6 +8,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"golang.org/x/crypto/argon2"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -689,7 +690,8 @@ func TestCreateTransactionOfferToInvalidUser(t *testing.T) {
 		user := ensureTestUserExists(emailAddressUser)
 		user.Permissions = store.UserPermissionsUser
 		_, _ = a.Store.UpdateUser(user)
-		const emailAddressInvalidRecipient = "invalid-user@example.com"
+		const emailAddressNewRecipient = "new-user@example.com"
+		a.Store.PurgeUser(emailAddressNewRecipient)
 
 		Convey("The user logs in", func() {
 			response := loginToUserJSON(emailAddressUser)
@@ -703,10 +705,11 @@ func TestCreateTransactionOfferToInvalidUser(t *testing.T) {
 			Convey("Offer transaction", func() {
 				transactionJSON := TransactionJSON{}
 				transactionJSON.FromUserId = user.ID
-				transactionJSON.Email = emailAddressInvalidRecipient
+				transactionJSON.Email = emailAddressNewRecipient
 				transactionJSON.Status = store.TransactionOffered
 				transactionJSON.Seconds = 30 * 60
 				transactionJSON.Multiplier = 1
+				transactionJSON.TxFee = uint(math.Max(1.0, float64(transactionJSON.Seconds)*float64(transactionJSON.Multiplier)*0.0002))
 				ClearTransactionsMatchingJSON(transactionJSON)
 				data, _ := json.Marshal(transactionJSON)
 				post_data := bytes.NewReader(data)
@@ -716,14 +719,14 @@ func TestCreateTransactionOfferToInvalidUser(t *testing.T) {
 				response2 := httptest.NewRecorder()
 				a.Router.ServeHTTP(response2, req2)
 
-				Convey("The server should respond with StatusBadRequest and the transaction should not be created", func() {
-					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+				Convey("The server should respond with StatusCreated and the transaction should be created with a password free new user", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
 
 					userTransactions, err := a.Store.ListTransactionsForUser(user.ID)
 					So(err, ShouldBeNil)
 
 					found := checkArrayForTransaction(userTransactions, transactionJSON)
-					So(found, ShouldBeFalse)
+					So(found, ShouldBeTrue)
 				})
 			})
 		})
