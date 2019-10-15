@@ -719,7 +719,7 @@ update msg model =
         AddedTransaction result ->
             case result of
                 Ok res ->
-                    ( { model | apiActionResponse = res, loading = Loading.Off }, loadTransactions model )
+                    ( { model | apiActionResponse = res, loading = Loading.Off, transactionForm = emptyTransactionForm, creatingTransaction = TxNone }, loadTransactions model )
 
                 Err error ->
                     let
