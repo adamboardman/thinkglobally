@@ -570,10 +570,10 @@ func TestDeleteTagsAsAdmin(t *testing.T) {
 	})
 }
 
-func checkArrayForTransaction(transactions []store.Transaction, transactionJson TransactionJSON) bool {
+func checkArrayForTransaction(transactions []store.Transaction, transactionJson TransactionJSON, ignoreToId bool) bool {
 	found := false
 	for _, transaction := range transactions {
-		if transaction.Status == transactionJson.Status && transaction.FromUserId == transactionJson.FromUserId && transaction.Seconds == transactionJson.Seconds && transaction.Multiplier == transactionJson.Multiplier && transaction.ToUserId == transactionJson.ToUserId {
+		if transaction.Status == transactionJson.Status && transaction.FromUserId == transactionJson.FromUserId && transaction.Seconds == transactionJson.Seconds && transaction.Multiplier == transactionJson.Multiplier && (ignoreToId || transaction.ToUserId == transactionJson.ToUserId) {
 			found = true
 		}
 	}
@@ -622,7 +622,7 @@ func TestCreateTransactionOffer(t *testing.T) {
 					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
 					So(err, ShouldBeNil)
 
-					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
 					So(found, ShouldBeTrue)
 				})
 			})
@@ -676,7 +676,7 @@ func TestCreateTransactionOfferAsSomeoneElse(t *testing.T) {
 					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
 					So(err, ShouldBeNil)
 
-					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
 					So(found, ShouldBeFalse)
 				})
 			})
@@ -725,7 +725,7 @@ func TestCreateTransactionOfferToInvalidUser(t *testing.T) {
 					userTransactions, err := a.Store.ListTransactionsForUser(user.ID)
 					So(err, ShouldBeNil)
 
-					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					found := checkArrayForTransaction(userTransactions, transactionJSON, true)
 					So(found, ShouldBeTrue)
 				})
 			})
@@ -776,7 +776,7 @@ func TestCreateTransactionRequest(t *testing.T) {
 					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
 					So(err, ShouldBeNil)
 
-					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
 					So(found, ShouldBeTrue)
 				})
 			})
@@ -830,7 +830,7 @@ func TestCreateTransactionRequestAsSomeoneElse(t *testing.T) {
 					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
 					So(err, ShouldBeNil)
 
-					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
 					So(found, ShouldBeFalse)
 				})
 			})
@@ -1277,7 +1277,7 @@ func TestCreateTransactionRequestToEmailAddress(t *testing.T) {
 					So(err, ShouldBeNil)
 
 					transactionJSON.FromUserId = user1.ID
-					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
 					So(found, ShouldBeTrue)
 				})
 			})
@@ -1416,7 +1416,7 @@ func TestRejectTransactionFromToSameUser(t *testing.T) {
 					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
 					So(err, ShouldBeNil)
 
-					found := checkArrayForTransaction(userTransactions, transactionJSON)
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
 					So(found, ShouldBeFalse)
 				})
 			})
