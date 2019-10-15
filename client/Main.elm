@@ -22,7 +22,7 @@ import Set
 import Task
 import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgs, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
 
@@ -518,7 +518,7 @@ update msg model =
             )
 
         LoadedUser (Err error) ->
-            ( { model | loggedInUser = emptyUser, loading = Loading.Off }
+            ( { model | loggedInUser = emptyUser, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -528,7 +528,7 @@ update msg model =
             )
 
         LoadedTransactionUserWithBalance (Err error) ->
-            ( { model | creatingTransactionWithUser = emptyUser, loading = Loading.Off }
+            ( { model | creatingTransactionWithUser = emptyUser, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -538,7 +538,7 @@ update msg model =
             )
 
         LoadedProfile (Err error) ->
-            ( { model | profileForm = emptyProfileForm, loading = Loading.Off }
+            ( { model | profileForm = emptyProfileForm, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -552,6 +552,7 @@ update msg model =
                 | concept = emptyConcept
                 , conceptForm = emptyConceptForm
                 , loading = Loading.Off
+                , session = sessionGivenAuthError error model
               }
             , Cmd.none
             )
@@ -576,7 +577,7 @@ update msg model =
                     decodeErrors error
                         |> List.map ServerError
             in
-            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -595,7 +596,7 @@ update msg model =
             )
 
         LoadedConcepts (Err error) ->
-            ( { model | loading = Loading.Off }
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -614,7 +615,7 @@ update msg model =
                     decodeErrors error
                         |> List.map ServerError
             in
-            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -633,7 +634,7 @@ update msg model =
                     decodeErrors error
                         |> List.map ServerError
             in
-            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -655,7 +656,7 @@ update msg model =
             )
 
         LoadedTransactions (Err error) ->
-            ( { model | loading = Loading.Off }
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -672,7 +673,7 @@ update msg model =
             )
 
         LoadedTxUsers (Err error) ->
-            ( { model | loading = Loading.Off }
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
@@ -696,7 +697,9 @@ update msg model =
                             decodeErrors error
                                 |> List.map ServerError
                     in
-                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }, Cmd.none )
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
+                    , Cmd.none
+                    )
 
         GotUpdateProfileJson result ->
             case result of
@@ -709,7 +712,9 @@ update msg model =
                             decodeErrors error
                                 |> List.map ServerError
                     in
-                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }, Cmd.none )
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
+                    , Cmd.none
+                    )
 
         AddedTransaction result ->
             case result of
@@ -722,7 +727,7 @@ update msg model =
                             decodeErrors error
                                 |> List.map ServerError
                     in
-                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
                     , Cmd.none
                     )
 
@@ -738,8 +743,11 @@ update msg model =
                         serverErrors =
                             decodeErrors error
                                 |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
                     in
-                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
                     , Cmd.none
                     )
 
@@ -786,8 +794,11 @@ update msg model =
                         serverErrors =
                             decodeErrors error
                                 |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
                     in
-                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
                     , Cmd.none
                     )
 
@@ -801,8 +812,11 @@ update msg model =
                         serverErrors =
                             decodeErrors error
                                 |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
                     in
-                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
                     , loadTransactions model
                     )
 
@@ -816,8 +830,11 @@ update msg model =
                         serverErrors =
                             decodeErrors error
                                 |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
                     in
-                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off }
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
                     , loadTransactions model
                     )
 
@@ -836,6 +853,15 @@ update msg model =
 
         TimeTick posix ->
             ( { model | time = posix }, Cmd.none )
+
+
+sessionGivenAuthError : Http.Error -> Model -> Session
+sessionGivenAuthError error model =
+    if error == BadStatus 401 then
+        emptySession
+
+    else
+        model.session
 
 
 decodeErrors : Http.Error -> List String
@@ -858,12 +884,6 @@ decodeErrors error =
 
         err ->
             [ "Server error" ]
-
-
-errorsDecoder : Decoder (List String)
-errorsDecoder =
-    Decode.keyValuePairs (Decode.list Decode.string)
-        |> Decode.map (List.concatMap fromPair)
 
 
 fromPair : ( String, List String ) -> List String

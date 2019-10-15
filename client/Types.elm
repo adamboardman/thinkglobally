@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, conceptTagsListDecoder, creatingTransactionSummary, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isDigitOrPlace, isNot, padAndCapTimePart, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTgsFloat, secondsFromTime, secondsFromTimeHMS, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
+module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, conceptTagsListDecoder, creatingTransactionSummary, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isDigitOrPlace, isNot, padAndCapTimePart, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTgsFloat, secondsFromTime, secondsFromTimeHMS, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -749,6 +749,11 @@ emptyUser =
     , permissions = 0
     , balance = 0
     }
+
+
+emptySession : Session
+emptySession =
+    { loginExpire = "", loginToken = "" }
 
 
 emptyConcept : Concept
