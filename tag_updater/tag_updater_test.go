@@ -56,7 +56,7 @@ func TestAddTag(t *testing.T) {
 	Convey("Add a Tag", t, func() {
 		md := "Some text with a multi word tag in it"
 		mdOtu := UpdateTags(tags, concepts, md, 0)
-		So(mdOtu, ShouldEqual, "[multi word tag]: /#concepts/multi%20word%20tag \"summary\"\nSome text with a [multi word tag] in it")
+		So(mdOtu, ShouldEqual, "[multi word tag]: /concepts/multi%20word%20tag \"summary\"\nSome text with a [multi word tag] in it")
 	})
 }
 
@@ -74,9 +74,9 @@ func TestUpdateTag(t *testing.T) {
 		Full:    "",
 	}}
 	Convey("Update a Tag", t, func() {
-		md := "[multi word tag]: /#concepts/multi%20word%20tag \"summary\"\nSome text with a [multi word tag] in it"
+		md := "[multi word tag]: /concepts/multi%20word%20tag \"summary\"\nSome text with a [multi word tag] in it"
 		mdOtu := UpdateTags(tags, concepts, md, 0)
-		So(mdOtu, ShouldEqual, "[multi word tag]: /#concepts/multi%20word%20tag \"new summary\"\nSome text with a [multi word tag] in it")
+		So(mdOtu, ShouldEqual, "[multi word tag]: /concepts/multi%20word%20tag \"new summary\"\nSome text with a [multi word tag] in it")
 	})
 }
 
@@ -96,7 +96,7 @@ func TestAddTagIgnoreTagCase(t *testing.T) {
 	Convey("Add a Tag", t, func() {
 		md := "Some text with a multi word tag in it"
 		mdOtu := UpdateTags(tags, concepts, md, 0)
-		So(mdOtu, ShouldEqual, "[multi word tag]: /#concepts/multi%20WORD%20tag \"summary\"\nSome text with a [multi word tag] in it")
+		So(mdOtu, ShouldEqual, "[multi word tag]: /concepts/multi%20WORD%20tag \"summary\"\nSome text with a [multi word tag] in it")
 	})
 }
 
@@ -116,7 +116,7 @@ func TestAddTagIgnoreMarkDownCase(t *testing.T) {
 	Convey("Add a Tag", t, func() {
 		md := "Some text with a MULTI word tag in it"
 		mdOtu := UpdateTags(tags, concepts, md, 0)
-		So(mdOtu, ShouldEqual, "[MULTI word tag]: /#concepts/multi%20word%20tag \"summary\"\nSome text with a [MULTI word tag] in it")
+		So(mdOtu, ShouldEqual, "[MULTI word tag]: /concepts/multi%20word%20tag \"summary\"\nSome text with a [MULTI word tag] in it")
 	})
 }
 
@@ -154,8 +154,8 @@ func TestUpdateTagKeepHeading(t *testing.T) {
 		Full:    "",
 	}}
 	Convey("Update a Tag", t, func() {
-		md := "[multi word tag]: /#concepts/multi%20word%20tag \"summary\"\n[TGs]:\nSome text with a [multi word tag] in it"
+		md := "[multi word tag]: /concepts/multi%20word%20tag \"summary\"\n[TGs]:\nSome text with a [multi word tag] in it"
 		mdOtu := UpdateTags(tags, concepts, md, 0)
-		So(mdOtu, ShouldEqual, "[multi word tag]: /#concepts/multi%20word%20tag \"new summary\"\n[TGs]:\nSome text with a [multi word tag] in it")
+		So(mdOtu, ShouldEqual, "[multi word tag]: /concepts/multi%20word%20tag \"new summary\"\n[TGs]:\nSome text with a [multi word tag] in it")
 	})
 }

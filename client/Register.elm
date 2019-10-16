@@ -28,8 +28,8 @@ pageRegister model =
             [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
                 [ h1 [ class "text-xs-center" ] [ text "Register" ]
                 , p [ class "text-xs-center" ]
-                    [ a [ href "#login" ]
                         [ text "Have an account?" ]
+                        a [ href "/login" ]
                     ]
                 , if model.apiActionResponse.resourceId == 0 then
                     viewRegisterForm model

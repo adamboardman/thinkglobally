@@ -12,7 +12,6 @@ import Dict
 import Html exposing (..)
 import Html.Attributes exposing (class, href)
 import Http exposing (Error(..), emptyBody)
-import Json.Decode as Decode exposing (Decoder, field)
 import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Ports exposing (storeExpire, storeToken)
@@ -895,42 +894,42 @@ urlForPage : Page -> String
 urlForPage page =
     case page of
         Profile ->
-            "#profile"
+            "/profile"
 
         Home ->
-            "#"
+            "/"
 
         Login ->
-            "#login"
+            "/login"
 
         Logout ->
-            "#logout"
+            "/logout"
 
         Register ->
-            "#register"
+            "/register"
 
         Transactions ->
-            "#transactions"
+            "/transactions"
 
         Concepts string ->
-            "#concepts/" ++ string
+            "/concepts/" ++ string
 
         ConceptsEdit string ->
-            "#concepts/" ++ string ++ "/edit"
+            "/concepts/" ++ string ++ "/edit"
 
         ConceptsList ->
-            "#concepts"
+            "/concepts"
 
         NotFound ->
             ""
 
         AddConcept ->
-            "#add_concept"
+            "/add_concept"
 
 
 urlUpdate : Url -> Model -> ( Model, Cmd Msg )
 urlUpdate url model =
-    case decode url of
+    case UrlParser.parse routeParser url of
         Nothing ->
             ( { model | page = NotFound }, Cmd.none )
 
@@ -979,12 +978,6 @@ urlUpdate url model =
                 NotFound ->
                     Cmd.none
             )
-
-
-decode : Url -> Maybe Page
-decode url =
-    { url | path = Maybe.withDefault "" url.fragment, fragment = Nothing }
-        |> UrlParser.parse routeParser
 
 
 routeParser : Parser (Page -> a) a

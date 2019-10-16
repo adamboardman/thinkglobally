@@ -102,7 +102,7 @@ func writeTagToBody(taggedMarkDown string, inPos int, outBody *strings.Builder, 
 
 func outTagsFromDisplayableTags(displayedTags []DisplayableTag, outTags *strings.Builder) {
 	for _, displayableTag := range displayedTags {
-		outTags.WriteString("[" + displayableTag.Tag + "]: /#concepts/" + url.PathEscape(displayableTag.FirstTag) + " \"" + displayableTag.Summary + "\"\n")
+		outTags.WriteString("[" + displayableTag.Tag + "]: /concepts/" + url.PathEscape(displayableTag.FirstTag) + " \"" + displayableTag.Summary + "\"\n")
 	}
 }
 

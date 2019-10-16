@@ -22,9 +22,9 @@ conceptSummary : Model -> Concept -> Html Msg
 conceptSummary model concept =
     div []
         [ text concept.name
-        , a [ href ("#concepts/" ++ String.fromInt concept.id ++ "/edit") ]
+        , a [ href ("/concepts/" ++ String.fromInt concept.id ++ "/edit") ]
             [ text "(edit)" ]
-        , a [ href ("#concepts/" ++ findConceptIndex model concept.id) ]
+        , a [ href ("/concepts/" ++ findConceptIndex model concept.id) ]
             [ text "(view)" ]
         ]
 

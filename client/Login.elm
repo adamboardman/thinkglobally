@@ -44,11 +44,11 @@ pageLogin model =
                 [ h1 [ class "text-xs-center" ] [ text "Login" ]
                 , p [ class "text-xs-center" ]
                     [ if loggedIn model then
-                        a [ href "#logout" ]
+                        a [ href "/logout" ]
                             [ text "Logout" ]
 
                       else
-                        a [ href "#register" ]
+                        a [ href "/register" ]
                             [ text "Need an account?" ]
                     ]
                 , if loggedIn model then
