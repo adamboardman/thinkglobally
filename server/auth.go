@@ -241,7 +241,7 @@ func SendEmail(emailAddress string, verificationKey string, invite string, descr
 	data := url.Values{}
 	data.Set("email", emailAddress)
 	data.Set("verification", verificationKey)
-	confirmUrl := "https://www.thinkglobally.org/auth/confirm_email?" + data.Encode()
+	confirmUrl := "https://www.thinkglobally.org/api/auth/confirm_email?" + data.Encode()
 	log.Print(confirmUrl)
 	c, err := smtp.Dial("localhost:25")
 	if err != nil {
