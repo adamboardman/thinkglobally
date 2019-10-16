@@ -55,7 +55,7 @@ type Page
     = Home
     | Login
     | Logout
-    | Register
+    | Register (Maybe String) (Maybe String)
     | Profile
     | Transactions
     | Concepts String
@@ -149,6 +149,7 @@ type alias RegisterForm =
     { email : String
     , password : String
     , password_confirm : String
+    , verification : String
     }
 
 

@@ -167,6 +167,7 @@ type RegisterJSON struct {
 	Email                string
 	Password             string
 	PasswordConfirmation string `json:"password_confirmation"`
+	Verification         string
 }
 
 func RegisterUser(c *gin.Context) {
@@ -181,6 +182,7 @@ func RegisterUser(c *gin.Context) {
 		registerJSON.Email = c.PostForm("email")
 		registerJSON.Password = c.PostForm("password")
 		registerJSON.PasswordConfirmation = c.PostForm("password_confirmation")
+		registerJSON.Verification = c.PostForm("varification")
 	}
 
 	if registerJSON.Password != registerJSON.PasswordConfirmation {
@@ -190,6 +192,24 @@ func RegisterUser(c *gin.Context) {
 
 	existingUser, _ := App.Store.FindUser(registerJSON.Email)
 	if existingUser != nil {
+		salt, _ := base64.StdEncoding.DecodeString(existingUser.Salt)
+		verification, _ := base64.StdEncoding.DecodeString(registerJSON.Verification)
+		encrypted := argon2.IDKey(verification, salt, 1, 64*1024, 4, 32)
+		confirmVerification := base64.StdEncoding.EncodeToString(encrypted)
+		if confirmVerification == existingUser.ConfirmVerifier {
+			if len(existingUser.Password) == 0 {
+				encrypted = argon2.IDKey([]byte(registerJSON.Password), salt, 1, 64*1024, 4, 32)
+				existingUser.Password = base64.StdEncoding.EncodeToString(encrypted)
+
+				_, err := App.Store.UpdateUser(existingUser)
+				if err == nil {
+					c.JSON(http.StatusOK, gin.H{
+						"status": http.StatusOK, "message": "User registered successfully", "resourceId": existingUser.ID,
+					})
+					return
+				}
+			}
+		}
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -239,8 +259,8 @@ func InviteUser(email string, invite string, description string) (error, *store.
 
 func SendEmail(emailAddress string, verificationKey string, invite string, description string) {
 	data := url.Values{}
-	data.Set("email", emailAddress)
-	data.Set("verification", verificationKey)
+	data.Set("email", url.QueryEscape(emailAddress))
+	data.Set("verification", url.QueryEscape(verificationKey))
 	confirmUrl := "https://www.thinkglobally.org/api/auth/confirm_email?" + data.Encode()
 	log.Print(confirmUrl)
 	c, err := smtp.Dial("localhost:25")
@@ -307,21 +327,29 @@ func SendEmail(emailAddress string, verificationKey string, invite string, descr
 }
 
 func ConfirmEmail(c *gin.Context) {
-	email := c.Query("email")
-	verificationKey := c.Query("verification")
+	email, err := url.QueryUnescape(c.Query("email"))
+	verificationKey, err := url.QueryUnescape(c.Query("verification"))
 
-	log.Print(email + verificationKey)
+	log.Print(email + " " + verificationKey)
 
 	user, err := App.Store.FindUser(email)
-	salt, _ := base64.StdEncoding.DecodeString(user.Salt)
-	verification, _ := base64.StdEncoding.DecodeString(verificationKey)
-	encrypted := argon2.IDKey(verification, salt, 1, 64*1024, 4, 32)
-	confirmVerification := base64.StdEncoding.EncodeToString(encrypted)
-	if err == nil && confirmVerification == user.ConfirmVerifier {
-		user.Confirmed = true
-		user.ConfirmVerifier = ""
-		_, _ = App.Store.UpdateUser(user)
-		c.Redirect(307, "/")
+	if err == nil {
+		salt, _ := base64.StdEncoding.DecodeString(user.Salt)
+		verification, _ := base64.StdEncoding.DecodeString(verificationKey)
+		encrypted := argon2.IDKey(verification, salt, 1, 64*1024, 4, 32)
+		confirmVerification := base64.StdEncoding.EncodeToString(encrypted)
+		if confirmVerification == user.ConfirmVerifier {
+			if len(user.Password) > 0 {
+				user.Confirmed = true
+				user.ConfirmVerifier = ""
+				_, _ = App.Store.UpdateUser(user)
+				c.Redirect(307, "/")
+			} else {
+				c.Redirect(307, "/register?email="+url.QueryEscape(email)+"&verification="+url.QueryEscape(verificationKey))
+			}
+		} else {
+			c.AbortWithStatus(http.StatusBadRequest)
+		}
 	} else {
 		c.AbortWithStatus(http.StatusBadRequest)
 	}

@@ -23,7 +23,8 @@ import Time
 import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
 import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
-import Url.Parser as UrlParser exposing ((</>), Parser, s, string, top)
+import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, s, string, top)
+import Url.Parser.Query as Query
 
 
 
@@ -66,7 +67,7 @@ init flags url key =
                 , loading = Loading.Off
                 , problems = []
                 , loginForm = { email = "", password = "" }
-                , registerForm = { email = "", password = "", password_confirm = "" }
+                , registerForm = { email = "", password = "", password_confirm = "", verification = "" }
                 , session = { loginExpire = Maybe.withDefault "" flags.expire, loginToken = Maybe.withDefault "" flags.token }
                 , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                 , loggedInUser = emptyUser
@@ -177,8 +178,8 @@ mainContent model =
             Logout ->
                 pageLogout model
 
-            Register ->
-                pageRegister model
+            Register email _ ->
+                pageRegister model email
 
             Profile ->
                 pageProfile model
@@ -228,7 +229,7 @@ update msg model =
                     ( { model
                         | problems = []
                         , loginForm = { email = "", password = "" }
-                        , registerForm = { email = "", password = "", password_confirm = "" }
+                        , registerForm = { email = "", password = "", password_confirm = "", verification = "" }
                         , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                         , session =
                             case url.fragment of
@@ -905,7 +906,7 @@ urlForPage page =
         Logout ->
             "/logout"
 
-        Register ->
+        Register _ _ ->
             "/register"
 
         Transactions ->
@@ -936,7 +937,23 @@ urlUpdate url model =
         Just page ->
             ( case page of
                 AddConcept ->
-                    { model | page = page, concept = emptyConcept, conceptForm = emptyConceptForm, conceptTagForm = { tag = "" } }
+                    { model
+                        | page = page
+                        , concept = emptyConcept
+                        , conceptForm = emptyConceptForm
+                        , conceptTagForm = { tag = "" }
+                    }
+
+                Register email verification ->
+                    { model
+                        | page = page
+                        , registerForm =
+                            { email = Maybe.withDefault "" email
+                            , password = ""
+                            , password_confirm = ""
+                            , verification = Maybe.withDefault "" verification
+                            }
+                    }
 
                 _ ->
                     { model | page = page }
@@ -969,7 +986,7 @@ urlUpdate url model =
                 Logout ->
                     Cmd.none
 
-                Register ->
+                Register _ _ ->
                     Cmd.none
 
                 AddConcept ->
@@ -986,7 +1003,7 @@ routeParser =
         [ UrlParser.map Home top
         , UrlParser.map Login (s "login")
         , UrlParser.map Logout (s "logout")
-        , UrlParser.map Register (s "register")
+        , UrlParser.map Register (s "register" <?> Query.string "email" <?> Query.string "verification")
         , UrlParser.map Transactions (s "transactions")
         , UrlParser.map Profile (s "profile")
         , UrlParser.map Concepts (s "concepts" </> string)

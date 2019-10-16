@@ -21,29 +21,42 @@ registerFieldsToValidate =
     ]
 
 
-pageRegister : Model -> List (Html Msg)
-pageRegister model =
+pageRegister : Model -> Maybe String -> List (Html Msg)
+pageRegister model email =
     [ div [ class "container page" ]
         [ div [ class "row" ]
             [ div [ class "col-md-6 offset-md-3 col-xs-12" ]
-                [ h1 [ class "text-xs-center" ] [ text "Register" ]
+                [ h1 [ class "text-xs-center" ]
+                    [ if email == Maybe.Nothing then
+                        text "Register"
+
+                      else
+                        text "Enter Password"
+                    ]
                 , p [ class "text-xs-center" ]
-                        [ text "Have an account?" ]
+                    [ if email == Maybe.Nothing then
                         a [ href "/login" ]
+                            [ text "Have an account?" ]
+
+                      else
+                        text ""
                     ]
                 , if model.apiActionResponse.resourceId == 0 then
-                    viewRegisterForm model
+                    viewRegisterForm model email
+
+                  else if email == Maybe.Nothing then
+                    text "Please check your email (inc spam folder) and click the confirmation link"
 
                   else
-                    text "Please check your email (inc spam folder) and click the confirmation link"
+                    text "Please login"
                 ]
             ]
         ]
     ]
 
 
-viewRegisterForm : Model -> Html Msg
-viewRegisterForm model =
+viewRegisterForm : Model -> Maybe String -> Html Msg
+viewRegisterForm model email =
     Form.form [ onSubmit SubmittedRegisterForm ]
         [ Form.group []
             [ Form.label [ for "email" ] [ text "Email address" ]
@@ -51,7 +64,12 @@ viewRegisterForm model =
                 [ Input.id "email"
                 , Input.placeholder "Email"
                 , Input.onInput EnteredRegisterEmail
-                , Input.value model.registerForm.email
+                , Input.value (Maybe.withDefault model.registerForm.email email)
+                , if email == Maybe.Nothing then
+                    Input.disabled False
+
+                  else
+                    Input.disabled True
                 ]
             , Form.invalidFeedback [] [ text "Please enter your email address" ]
             ]
@@ -147,6 +165,7 @@ registerTrimFields form =
         { email = String.trim form.email
         , password = String.trim form.password
         , password_confirm = String.trim form.password_confirm
+        , verification = String.trim form.verification
         }
 
 
@@ -160,6 +179,7 @@ register (RegisterTrimmed form) =
         body =
             Encode.object
                 [ ( "email", Encode.string form.email )
+                , ( "verification", Encode.string form.verification )
                 , ( "password", Encode.string form.password )
                 , ( "password_confirmation", Encode.string form.password_confirm )
                 ]
