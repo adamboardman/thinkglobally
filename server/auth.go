@@ -200,6 +200,8 @@ func RegisterUser(c *gin.Context) {
 			if len(existingUser.Password) == 0 {
 				encrypted = argon2.IDKey([]byte(registerJSON.Password), salt, 1, 64*1024, 4, 32)
 				existingUser.Password = base64.StdEncoding.EncodeToString(encrypted)
+				existingUser.Confirmed = true
+				existingUser.ConfirmVerifier = ""
 
 				_, err := App.Store.UpdateUser(existingUser)
 				if err == nil {
