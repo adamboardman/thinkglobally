@@ -232,8 +232,8 @@ update msg model =
                         , registerForm = { email = "", password = "", password_confirm = "", verification = "" }
                         , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                         , session =
-                            case url.fragment of
-                                Just "logout" ->
+                            case url.path of
+                                "/logout" ->
                                     { loginExpire = "", loginToken = "" }
 
                                 _ ->
@@ -241,8 +241,8 @@ update msg model =
                       }
                     , case model.navKey of
                         Just navKey ->
-                            case url.fragment of
-                                Just "logout" ->
+                            case url.path of
+                                "/logout" ->
                                     Cmd.batch
                                         [ Nav.pushUrl navKey (urlForPage Home)
                                         , storeToken Nothing
