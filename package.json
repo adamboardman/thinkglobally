@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "A time based alternative to currencies",
   "dependencies": {
-    "elm": "^0.19.0-no-deps",
-    "uglify-js": "^3.6.0"
+    "elm": "^0.19.0",
+    "uglify-js": "^3.7.2"
   },
   "scripts": {},
   "repository": {
