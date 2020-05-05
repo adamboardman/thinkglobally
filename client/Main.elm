@@ -10,7 +10,7 @@ import ConceptsEdit exposing (conceptAdd, conceptDeleteSelectedTags, conceptTag,
 import ConceptsList exposing (loadConceptTagsList, loadConcepts, pageConceptsList)
 import Dict
 import Html exposing (..)
-import Html.Attributes exposing (class, href)
+import Html.Attributes exposing (href)
 import Http exposing (Error(..), emptyBody)
 import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
@@ -20,8 +20,10 @@ import Register exposing (pageRegister, register, registerUpdateForm, registerVa
 import Set
 import Task
 import Time
-import Transaction exposing (acceptTransaction, loadTransactions, loadTxUsers, pageTransaction, rejectTransaction, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, timeFromTgs, timeFromTime, txFeeFromTgs, userDecoder)
+import Transaction exposing (loadTransactions, loadTxUsers, pageTransactionList)
+import TransactionCreate exposing (pageTransactionCreate, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
+import TransactionPending exposing (acceptTransaction, pageTransactionPending, rejectTransaction)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeHMSAndMultiplier, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, s, string, top)
 import Url.Parser.Query as Query
@@ -149,7 +151,21 @@ menu model =
                       else
                         Navbar.itemLink [ href "" ] [ text "" ]
                     , if loggedIn model then
-                        Navbar.itemLink [ href (urlForPage Transactions) ] [ text "Transactions" ]
+                        Navbar.dropdown
+                            { id = "transactions_dropdown"
+                            , toggle = Navbar.dropdownToggle [ href (urlForPage model.page) ] [ text "Transactions" ]
+                            , items =
+                                [ Navbar.dropdownItem
+                                    [ href (urlForPage Transactions) ]
+                                    [ text "Transactions" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage TransactionsList) ]
+                                    [ text "Past Transactions" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage AddTransaction) ]
+                                    [ text "Create Transaction" ]
+                                ]
+                            }
 
                       else
                         Navbar.itemLink [ href "" ] [ text "" ]
@@ -185,7 +201,13 @@ mainContent model =
                 pageProfile model
 
             Transactions ->
-                pageTransaction model
+                pageTransactionPending model
+
+            TransactionsList ->
+                pageTransactionList model
+
+            AddTransaction ->
+                pageTransactionCreate model
 
             NotFound ->
                 pageNotFound
@@ -910,7 +932,13 @@ urlForPage page =
             "/register"
 
         Transactions ->
+            "/transactions/pending"
+
+        TransactionsList ->
             "/transactions"
+
+        AddTransaction ->
+            "/add_transaction"
 
         Concepts string ->
             "/concepts/" ++ string
@@ -980,6 +1008,12 @@ urlUpdate url model =
                 Transactions ->
                     Cmd.batch [ loadTransactions model, loadTxUsers model ]
 
+                TransactionsList ->
+                    Cmd.batch [ loadTransactions model, loadTxUsers model ]
+
+                AddTransaction ->
+                    Cmd.none
+
                 Login ->
                     Cmd.none
 
@@ -1004,7 +1038,9 @@ routeParser =
         , UrlParser.map Login (s "login")
         , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register" <?> Query.string "email" <?> Query.string "verification")
-        , UrlParser.map Transactions (s "transactions")
+        , UrlParser.map Transactions (s "transactions" </> s "pending")
+        , UrlParser.map TransactionsList (s "transactions")
+        , UrlParser.map AddTransaction (s "add_transaction")
         , UrlParser.map Profile (s "profile")
         , UrlParser.map Concepts (s "concepts" </> string)
         , UrlParser.map ConceptsEdit (s "concepts" </> string </> s "edit")

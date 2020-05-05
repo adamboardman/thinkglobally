@@ -58,6 +58,8 @@ type Page
     | Register (Maybe String) (Maybe String)
     | Profile
     | Transactions
+    | TransactionsList
+    | AddTransaction
     | Concepts String
     | ConceptsEdit String
     | ConceptsList
