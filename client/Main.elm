@@ -256,7 +256,7 @@ update msg model =
                         , session =
                             case url.path of
                                 "/logout" ->
-                                    { loginExpire = "", loginToken = "" }
+                                    emptySession
 
                                 _ ->
                                     model.session
