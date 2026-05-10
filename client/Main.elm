@@ -9,7 +9,7 @@ import Concept exposing (pageConcept)
 import ConceptsEdit exposing (conceptAdd, conceptDeleteSelectedTags, conceptTag, conceptTagUpdateForm, conceptTagValidate, conceptUpdate, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageAddConcept, pageConceptsEdit, tagIsNotIn)
 import ConceptsList exposing (loadConceptTagsList, loadConcepts, pageConceptsList)
 import Dict
-import Html exposing (..)
+import Html exposing (Html, div, h1, text)
 import Html.Attributes exposing (href)
 import Http exposing (Error(..), emptyBody)
 import Loading

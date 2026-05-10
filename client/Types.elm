@@ -9,7 +9,7 @@ import Char exposing (isDigit)
 import Dict exposing (Dict)
 import Dict.Extra exposing (fromListBy)
 import FormatNumber exposing (format)
-import FormatNumber.Locales exposing (Locale)
+import FormatNumber.Locales exposing (Decimals(..), Locale)
 import Http
 import Json.Decode as Decode exposing (Decoder, at, float, int, list, map7, string)
 import Json.Decode.Pipeline exposing (optional, required)
@@ -292,7 +292,7 @@ type Msg
 
 tgsLocale : Locale
 tgsLocale =
-    Locale 4 "" "." "−" "" "" ""
+    Locale (Exact 4) "" "." "−" "" "" "" "" ""
 
 
 toIntMonth : Month -> Int
