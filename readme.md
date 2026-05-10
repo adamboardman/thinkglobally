@@ -58,5 +58,24 @@ go build main.go
 ./main
 ```
 
+### Add as a systemd service
+/lib/systemd/system/thinkglobally.service
+```
+[Unit]
+Description=thinkglobally
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+User=user
+Group=user
+WorkingDirectory=/home/user/go/src/github.com/githubuser/thinkglobally/
+ExecStart=/home/user/go/src/github.com/githubuser/thinkglobally/main
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ## Live server config - to run on port 3030
-Expected to be running via a proxy on port 80
+Expected to be running via a proxy on port 80/443
