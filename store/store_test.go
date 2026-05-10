@@ -1,11 +1,12 @@
 package store
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
-	"golang.org/x/crypto/bcrypt"
 	"os"
 	"testing"
 	"time"
+
+	. "github.com/smartystreets/goconvey/convey"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var s Store
@@ -26,7 +27,7 @@ func ensureTestUserExists(emailAddress string) *User {
 		encrypted, err := bcrypt.GenerateFromPassword([]byte("1234"), 13)
 		So(err, ShouldBeNil)
 		user = &User{
-			Password:  string(encrypted),
+			Password: string(encrypted),
 			PrivilegedUser: PrivilegedUser{
 				Email:     emailAddress,
 				Confirmed: true,
@@ -42,7 +43,7 @@ func TestStore_DoubleInsertUser(t *testing.T) {
 	Convey("Insert a user to the store", t, func() {
 		s.PurgeUser(emailAddress)
 		user := User{}
-		user.Email= emailAddress
+		user.Email = emailAddress
 		user.FirstName = "Joe"
 		user.LastName = "Blogs"
 		userId, _ := s.InsertUser(&user)
@@ -126,7 +127,7 @@ func TestStore_DeleteConcept(t *testing.T) {
 				savedUser, err := s.FindConcept(name)
 
 				So(err, ShouldNotBeNil)
-				So(savedUser, ShouldEqual, nil)
+				So(savedUser, ShouldEqual, (*Concept)(nil))
 			})
 		})
 	})
@@ -229,7 +230,7 @@ func TestStore_InvalidTagCreationFail(t *testing.T) {
 		Convey("All tags list should not contain invalid tag", func() {
 			tags, _ := s.ListConceptTags()
 			tagInvalidFromTags := getTagFromTags(tags, tagInvalid)
-			So(tagInvalidFromTags, ShouldEqual, nil)
+			So(tagInvalidFromTags, ShouldEqual, (*ConceptTag)(nil))
 		})
 	})
 }
@@ -303,7 +304,7 @@ func TestStore_TransactionRejectNoUser(t *testing.T) {
 		Convey("Invalid transaction should not be in list", func() {
 			transactions, _ := s.ListTransactionsForUser(user1.ID)
 			transactionFromTransactions := getTransactionFromTransactions(transactions, transaction.ID)
-			So(transactionFromTransactions, ShouldEqual, nil)
+			So(transactionFromTransactions, ShouldEqual, (*Transaction)(nil))
 		})
 	})
 }
@@ -329,7 +330,7 @@ func TestStore_TransactionRejectTooSmallMultipler(t *testing.T) {
 		Convey("Invalid transaction should not be in list", func() {
 			transactions, _ := s.ListTransactionsForUser(user1.ID)
 			transactionFromTransactions := getTransactionFromTransactions(transactions, transaction.ID)
-			So(transactionFromTransactions, ShouldEqual, nil)
+			So(transactionFromTransactions, ShouldEqual, (*Transaction)(nil))
 		})
 	})
 }
@@ -355,7 +356,7 @@ func TestStore_TransactionRejectTooBigMultiplier(t *testing.T) {
 		Convey("Invalid transaction should not be in list", func() {
 			transactions, _ := s.ListTransactionsForUser(user1.ID)
 			transactionFromTransactions := getTransactionFromTransactions(transactions, transaction.ID)
-			So(transactionFromTransactions, ShouldEqual, nil)
+			So(transactionFromTransactions, ShouldEqual, (*Transaction)(nil))
 		})
 	})
 }

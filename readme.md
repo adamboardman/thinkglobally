@@ -5,7 +5,7 @@ sudo apt-get -t stretch-backports install golang
 sudo apt-get install postgresql postgis libvips-dev nodejs
 ```
 
-NodeJS at the time of the release of stretch had many security issues, best to use latest versions:
+NodeJS at the time of the release of stretch had many security issues, best to use the latest versions:
 https://github.com/nodesource/distributions
 
 ## Database

@@ -3,16 +3,17 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/adamboardman/thinkglobally/store"
-	"github.com/adamboardman/thinkglobally/tag_updater"
-	jwt "github.com/appleboy/gin-jwt"
-	"github.com/gin-gonic/contrib/static"
-	"github.com/gin-gonic/gin"
 	"math"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/adamboardman/thinkglobally/store"
+	"github.com/adamboardman/thinkglobally/tag_updater"
+	jwt "github.com/appleboy/gin-jwt/v3"
+	"github.com/gin-gonic/contrib/static"
+	"github.com/gin-gonic/gin"
 )
 
 type WebApp struct {
@@ -45,26 +46,29 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 	})
 
 	a.JwtMiddleware = a.InitAuth(api)
-	api.GET("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), LoadUser)
-	//api.GET("/users/:userID/photo", a.JwtMiddleware.MiddlewareFunc(), UserPhoto)
-	//api.POST("/users/:userID/photo", a.JwtMiddleware.MiddlewareFunc(), AddUserPhoto)
-	//api.PUT("/users/:userID/photo", a.JwtMiddleware.MiddlewareFunc(), UpdateUserPhoto)
-	api.PUT("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), UpdateUser)
-	api.GET("/users", a.JwtMiddleware.MiddlewareFunc(), PublicUsersList)
 	api.GET("/concepts", ConceptsList)
 	api.GET("/concepts/:conceptID", LoadConcept)
 	api.GET("/concepts/:conceptID/tags", LoadConceptTags)
-	api.POST("/concepts", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), AddConcept)
-	api.PUT("/concepts/:conceptID", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), UpdateConcept)
 	api.GET("/concept/:tag", FetchConcept)
 	api.GET("/concept_tags", ConceptTagsList)
-	api.POST("/concept_tags", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), AddConceptTag)
-	api.DELETE("/concept_tags/:conceptTagID", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), DeleteConceptTag)
-	api.DELETE("/concept_tags", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), DeleteConceptTags)
-	api.POST("/transactions", a.JwtMiddleware.MiddlewareFunc(), AddTransaction)
-	api.PATCH("/transactions/:transactionID/accept", a.JwtMiddleware.MiddlewareFunc(), AcceptTransaction)
-	api.PATCH("/transactions/:transactionID/reject", a.JwtMiddleware.MiddlewareFunc(), RejectTransaction)
-	api.GET("/transactions", a.JwtMiddleware.MiddlewareFunc(), TransactionsList)
+	api.Use(a.JwtMiddleware.MiddlewareFunc())
+	{
+		api.GET("/users/:userID", LoadUser)
+		//api.GET("/users/:userID/photo",  UserPhoto)
+		//api.POST("/users/:userID/photo", AddUserPhoto)
+		//api.PUT("/users/:userID/photo",  UpdateUserPhoto)
+		api.PUT("/users/:userID", UpdateUser)
+		api.GET("/users", PublicUsersList)
+		api.POST("/concepts", AdminPermissionsRequired(), AddConcept)
+		api.PUT("/concepts/:conceptID", AdminPermissionsRequired(), UpdateConcept)
+		api.POST("/concept_tags", AdminPermissionsRequired(), AddConceptTag)
+		api.DELETE("/concept_tags/:conceptTagID", AdminPermissionsRequired(), DeleteConceptTag)
+		api.DELETE("/concept_tags", AdminPermissionsRequired(), DeleteConceptTags)
+		api.POST("/transactions", AddTransaction)
+		api.PATCH("/transactions/:transactionID/accept", AcceptTransaction)
+		api.PATCH("/transactions/:transactionID/reject", RejectTransaction)
+		api.GET("/transactions", TransactionsList)
+	}
 }
 
 func AdminPermissionsRequired() gin.HandlerFunc {
@@ -85,7 +89,7 @@ func AdminPermissionsRequiredImpl(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "User is not an editor"})
 		return
 	}
-	c.Next();
+	c.Next()
 }
 
 func Exists(name string) bool {
@@ -104,7 +108,7 @@ func addDefaultRouteToWebApp(router *gin.Engine) {
 }
 
 func (a *WebApp) Run(addr string) {
-	_ = a.Router.Run(addr);
+	_ = a.Router.Run(addr)
 }
 
 func addWebAppStaticFiles(router *gin.Engine) {
@@ -137,6 +141,8 @@ func LoadUser(c *gin.Context) {
 				balance = transaction.ToUserBalance
 			}
 		}
+		//transactions, err := App.Store.ListTransactionsForUser(loggedInUserId)
+
 		userWithBalance := store.PrivilegedUserWithBalance{
 			PrivilegedUser: *user,
 			Balance:        balance,
@@ -287,7 +293,7 @@ func AddConcept(c *gin.Context) {
 }
 
 func UpdateConcept(c *gin.Context) {
-	conceptId, err := strconv.Atoi(c.Param("conceptID"));
+	conceptId, err := strconv.Atoi(c.Param("conceptID"))
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("ConceptID invalid - err: %s", err.Error())})
 		return
@@ -318,9 +324,9 @@ func UpdateConcept(c *gin.Context) {
 	}
 }
 
-func readJSONIntoConcept(concept *store.Concept, c *gin.Context, forceUpdate bool) (error) {
+func readJSONIntoConcept(concept *store.Concept, c *gin.Context, forceUpdate bool) error {
 	conceptJSON := ConceptJSON{}
-	err := c.BindJSON(&conceptJSON)
+	err := c.ShouldBindJSON(&conceptJSON)
 	if err != nil {
 		return err
 	}
@@ -357,9 +363,9 @@ type ConceptTagJSON struct {
 	ConceptId uint
 }
 
-func readJSONIntoConceptTag(conceptTag *store.ConceptTag, c *gin.Context, forceUpdate bool) (error) {
+func readJSONIntoConceptTag(conceptTag *store.ConceptTag, c *gin.Context, forceUpdate bool) error {
 	conceptTagJSON := ConceptTagJSON{}
-	err := c.BindJSON(&conceptTagJSON)
+	err := c.ShouldBindJSON(&conceptTagJSON)
 	if err != nil {
 		return err
 	}
@@ -463,7 +469,7 @@ type TransactionJSON struct {
 	Status          uint
 }
 
-func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, forceUpdate bool) (error) {
+func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, forceUpdate bool) error {
 	transactionJSON := TransactionJSON{}
 	err := c.BindJSON(&transactionJSON)
 	if err != nil {
@@ -636,6 +642,9 @@ func RejectTransaction(c *gin.Context) {
 		return
 	}
 
+	fromUserLastTransaction, _ := App.Store.LastConfirmedTransactionForUser(transaction.FromUserId)
+	toUserLastTransaction, _ := App.Store.LastConfirmedTransactionForUser(transaction.ToUserId)
+
 	claims := jwt.ExtractClaims(c)
 	loggedInUserId := uint(claims["id"].(float64))
 	if transaction.Status == store.TransactionOffered {
@@ -645,6 +654,8 @@ func RejectTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionOfferRejected
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId)
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId)
 	}
 	if transaction.Status == store.TransactionRequested {
 		if transaction.FromUserId != loggedInUserId {
@@ -653,6 +664,8 @@ func RejectTransaction(c *gin.Context) {
 		}
 
 		transaction.Status = store.TransactionRequestRejected
+		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId)
+		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId)
 	}
 	transaction.ConfirmedDate = store.PosixDateTime(time.Now())
 	_, err = App.Store.UpdateTransaction(transaction)
@@ -684,8 +697,11 @@ func PublicUsersList(c *gin.Context) {
 	loggedInUserId := uint(claims["id"].(float64))
 
 	c.Header("Content-Type", "application/json")
-	userQuery := UserJSON{}
-	err := c.Bind(&userQuery)
+	type EmailQuery struct {
+		Email string
+	}
+	var userQuery EmailQuery
+	err := c.ShouldBindQuery(&userQuery)
 	if err == nil && len(userQuery.Email) > 0 {
 		user, err := App.Store.FindUser(userQuery.Email)
 		if err == nil {

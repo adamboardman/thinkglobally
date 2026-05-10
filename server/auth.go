@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
-	"github.com/adamboardman/thinkglobally/store"
-	"github.com/appleboy/gin-jwt"
-	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/argon2"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/smtp"
 	"net/url"
+	"os"
 	"time"
+
+	"github.com/adamboardman/thinkglobally/store"
+	jwt "github.com/appleboy/gin-jwt/v3"
+	"github.com/appleboy/gin-jwt/v3/core"
+	"github.com/gin-gonic/gin"
+	gojwt "github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/argon2"
 )
 
 type login struct {
@@ -65,31 +68,31 @@ func AllowOptions(c *gin.Context) {
 
 func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 	const secretKeyFileName = "secret_key.txt"
-	secretKey, err := ioutil.ReadFile(secretKeyFileName)
+	secretKey, err := os.ReadFile(secretKeyFileName)
 	if err != nil {
-		secretKey, err = ioutil.ReadFile("../" + secretKeyFileName)
+		secretKey, err = os.ReadFile("../" + secretKeyFileName)
 		if err != nil {
 			secretKey = []byte(RandomKey(30))
-			err = ioutil.WriteFile(secretKeyFileName, secretKey, 0666)
+			err = os.WriteFile(secretKeyFileName, secretKey, 0666)
 			LogFatalError(err)
 		}
 	}
 
-	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
+	authMiddleware := &jwt.GinJWTMiddleware{
 		Realm:       "thinkglobally",
 		Key:         secretKey,
 		Timeout:     time.Hour * 24 * 7,
 		MaxRefresh:  time.Hour,
 		IdentityKey: identityKey,
-		PayloadFunc: func(data interface{}) jwt.MapClaims {
+		PayloadFunc: func(data any) gojwt.MapClaims {
 			if v, ok := data.(*store.User); ok {
-				return jwt.MapClaims{
+				return gojwt.MapClaims{
 					identityId:        v.ID,
 					identityKey:       v.Email,
 					identityConfirmed: v.Confirmed,
 				}
 			}
-			return jwt.MapClaims{}
+			return gojwt.MapClaims{}
 		},
 		IdentityHandler: func(c *gin.Context) interface{} {
 			claims := jwt.ExtractClaims(c)
@@ -118,19 +121,20 @@ func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 
 			return nil, jwt.ErrFailedAuthentication
 		},
-		Authorizator: func(data interface{}, c *gin.Context) bool {
-			user, ok := data.(*LoggedInUser);
+		Authorizer: func(c *gin.Context, data any) bool {
+			user, ok := data.(*LoggedInUser)
 			if ok && user.Confirmed {
 				return true
 			}
 
 			return false
 		},
-		LoginResponse: func(c *gin.Context, code int, token string, expire time.Time) {
+		LoginResponse: func(c *gin.Context, token *core.Token) {
 			c.JSON(http.StatusOK, gin.H{
 				"status": http.StatusOK,
-				"token":  token,
-				"expire": expire.Format(time.RFC3339),
+				"token":  token.AccessToken,
+				"expire": token.ExpiresAt,
+				//				"expire": time.Time{token.ExpiresAt}.Format(time.RFC3339),
 			})
 		},
 		Unauthorized: func(c *gin.Context, code int, message string) {
@@ -139,16 +143,19 @@ func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 				"message": message,
 			})
 		},
-
-		TokenLookup: "header: Authorization",
-
+		TokenLookup:   "header: Authorization",
 		TokenHeadName: "Bearer",
-
-		TimeFunc: time.Now,
-	})
+		TimeFunc:      time.Now,
+	}
 
 	if err != nil {
 		log.Fatal("JWT Error:" + err.Error())
+	}
+
+	// Initialize middleware
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		log.Fatal("authMiddleware.MiddlewareInit() Error:" + errInit.Error())
 	}
 
 	auth := group.Group("/auth")
@@ -158,7 +165,10 @@ func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 	auth.POST("/register", RegisterUser)
 	auth.POST("/login", authMiddleware.LoginHandler)
 	auth.GET("/confirm_email", ConfirmEmail)
-	auth.GET("/refresh_token", authMiddleware.MiddlewareFunc(), authMiddleware.RefreshHandler)
+	//auth.Use(authMiddleware.MiddlewareFunc())
+	//{
+	//	auth.GET("/refresh_token", authMiddleware.RefreshHandler)
+	//}
 
 	return authMiddleware
 }
