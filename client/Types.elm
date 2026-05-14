@@ -10,13 +10,12 @@ import Dict exposing (Dict)
 import Dict.Extra exposing (fromListBy)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (Decimals(..), Locale)
-import Html exposing (Html, h4, text)
 import Http
 import Json.Decode as Decode exposing (Decoder, at, float, int, list, map7, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
 import Set exposing (Set)
-import String exposing (toInt)
+import String
 import Time exposing (Month)
 import Url exposing (Url)
 
@@ -475,29 +474,17 @@ timeFromTime time =
     hours ++ ":" ++ minutes ++ ":" ++ seconds
 
 
-timeFromTgs : String -> String -> String
-timeFromTgs tgs multiplier =
+timeFromTgs : Int -> String
+timeFromTgs tgs =
     let
-        divider =
-            Maybe.withDefault 1 (String.toFloat multiplier)
-
-        tgsFloat =
-            Maybe.withDefault 0 (String.toFloat (String.filter isDigitOrPlace tgs))
-
-        divided =
-            tgsFloat / divider
-
-        tgsAsSecondsInt =
-            round (divided * 60 * 60)
-
         tgsSec =
-            String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgsAsSecondsInt))
+            String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgs))
 
         tgsMinInt =
-            tgsAsSecondsInt // 60
+            tgs // 60
 
         tgsHour =
-            String.padLeft 2 '0' (String.fromInt (tgsAsSecondsInt // (60 * 60)))
+            String.padLeft 2 '0' (String.fromInt (tgs // (60 * 60)))
 
         tgsMin =
             String.padLeft 2 '0' (String.fromInt (remainderBy 60 tgsMinInt))

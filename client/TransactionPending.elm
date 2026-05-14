@@ -41,7 +41,8 @@ transactionDetailedSummary model txs =
             [ Html.div [] [ text "Date: ", text (Types.dateFromTransaction model tx) ]
             , Html.div [] [ text "From: ", text (Types.transactionFromUserName model tx) ]
             , Html.div [] [ text "To: ", text (Types.transactionToUserName model tx) ]
-            , Html.div [] [ text "Value in TGs: ", text (format tgsLocale (Types.tgsFromTransaction model tx)) ]
+            , Html.div [] [ text "Value in TGs: ", text (Types.formatBalance tx.seconds), text " (", text (Types.timeFromTgs tx.seconds), text ")" ]
+            , Html.div [] [ text "Tax in TGs: ", text (Types.formatBalance tx.txFee), text " (", text (Types.timeFromTgs tx.txFee), text ")" ]
             , Html.div []
                 [ text "Resultant Balances: "
                 , text (Types.transactionFromUserName model tx)
