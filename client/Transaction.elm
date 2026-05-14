@@ -60,6 +60,7 @@ transactionDetailedSummary model txs =
     case List.head (List.filter (Types.isSelectedTx model.selectedTxId) txs) of
         Just tx ->
             [ Html.div [] [ text "Date: ", text (Types.dateFromTransaction model tx) ]
+            , Html.div [] [ text "Type: ", text (Types.transactionActivity tx) ]
             , Html.div [] [ text "From: ", text (Types.transactionFromUserName model tx) ]
             , Html.div [] [ text "To: ", text (Types.transactionToUserName model tx) ]
             , Html.div [] [ text "Value in TGs: ", text (Types.formatBalance tx.seconds), text " (", text (Types.timeFromTgs tx.seconds), text ")" ]

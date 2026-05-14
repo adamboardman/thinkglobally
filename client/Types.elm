@@ -818,7 +818,29 @@ transactionStatus model tx =
         _ ->
             ""
 
+transactionActivity : Transaction -> String
+transactionActivity tx =
+    case tx.status of
+        1 ->
+            "Offer"
 
+        2 ->
+           "Request"
+
+        3 ->
+            "Offer"
+
+        4 ->
+            "Request"
+
+        5 ->
+            "Offer"
+
+        6 ->
+            "Request"
+
+        _ ->
+            ""
 
 -- INDEXERS
 
