@@ -832,35 +832,6 @@ transactionStatus model tx =
             ""
 
 
-transactionDetailedSummary : Model -> List Transaction -> List (Html Msg)
-transactionDetailedSummary model txs =
-    case List.head (List.filter (isSelectedTx model.selectedTxId) txs) of
-        Just tx ->
-            [ Html.div [] [ text "Date: ", text (dateFromTransaction model tx) ]
-            , Html.div [] [ text "From: ", text (transactionFromUserName model tx) ]
-            , Html.div [] [ text "To: ", text (transactionToUserName model tx) ]
-            , Html.div [] [ text "Value in TGs: ", text (format tgsLocale (tgsFromTransaction model tx)) ]
-            , Html.div []
-                [ text "Resultant Balances: "
-                , text (transactionFromUserName model tx)
-                , text ": "
-                , text (formatBalance (transactionNewBalanceFrom model tx))
-                , text ", "
-                , text (transactionToUserName model tx)
-                , text ": "
-                , text (formatBalance (transactionNewBalanceTo model tx))
-                ]
-            , Html.div [] [ text "Status: ", text (transactionStatus model tx) ]
-            , Html.div [] [ text "Description: ", text tx.description ]
-            ]
-
-        Nothing ->
-            [ Html.div []
-                [ text "No transaction selected for detailed view"
-                ]
-            ]
-
-
 
 -- INDEXERS
 

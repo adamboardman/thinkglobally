@@ -6,7 +6,7 @@ import Html exposing (Html, h4, text)
 import Html.Attributes exposing (style)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), authHeader, formatBalance, formatBalancePlusFee, formatDate, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), authHeader, formatBalance, formatBalancePlusFee, transactionDecoder, userDecoder)
 
 
 transactionSummary : Model -> Transaction -> Row Msg
@@ -55,6 +55,36 @@ transactionSummary model tx =
         ]
 
 
+transactionDetailedSummary : Model -> List Transaction -> List (Html Msg)
+transactionDetailedSummary model txs =
+    case List.head (List.filter (Types.isSelectedTx model.selectedTxId) txs) of
+        Just tx ->
+            [ Html.div [] [ text "Date: ", text (Types.dateFromTransaction model tx) ]
+            , Html.div [] [ text "From: ", text (Types.transactionFromUserName model tx) ]
+            , Html.div [] [ text "To: ", text (Types.transactionToUserName model tx) ]
+            , Html.div [] [ text "Value in TGs: ", text (Types.formatBalance tx.seconds) ]
+            , Html.div [] [ text "Tax in TGs: ", text (Types.formatBalance tx.txFee) ]
+            , Html.div []
+                [ text "Transaction Balances: "
+                , text (Types.transactionFromUserName model tx)
+                , text ": "
+                , text (formatBalance tx.fromUserBalance)
+                , text ", "
+                , text (Types.transactionToUserName model tx)
+                , text ": "
+                , text (formatBalance tx.toUserBalance)
+                ]
+            , Html.div [] [ text "Status: ", text (Types.transactionStatus model tx) ]
+            , Html.div [] [ text "Description: ", text tx.description ]
+            ]
+
+        Nothing ->
+            [ Html.div []
+                [ text "No transaction selected for detailed view"
+                ]
+            ]
+
+
 pageTransactionList : Model -> List (Html Msg)
 pageTransactionList model =
     List.concat
@@ -81,7 +111,7 @@ pageTransactionList model =
                 }
           , Html.br [] []
           ]
-        , Types.transactionDetailedSummary model model.transactions
+        , transactionDetailedSummary model model.transactions
         , [ Html.br [] []
           , Html.br [] []
           , Html.br [] []
