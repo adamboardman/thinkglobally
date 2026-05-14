@@ -1,4 +1,4 @@
-module Types exposing (ApiActionResponse, Concept, ConceptForm, ConceptTag, ConceptTagForm, DisplayableTag, LoginForm, Model, Msg(..), Page(..), Problem(..), ProfileForm, RegisterForm, Session, Tag, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptIdFromConceptTag, conceptTagDecoder, conceptTagsListDecoder, creatingTransactionSummary, displayableTagFrom, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, formatBalance, formatBalanceFloat, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, idFromConcept, idFromDisplayable, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isDigitOrPlace, isNot, padAndCapTimePart, posixTime, profileDecoder, resourceIdsDecoder, secondsFromTgs, secondsFromTgsFloat, secondsFromTime, secondsFromTimeHMS, tagDecoder, tagFromConceptTagIfMatching, tgsFromTimeAndMultiplier, tgsFromTimeHMSAndMultiplier, tgsLocale, timeFromTgs, timeFromTime, toIntMonth, transactionDecoder, txFeeFromTgs, txFeeIntFromTgs, userDecoder)
+module Types exposing (..)
 
 import Array exposing (Array)
 import Bootstrap.Modal as Modal
@@ -10,6 +10,7 @@ import Dict exposing (Dict)
 import Dict.Extra exposing (fromListBy)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (Decimals(..), Locale)
+import Html exposing (Html, h4, text)
 import Http
 import Json.Decode as Decode exposing (Decoder, at, float, int, list, map7, string)
 import Json.Decode.Pipeline exposing (optional, required)
@@ -48,6 +49,7 @@ type alias Model =
     , conceptTagsList : List ConceptTag
     , displayableTagsList : List DisplayableTag
     , conceptShowTagModel : Modal.Visibility
+    , selectedTxId : Int
     }
 
 
@@ -284,6 +286,7 @@ type Msg
     | ButtonConceptAddTag
     | ButtonConceptDeleteSelectedTags
     | CloseConceptAddTagModal
+    | ViewTransaction Int
 
 
 
@@ -580,6 +583,11 @@ isNot a b =
         True
 
 
+isSelectedTx : Int -> Transaction -> Bool
+isSelectedTx txId tx =
+    tx.id == txId
+
+
 formatBalanceFloat : Float -> String
 formatBalanceFloat balance =
     format tgsLocale (balance / 3600)
@@ -654,6 +662,203 @@ creatingTransactionSummary model =
         ++ " "
         ++ model.transactionForm.txFee
         ++ " [Transaction Fee]"
+
+
+dateFromTransaction : Model -> Transaction -> String
+dateFromTransaction model tx =
+    if Time.posixToMillis tx.initiatedDate > 0 then
+        formatDate model tx.initiatedDate
+
+    else
+        formatDate model tx.confirmedDate
+
+
+transactionFromUser : Model -> Transaction -> Maybe User
+transactionFromUser model tx =
+    Dict.get (String.fromInt tx.fromUserId) model.txUsers
+
+
+transactionToUser : Model -> Transaction -> Maybe User
+transactionToUser model tx =
+    Dict.get (String.fromInt tx.toUserId) model.txUsers
+
+
+transactionFromUserName : Model -> Transaction -> String
+transactionFromUserName model tx =
+    if model.loggedInUser.id == tx.fromUserId then
+        "Yourself"
+
+    else
+        case transactionFromUser model tx of
+            Just user ->
+                user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+
+            Nothing ->
+                String.fromInt tx.fromUserId
+
+
+transactionToUserName : Model -> Transaction -> String
+transactionToUserName model tx =
+    if model.loggedInUser.id == tx.toUserId then
+        "Yourself"
+
+    else
+        case transactionToUser model tx of
+            Just user ->
+                user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+
+            Nothing ->
+                String.fromInt tx.toUserId
+
+
+transactionTgsAsSeconds : Model -> Transaction -> Int
+transactionTgsAsSeconds model tx =
+    if tx.fromUserId == model.loggedInUser.id then
+        case tx.status of
+            1 ->
+                tx.seconds + tx.txFee
+
+            2 ->
+                tx.seconds - tx.txFee
+
+            3 ->
+                tx.seconds + tx.txFee
+
+            4 ->
+                tx.seconds - tx.txFee
+
+            5 ->
+                tx.seconds + tx.txFee
+
+            6 ->
+                tx.seconds - tx.txFee
+
+            _ ->
+                0
+
+    else
+        tx.seconds
+
+
+tgsFromTransaction : Model -> Transaction -> Float
+tgsFromTransaction model tx =
+    if tx.fromUserId == model.loggedInUser.id then
+        toFloat -(transactionTgsAsSeconds model tx) / 3600
+
+    else
+        toFloat (transactionTgsAsSeconds model tx) / 3600
+
+
+transactionNewBalanceFrom : Model -> Transaction -> Int
+transactionNewBalanceFrom model tx =
+    case ( transactionFromUser model tx, tx.status ) of
+        ( Just user, 1 ) ->
+            user.balance - round (toFloat tx.seconds + toFloat tx.txFee)
+
+        ( Just user, 2 ) ->
+            user.balance - round (toFloat tx.seconds)
+
+        ( Just user, 3 ) ->
+            user.balance - round (toFloat tx.seconds + toFloat tx.txFee)
+
+        ( Just user, 4 ) ->
+            user.balance - round (toFloat tx.seconds)
+
+        ( Just user, 5 ) ->
+            user.balance - round (toFloat tx.seconds + toFloat tx.txFee)
+
+        ( Just user, 6 ) ->
+            user.balance - round (toFloat tx.seconds)
+
+        _ ->
+            0
+
+
+transactionNewBalanceTo : Model -> Transaction -> Int
+transactionNewBalanceTo model tx =
+    case ( transactionToUser model tx, tx.status ) of
+        ( Just user, 1 ) ->
+            user.balance + round (toFloat tx.seconds)
+
+        ( Just user, 2 ) ->
+            user.balance + round (toFloat tx.seconds - toFloat tx.txFee)
+
+        ( Just user, 3 ) ->
+            user.balance + round (toFloat tx.seconds)
+
+        ( Just user, 4 ) ->
+            user.balance + round (toFloat tx.seconds - toFloat tx.txFee)
+
+        ( Just user, 5 ) ->
+            user.balance + round (toFloat tx.seconds)
+
+        ( Just user, 6 ) ->
+            user.balance + round (toFloat tx.seconds - toFloat tx.txFee)
+
+        _ ->
+            0
+
+
+transactionStatus : Model -> Transaction -> String
+transactionStatus model tx =
+    case tx.status of
+        1 ->
+            if tx.fromUserId == model.loggedInUser.id then
+                "Offer pending"
+
+            else
+                "Accept or Reject Offer"
+
+        2 ->
+            if tx.toUserId == model.loggedInUser.id then
+                "Request pending"
+
+            else
+                "Accept or Reject Request"
+
+        3 ->
+            "Offer Approved"
+
+        4 ->
+            "Request Approved"
+
+        5 ->
+            "Offer Rejected"
+
+        6 ->
+            "Request Rejected"
+
+        _ ->
+            ""
+
+
+transactionDetailedSummary : Model -> List Transaction -> List (Html Msg)
+transactionDetailedSummary model txs =
+    case List.head (List.filter (isSelectedTx model.selectedTxId) txs) of
+        Just tx ->
+            [ Html.div [] [ text "Date: ", text (dateFromTransaction model tx) ]
+            , Html.div [] [ text "From: ", text (transactionFromUserName model tx) ]
+            , Html.div [] [ text "To: ", text (transactionToUserName model tx) ]
+            , Html.div [] [ text "Value in TGs: ", text (format tgsLocale (tgsFromTransaction model tx)) ]
+            , Html.div []
+                [ text "Resultant Balances: "
+                , text (transactionFromUserName model tx)
+                , text ": "
+                , text (formatBalance (transactionNewBalanceFrom model tx))
+                , text ", "
+                , text (transactionToUserName model tx)
+                , text ": "
+                , text (formatBalance (transactionNewBalanceTo model tx))
+                ]
+            , Html.div [] [ text "Status: ", text (transactionStatus model tx) ]
+            , Html.div [] [ text "Description: ", text tx.description ]
+            ]
+
+        Nothing ->
+            [ Html.div []
+                [ text "No transaction selected for detailed view"
+                ]
+            ]
 
 
 

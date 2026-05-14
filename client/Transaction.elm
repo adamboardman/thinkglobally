@@ -1,55 +1,17 @@
 module Transaction exposing (loadTransactions, loadTxUsers, pageTransactionList, transactionListDecoder, transactionSummary, txUsersListDecoder)
 
+import Bootstrap.Button as Button
 import Bootstrap.Table as Table exposing (Row, rowAttr)
-import Dict exposing (Dict)
 import Html exposing (Html, h4, text)
 import Html.Attributes exposing (style)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
-import Time
 import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), authHeader, formatBalance, formatBalancePlusFee, formatDate, transactionDecoder, userDecoder)
 
 
-transactionSummary : Model -> Transaction -> Row msg
+transactionSummary : Model -> Transaction -> Row Msg
 transactionSummary model tx =
     let
-        date =
-            if Time.posixToMillis tx.initiatedDate > 0 then
-                formatDate model tx.initiatedDate
-
-            else
-                formatDate model tx.confirmedDate
-
-        fromUser =
-            Dict.get (String.fromInt tx.fromUserId) model.txUsers
-
-        toUser =
-            Dict.get (String.fromInt tx.toUserId) model.txUsers
-
-        fromUserName =
-            if model.loggedInUser.id == tx.fromUserId then
-                "Yourself"
-
-            else
-                case fromUser of
-                    Just user ->
-                        user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
-
-                    Nothing ->
-                        " (" ++ String.fromInt tx.fromUserId ++ ")"
-
-        toUserName =
-            if model.loggedInUser.id == tx.toUserId then
-                "Yourself"
-
-            else
-                case toUser of
-                    Just user ->
-                        user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
-
-                    Nothing ->
-                        " (" ++ String.fromInt tx.toUserId ++ ")"
-
         tgsIn =
             if model.loggedInUser.id == tx.toUserId then
                 formatBalance tx.seconds
@@ -68,23 +30,6 @@ transactionSummary model tx =
             else
                 ""
 
-        status =
-            case tx.status of
-                3 ->
-                    "Offer Approved"
-
-                4 ->
-                    "Request Approved"
-
-                5 ->
-                    "Offer Rejected"
-
-                6 ->
-                    "Request Rejected"
-
-                _ ->
-                    ""
-
         balance =
             if model.loggedInUser.id == tx.fromUserId then
                 tx.fromUserBalance
@@ -99,44 +44,50 @@ transactionSummary model tx =
           else
             rowAttr (style "" "")
         ]
-        [ Table.td [] [ text date ]
-        , Table.td [] [ text fromUserName ]
-        , Table.td [] [ text toUserName ]
-        , Table.td [] [ text status ]
+        [ Table.td [] [ text (Types.dateFromTransaction model tx) ]
+        , Table.td [] [ text (Types.transactionFromUserName model tx) ]
+        , Table.td [] [ text (Types.transactionToUserName model tx) ]
+        , Table.td [] [ text (Types.transactionStatus model tx) ]
         , Table.td [] [ text tgsIn ]
         , Table.td [] [ text tgsOut ]
         , Table.td [] [ text (formatBalance balance) ]
+        , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
         ]
 
 
 pageTransactionList : Model -> List (Html Msg)
 pageTransactionList model =
-    [ h4 [] [ text "Recent Transactions" ]
-    , Table.table
-        { options = [ Table.striped, Table.hover ]
-        , thead =
-            Table.simpleThead
-                [ Table.th [] [ text "Date" ]
-                , Table.th [] [ text "From" ]
-                , Table.th [] [ text "To" ]
-                , Table.th [] [ text "Status" ]
-                , Table.th [] [ text "TGs In" ]
-                , Table.th [] [ text "TGs Out" ]
-                , Table.th [] [ text "Balance" ]
-                ]
-        , tbody =
-            Table.tbody []
-                (List.map
-                    (transactionSummary model)
-                    model.transactions
-                )
-        }
-    , Html.br [] []
-    , Html.br [] []
-    , Html.br [] []
-    , Html.br [] []
-    , Html.br [] []
-    ]
+    List.concat
+        [ [ h4 [] [ text "Recent Transactions" ]
+          , Table.table
+                { options = [ Table.striped, Table.hover ]
+                , thead =
+                    Table.simpleThead
+                        [ Table.th [] [ text "Date" ]
+                        , Table.th [] [ text "From" ]
+                        , Table.th [] [ text "To" ]
+                        , Table.th [] [ text "Status" ]
+                        , Table.th [] [ text "TGs In" ]
+                        , Table.th [] [ text "TGs Out" ]
+                        , Table.th [] [ text "Balance" ]
+                        , Table.th [] [ text "View" ]
+                        ]
+                , tbody =
+                    Table.tbody []
+                        (List.map
+                            (transactionSummary model)
+                            model.transactions
+                        )
+                }
+          , Html.br [] []
+          ]
+        , Types.transactionDetailedSummary model model.transactions
+        , [ Html.br [] []
+          , Html.br [] []
+          , Html.br [] []
+          , Html.br [] []
+          ]
+        ]
 
 
 

@@ -90,6 +90,7 @@ init flags url key =
                 , conceptTagsList = []
                 , displayableTagsList = []
                 , conceptShowTagModel = Modal.hidden
+                , selectedTxId = 0
                 }
     in
     ( model
@@ -157,7 +158,7 @@ menu model =
                             , items =
                                 [ Navbar.dropdownItem
                                     [ href (urlForPage Transactions) ]
-                                    [ text "Transactions" ]
+                                    [ text "Pending Transactions" ]
                                 , Navbar.dropdownItem
                                     [ href (urlForPage TransactionsList) ]
                                     [ text "Past Transactions" ]
@@ -869,6 +870,9 @@ update msg model =
             ( { model | loading = Loading.On }
             , rejectTransaction model txId
             )
+
+        ViewTransaction txId ->
+            ( { model | selectedTxId = txId }, Cmd.none )
 
         AdjustTimeZone zone ->
             ( { model | timeZone = zone }, Cmd.none )

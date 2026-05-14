@@ -218,7 +218,7 @@ viewCreateTransactionForm model =
                             , Textarea.onInput EnteredTransactionDescription
                             , Textarea.value model.transactionForm.description
                             ]
-                        , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
+                        , Form.invalidFeedback [] [ text "Please enter the transaction description" ]
                         ]
                     ]
                 ]
