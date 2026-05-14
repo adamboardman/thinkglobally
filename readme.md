@@ -1,12 +1,8 @@
 ## Install some dependencies
 
 ```
-sudo apt-get -t stretch-backports install golang
-sudo apt-get install postgresql postgis libvips-dev nodejs
+sudo apt-get install golang postgresql postgis libvips-dev elm-compiler uglifyjs
 ```
-
-NodeJS at the time of the release of stretch had many security issues, best to use the latest versions:
-https://github.com/nodesource/distributions
 
 ## Database
 
@@ -41,9 +37,8 @@ go test ./server
 ```
 
 ## Debugging
-To run the server locally you need to:
+To run locally you need to:
 ```
-npm run debug
 elm make client/Main.elm --output public/elm.js --debug
 go run main.go -debugging=true
 ```
@@ -51,9 +46,8 @@ go run main.go -debugging=true
 ## Compile for deployment
 To compile on the server:
 ```
-npm install
-node_modules/elm/bin/elm make client/Main.elm --optimize --output=public/elm.js
-node_modules/uglify-js/bin/uglifyjs public/elm.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | node_modules/uglify-js/bin/uglifyjs --mangle --output public/elm.min.js
+elm make client/Main.elm --optimize --output=public/elm.js
+uglifyjs public/elm.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | node_modules/uglify-js/bin/uglifyjs --mangle --output public/elm.min.js
 go build main.go
 ./main
 ```
