@@ -1016,7 +1016,7 @@ urlUpdate url model =
                     Cmd.batch [ loadTransactions model, loadTxUsers model ]
 
                 AddTransaction ->
-                    Cmd.none
+                    Cmd.batch [ loadTxUsers model ]
 
                 Login ->
                     Cmd.none

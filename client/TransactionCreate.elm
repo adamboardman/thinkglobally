@@ -6,6 +6,7 @@ import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 import Bootstrap.Grid as Grid
+import Dict
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, div, h4, text, ul)
 import Html.Attributes as Attributes exposing (class, for)
@@ -55,6 +56,25 @@ pageTransactionCreate model =
     ]
 
 
+isUserMatchingTransactionEmail : Model -> User -> Bool
+isUserMatchingTransactionEmail model user =
+    if String.length model.transactionForm.email > 0 then
+        let
+            lowerEmail =
+                String.toLower model.transactionForm.email
+        in
+        not (user.id == model.loggedInUser.id)
+            && String.contains lowerEmail (String.toLower (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " ", user.email ]))
+
+    else
+        False
+
+
+viewSuggestedTransacte : User -> Html Msg
+viewSuggestedTransacte user =
+    Button.button [ Button.secondary, Button.onClick <| EnteredTransactionEmail user.email ] [ text (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " (", user.email, ")", " " ]) ]
+
+
 viewCreateTransactionForm : Model -> Html Msg
 viewCreateTransactionForm model =
     Grid.container []
@@ -82,6 +102,14 @@ viewCreateTransactionForm model =
                               else
                                 text "Please enter the email address you are requesting the transaction from"
                             ]
+                        ]
+                    ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ Form.row []
+                        [ Form.col []
+                            (List.map viewSuggestedTransacte (List.filter (isUserMatchingTransactionEmail model) (Dict.values model.txUsers)))
                         ]
                     ]
                 ]

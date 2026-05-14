@@ -636,7 +636,7 @@ creatingTransactionSummary model =
         ++ formatBalanceFloat transactionTgs
         ++ "TGs, from ("
         ++ model.transactionForm.tgs
-        ++ "TGs or "
+        ++ " TGs or "
         ++ padAndCapTimePart model.transactionForm.timeH
         ++ ":"
         ++ padAndCapTimePart model.transactionForm.timeM
@@ -818,6 +818,7 @@ transactionStatus model tx =
         _ ->
             ""
 
+
 transactionActivity : Transaction -> String
 transactionActivity tx =
     case tx.status of
@@ -825,7 +826,7 @@ transactionActivity tx =
             "Offer"
 
         2 ->
-           "Request"
+            "Request"
 
         3 ->
             "Offer"
@@ -841,6 +842,8 @@ transactionActivity tx =
 
         _ ->
             ""
+
+
 
 -- INDEXERS
 

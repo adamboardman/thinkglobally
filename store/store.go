@@ -3,12 +3,13 @@ package store
 import (
 	"database/sql/driver"
 	"errors"
-	"github.com/adamboardman/gorm"
-	_ "github.com/adamboardman/gorm/dialects/postgres"
 	"io/ioutil"
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/adamboardman/gorm"
+	_ "github.com/adamboardman/gorm/dialects/postgres"
 )
 
 type Store struct {
@@ -17,6 +18,7 @@ type Store struct {
 
 type PublicUser struct {
 	gorm.Model
+	Email     string `gorm:"unique_index"`
 	FirstName string
 	MidNames  string
 	LastName  string
@@ -26,7 +28,7 @@ type PublicUser struct {
 
 type PublicUserWithBalance struct {
 	PublicUser
-	Balance   int64
+	Balance int64
 }
 
 func (PublicUser) TableName() string {
@@ -52,18 +54,17 @@ type User struct {
 
 type PrivilegedUser struct {
 	PublicUser
-	Email              string `gorm:"unique_index"`
-	Mobile             string
-	Confirmed          bool
-	AttemptCount       int    `json:"-"`
-	LastAttempt        string `json:"-"`
-	Locked             string `json:"-"`
-	Permissions        UserPermissions
+	Mobile       string
+	Confirmed    bool
+	AttemptCount int    `json:"-"`
+	LastAttempt  string `json:"-"`
+	Locked       string `json:"-"`
+	Permissions  UserPermissions
 }
 
 type PrivilegedUserWithBalance struct {
 	PrivilegedUser
-	Balance   int64
+	Balance int64
 }
 
 type Concept struct {
@@ -100,7 +101,7 @@ func (d PosixDateTime) MarshalJSON() ([]byte, error) {
 }
 
 func (d *PosixDateTime) UnmarshalJSON(b []byte) (err error) {
-	p, err := strconv.ParseInt(string(b), 10, 64);
+	p, err := strconv.ParseInt(string(b), 10, 64)
 	if err != nil {
 		return
 	}
@@ -208,7 +209,7 @@ func (s *Store) PurgeUser(email string) {
 	user := User{}
 	err := s.db.Where("email=?", email).Find(&user).Error
 	if err != nil {
-		s.db.Unscoped().Where("from_user_id=? OR to_user_id=?",user.ID,user.ID).Delete(Transaction{})
+		s.db.Unscoped().Where("from_user_id=? OR to_user_id=?", user.ID, user.ID).Delete(Transaction{})
 	}
 	s.db.Unscoped().Where("email=?", email).Delete(User{})
 }

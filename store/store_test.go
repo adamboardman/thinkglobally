@@ -29,7 +29,9 @@ func ensureTestUserExists(emailAddress string) *User {
 		user = &User{
 			Password: string(encrypted),
 			PrivilegedUser: PrivilegedUser{
-				Email:     emailAddress,
+				PublicUser: PublicUser{
+					Email: emailAddress,
+				},
 				Confirmed: true,
 			},
 		}
