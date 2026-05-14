@@ -1335,7 +1335,7 @@ func TestListTransactions(t *testing.T) {
 	})
 }
 
-func TestRejectTransactionFromToSameUser(t *testing.T) {
+func TestRejectTransactionOfferFromToSameUser(t *testing.T) {
 	Convey("Given a test user origin and recipient", t, func() {
 		user1 := ensureTestUserExists("test-user1@example.com")
 
@@ -1354,6 +1354,7 @@ func TestRejectTransactionFromToSameUser(t *testing.T) {
 				transactionJSON.ToUserId = user1.ID
 				transactionJSON.Status = store.TransactionOffered
 				transactionJSON.Seconds = 30 * 60
+				transactionJSON.TxFee = 1
 				transactionJSON.Multiplier = 1
 				data, _ := json.Marshal(transactionJSON)
 				post_data := bytes.NewReader(data)
@@ -1365,6 +1366,139 @@ func TestRejectTransactionFromToSameUser(t *testing.T) {
 
 				Convey("The server should respond with StatusBadRequest and the transaction should not be created", func() {
 					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+					So(response2.Body.String(), ShouldEqual, "{\"statusText\":\"Transaction failed validation - error: you can not create transactions from and to yourself\"}")
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
+					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionRequestFromToSameUser(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(user1.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Request transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user1.ID
+				transactionJSON.ToUserId = user1.ID
+				transactionJSON.Status = store.TransactionRequested
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.TxFee = 1
+				transactionJSON.Multiplier = 1
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusBadRequest and the transaction should not be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+					So(response2.Body.String(), ShouldEqual, "{\"statusText\":\"Transaction failed validation - error: you can not create transactions from and to yourself\"}")
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
+					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionRequestFromToSameUserByEmail(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(user1.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Offer transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.Email = "test-user1@example.com"
+				transactionJSON.ToUserId = user1.ID
+				transactionJSON.Status = store.TransactionRequested
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.TxFee = 1
+				transactionJSON.Multiplier = 1
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusBadRequest and the transaction should not be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+					So(response2.Body.String(), ShouldEqual, "{\"statusText\":\"Transaction failed validation - error: you can not create transactions from and to yourself\"}")
+
+					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForTransaction(userTransactions, transactionJSON, false)
+					So(found, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func TestRejectTransactionOfferFromToSameUserByEmail(t *testing.T) {
+	Convey("Given a test user origin and recipient", t, func() {
+		user1 := ensureTestUserExists("test-user1@example.com")
+
+		Convey("The user1 logs in", func() {
+			response := loginToUserJSON(user1.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Offer transaction", func() {
+				transactionJSON := TransactionJSON{}
+				transactionJSON.FromUserId = user1.ID
+				transactionJSON.Email = "test-user1@example.com"
+				transactionJSON.Status = store.TransactionOffered
+				transactionJSON.Seconds = 30 * 60
+				transactionJSON.TxFee = 1
+				transactionJSON.Multiplier = 1
+				data, _ := json.Marshal(transactionJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/transactions", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusBadRequest and the transaction should not be created", func() {
+					So(response2.Code, ShouldEqual, http.StatusBadRequest)
+					So(response2.Body.String(), ShouldEqual, "{\"statusText\":\"Transaction failed validation - error: you can not create transactions from and to yourself\"}")
 
 					userTransactions, err := a.Store.ListTransactionsForUser(user1.ID)
 					So(err, ShouldBeNil)

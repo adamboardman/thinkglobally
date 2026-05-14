@@ -498,19 +498,19 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 	switch transaction.Status {
 	case store.TransactionOffered:
 		if transaction.FromUserId != loggedInUserId {
-			return errors.New("You can only offer transactions from yourself")
+			return errors.New("you can only offer transactions from yourself")
 		}
 	case store.TransactionRequested:
 		if transaction.ToUserId != loggedInUserId {
-			return errors.New("You can only request transactions to yourself")
+			return errors.New("you can only request transactions to yourself")
 		}
 	}
 	if transaction.FromUserId == transaction.ToUserId {
-		return errors.New("You can not create transactions from and to yourself")
+		return errors.New("you can not create transactions from and to yourself")
 	}
 	txFee := uint(math.Floor(0.0002 * float64(transaction.Seconds)))
 	if transaction.TxFee < 1 || transaction.TxFee < txFee {
-		return errors.New("You must pay a 0.02% or greater transaction fee")
+		return errors.New("you must pay a 0.02% or greater transaction fee")
 	}
 
 	switch transaction.Status {
@@ -524,6 +524,10 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 			transaction.FromUserId = FindOrAddUserForTransaction(transactionJSON, loggedInUserId)
 		}
 		break
+	}
+
+	if transaction.FromUserId == transaction.ToUserId {
+		return errors.New("you can not create transactions from and to yourself")
 	}
 
 	return nil
