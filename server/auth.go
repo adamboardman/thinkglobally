@@ -133,8 +133,7 @@ func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 			c.JSON(http.StatusOK, gin.H{
 				"status": http.StatusOK,
 				"token":  token.AccessToken,
-				"expire": token.ExpiresAt,
-				//				"expire": time.Time{token.ExpiresAt}.Format(time.RFC3339),
+				"expire": time.Unix(token.ExpiresAt, 0).Format(time.RFC3339),
 			})
 		},
 		Unauthorized: func(c *gin.Context, code int, message string) {
