@@ -5,6 +5,7 @@ import Bootstrap.Table as Table exposing (Row)
 import FormatNumber exposing (format)
 import Html exposing (Html, h4, text)
 import Http exposing (emptyBody)
+import TransactionPast
 import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, formatBalance, tgsLocale)
 
 
@@ -34,37 +35,6 @@ pendingTransactionSummary model tx =
         ]
 
 
-transactionDetailedSummary : Model -> List Transaction -> List (Html Msg)
-transactionDetailedSummary model txs =
-    case List.head (List.filter (Types.isSelectedTx model.selectedTxId) txs) of
-        Just tx ->
-            [ Html.div [] [ text "Date: ", text (Types.dateFromTransaction model tx) ]
-            , Html.div [] [ text "Type: ", text (Types.transactionActivity tx) ]
-            , Html.div [] [ text "From: ", text (Types.transactionFromUserName model tx) ]
-            , Html.div [] [ text "To: ", text (Types.transactionToUserName model tx) ]
-            , Html.div [] [ text "Value in TGs: ", text (Types.formatBalance tx.seconds), text " (", text (Types.timeFromTgs tx.seconds), text ")" ]
-            , Html.div [] [ text "Tax in TGs: ", text (Types.formatBalance tx.txFee), text " (", text (Types.timeFromTgs tx.txFee), text ")" ]
-            , Html.div []
-                [ text "Resultant Balances: "
-                , text (Types.transactionFromUserName model tx)
-                , text ": "
-                , text (formatBalance (Types.transactionNewBalanceFrom model tx))
-                , text ", "
-                , text (Types.transactionToUserName model tx)
-                , text ": "
-                , text (formatBalance (Types.transactionNewBalanceTo model tx))
-                ]
-            , Html.div [] [ text "Status: ", text (Types.transactionStatus model tx) ]
-            , Html.div [] [ text "Description: ", text tx.description ]
-            ]
-
-        Nothing ->
-            [ Html.div []
-                [ text "No transaction selected for detailed view"
-                ]
-            ]
-
-
 pageTransactionPending : Model -> List (Html Msg)
 pageTransactionPending model =
     List.concat
@@ -91,7 +61,7 @@ pageTransactionPending model =
                 }
           , Html.br [] []
           ]
-        , transactionDetailedSummary model model.pendingTransactions
+        , TransactionPast.transactionDetailedSummary model model.pendingTransactions
         , [ Html.br [] []
           , Html.br [] []
           , Html.br [] []

@@ -14,7 +14,7 @@ import Iso8601
 import Json.Encode as Encode exposing (Value)
 import Loading
 import Time exposing (Weekday(..))
-import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, LivingWage, LivingWageForm, LivingWageLocation, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, formatDate, sterlingLocale)
+import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, LivingWage, LivingWageForm, LivingWageLocation, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, formatDate, nationalLocale)
 
 
 pageLivingWageEdit : Model -> List (Html Msg)
@@ -34,7 +34,7 @@ pageLivingWageEdit model =
                         [ text "Location: "
                         , text location.name
                         ]
-                    , Html.div [] [ text "Wage: ", text location.symbol, text (format sterlingLocale model.livingWage.wage) ]
+                    , Html.div [] [ text "Wage: ", text location.symbol, text (format nationalLocale model.livingWage.wage) ]
                     , h1 [ class "text-xs-center" ] [ text "Edit Living Wage" ]
                     , viewLivingWageForm model
                     ]

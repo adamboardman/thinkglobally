@@ -1,4 +1,4 @@
-module Transaction exposing (loadTransactions, loadTxUsers, pageTransactionList, transactionListDecoder, transactionSummary, txUsersListDecoder)
+module TransactionPast exposing (..)
 
 import Bootstrap.Button as Button
 import Bootstrap.Table as Table exposing (Row, rowAttr)
@@ -6,6 +6,7 @@ import Html exposing (Html, h4, text)
 import Html.Attributes exposing (style)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
+import TransactionCreate
 import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), authHeader, formatBalance, formatBalancePlusFee, transactionDecoder, userDecoder)
 
 
@@ -55,6 +56,95 @@ transactionSummary model tx =
         ]
 
 
+transactionBalancesDetailedSummary : Model -> Transaction -> List (Html Msg)
+transactionBalancesDetailedSummary model tx =
+    if model.page == PastTransactions then
+        [ text "Transaction Balances: "
+        , text (Types.transactionFromUserName model tx)
+        , text ": "
+        , text (formatBalance tx.fromUserBalance)
+        , text ", "
+        , text (Types.transactionToUserName model tx)
+        , text ": "
+        , text (formatBalance tx.toUserBalance)
+        ]
+
+    else
+        [ text "Resultant Balances: "
+        , text (Types.transactionFromUserName model tx)
+        , text ": "
+        , text (formatBalance (Types.transactionNewBalanceFrom model tx))
+        , text ", "
+        , text (Types.transactionToUserName model tx)
+        , text ": "
+        , text (formatBalance (Types.transactionNewBalanceTo model tx))
+        ]
+
+
+transactionValueDetailedSummary : Model -> Transaction -> List (Html Msg)
+transactionValueDetailedSummary model tx =
+    let
+        locationId =
+            if tx.locationId > 0 then
+                tx.locationId
+
+            else
+                model.loggedInUser.locationId
+
+        location =
+            Maybe.withDefault Types.emptyLivingWageLocation (List.head (List.filter (\lwl -> locationId == lwl.id) model.livingWageLocationList))
+
+        livingWage =
+            TransactionCreate.findLivingWageForLocationIdAndDate model locationId tx.initiatedDate
+
+        national =
+            if livingWage.wage > 0 then
+                " - " ++ location.name ++ ":" ++ location.symbol ++ Types.formatNationalFloat ((toFloat (Types.transactionTgsAsSeconds model tx) / 3600) * livingWage.wage)
+
+            else
+                ""
+    in
+    [ text "Value in TGs: "
+    , text (Types.formatBalance tx.seconds)
+    , text " ("
+    , text (Types.timeFromTgs tx.seconds)
+    , text national
+    , text ")"
+    ]
+
+
+transactionTaxDetailedSummary : Model -> Transaction -> List (Html Msg)
+transactionTaxDetailedSummary model tx =
+    let
+        locationId =
+            if tx.locationId > 0 then
+                tx.locationId
+
+            else
+                model.loggedInUser.locationId
+
+        location =
+            Maybe.withDefault Types.emptyLivingWageLocation (List.head (List.filter (\lwl -> locationId == lwl.id) model.livingWageLocationList))
+
+        livingWage =
+            TransactionCreate.findLivingWageForLocationIdAndDate model locationId tx.initiatedDate
+
+        national =
+            if livingWage.wage > 0 then
+                " - " ++ location.name ++ ":" ++ location.symbol ++ Types.formatNationalTaxFloat (toFloat tx.txFee / 3600 * livingWage.wage)
+
+            else
+                ""
+    in
+    [ text "Tax in TGs: "
+    , text (Types.formatBalance tx.txFee)
+    , text " ("
+    , text (Types.timeFromTgs tx.txFee)
+    , text national
+    , text ")"
+    ]
+
+
 transactionDetailedSummary : Model -> List Transaction -> List (Html Msg)
 transactionDetailedSummary model txs =
     case List.head (List.filter (Types.isSelectedTx model.selectedTxId) txs) of
@@ -63,18 +153,9 @@ transactionDetailedSummary model txs =
             , Html.div [] [ text "Type: ", text (Types.transactionActivity tx) ]
             , Html.div [] [ text "From: ", text (Types.transactionFromUserName model tx) ]
             , Html.div [] [ text "To: ", text (Types.transactionToUserName model tx) ]
-            , Html.div [] [ text "Value in TGs: ", text (Types.formatBalance tx.seconds), text " (", text (Types.timeFromTgs tx.seconds), text ")" ]
-            , Html.div [] [ text "Tax in TGs: ", text (Types.formatBalance tx.txFee), text " (", text (Types.timeFromTgs tx.txFee), text ")" ]
-            , Html.div []
-                [ text "Transaction Balances: "
-                , text (Types.transactionFromUserName model tx)
-                , text ": "
-                , text (formatBalance tx.fromUserBalance)
-                , text ", "
-                , text (Types.transactionToUserName model tx)
-                , text ": "
-                , text (formatBalance tx.toUserBalance)
-                ]
+            , Html.div [] (transactionValueDetailedSummary model tx)
+            , Html.div [] (transactionTaxDetailedSummary model tx)
+            , Html.div [] (transactionBalancesDetailedSummary model tx)
             , Html.div [] [ text "Status: ", text (Types.transactionStatus model tx) ]
             , Html.div [] [ text "Description: ", text tx.description ]
             ]
@@ -107,12 +188,12 @@ pageTransactionList model =
                     Table.tbody []
                         (List.map
                             (transactionSummary model)
-                            model.transactions
+                            model.pastTransactions
                         )
                 }
           , Html.br [] []
           ]
-        , transactionDetailedSummary model model.transactions
+        , transactionDetailedSummary model model.pastTransactions
         , [ Html.br [] []
           , Html.br [] []
           , Html.br [] []

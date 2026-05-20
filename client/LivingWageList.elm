@@ -32,7 +32,7 @@ livingWageSummary model livingWage =
         , text location.name
         , text ", Wage: "
         , text location.symbol
-        , text (format sterlingLocale livingWage.wage)
+        , text (format nationalLocale livingWage.wage)
         , text " "
         , a [ href ("/living_wages/" ++ String.fromInt livingWage.id ++ "/edit") ] [ text "(edit)" ]
         ]

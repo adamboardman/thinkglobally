@@ -26,8 +26,8 @@ import Register exposing (pageRegister, register, registerUpdateForm, registerVa
 import Set
 import Task
 import Time exposing (utc)
-import Transaction exposing (loadTransactions, loadTxUsers, pageTransactionList)
 import TransactionCreate exposing (pageTransactionCreate, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
+import TransactionPast exposing (loadTransactions, loadTxUsers, pageTransactionList)
 import TransactionPending exposing (acceptTransaction, pageTransactionPending, rejectTransaction)
 import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyLivingWage, emptyLivingWageForm, emptyLivingWageLocation, emptyLivingWageLocationForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeHMSAndMultiplier, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
@@ -86,7 +86,7 @@ init flags url key =
                 , concept = emptyConcept
                 , creatingTransaction = TxNone
                 , creatingTransactionFrom = TxFromTGs
-                , transactions = []
+                , pastTransactions = []
                 , pendingTransactions = []
                 , txUsers = Dict.empty
                 , creatingTransactionWithUser = emptyUser
@@ -192,10 +192,10 @@ menu model =
                             , toggle = Navbar.dropdownToggle [ href (urlForPage model.page) ] [ text "Transactions" ]
                             , items =
                                 [ Navbar.dropdownItem
-                                    [ href (urlForPage Transactions) ]
+                                    [ href (urlForPage PendingTransactions) ]
                                     [ text "Pending Transactions" ]
                                 , Navbar.dropdownItem
-                                    [ href (urlForPage TransactionsList) ]
+                                    [ href (urlForPage PastTransactions) ]
                                     [ text "Past Transactions" ]
                                 , Navbar.dropdownItem
                                     [ href (urlForPage AddTransaction) ]
@@ -236,10 +236,10 @@ mainContent model =
             Profile ->
                 pageProfile model
 
-            Transactions ->
+            PendingTransactions ->
                 pageTransactionPending model
 
-            TransactionsList ->
+            PastTransactions ->
                 pageTransactionList model
 
             AddTransaction ->
@@ -820,13 +820,13 @@ update msg model =
 
         LoadedTransactions (Ok res) ->
             let
-                tx =
+                pastTx =
                     List.filter (\t -> t.status > 2) res
 
                 pendingTx =
                     List.filter (\t -> t.status == 1 || t.status == 2) res
             in
-            ( { model | transactions = tx, pendingTransactions = pendingTx, loading = Loading.Off }
+            ( { model | pastTransactions = pastTx, pendingTransactions = pendingTx, loading = Loading.Off }
             , Cmd.none
             )
 
@@ -1264,10 +1264,10 @@ urlForPage page =
         Register _ _ ->
             "/register"
 
-        Transactions ->
+        PendingTransactions ->
             "/transactions/pending"
 
-        TransactionsList ->
+        PastTransactions ->
             "/transactions"
 
         AddTransaction ->
@@ -1375,11 +1375,11 @@ urlUpdate url model =
                 ConceptsList ->
                     Cmd.batch [ loadConcepts model, loadConceptTagsList model ]
 
-                Transactions ->
-                    Cmd.batch [ loadTransactions model, loadTxUsers model ]
+                PendingTransactions ->
+                    Cmd.batch [ loadTransactions model, loadTxUsers model, loadLivingWages model, loadLivingWageLocations model ]
 
-                TransactionsList ->
-                    Cmd.batch [ loadTransactions model, loadTxUsers model ]
+                PastTransactions ->
+                    Cmd.batch [ loadTransactions model, loadTxUsers model, loadLivingWages model, loadLivingWageLocations model ]
 
                 AddTransaction ->
                     Cmd.batch [ loadTxUsers model, loadLivingWages model, loadLivingWageLocations model ]
@@ -1434,8 +1434,8 @@ routeParser =
         , UrlParser.map Login (s "login")
         , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register" <?> Query.string "email" <?> Query.string "verification")
-        , UrlParser.map Transactions (s "transactions" </> s "pending")
-        , UrlParser.map TransactionsList (s "transactions")
+        , UrlParser.map PendingTransactions (s "transactions" </> s "pending")
+        , UrlParser.map PastTransactions (s "transactions")
         , UrlParser.map AddTransaction (s "add_transaction")
         , UrlParser.map Profile (s "profile")
         , UrlParser.map Concepts (s "concepts" </> string)

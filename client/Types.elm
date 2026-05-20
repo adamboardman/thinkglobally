@@ -38,7 +38,7 @@ type alias Model =
     , concept : Concept
     , creatingTransaction : TransactionType
     , creatingTransactionFrom : TransactionFromType
-    , transactions : List Transaction
+    , pastTransactions : List Transaction
     , pendingTransactions : List Transaction
     , txUsers : Dict String User
     , creatingTransactionWithUser : User
@@ -65,8 +65,8 @@ type Page
     | Logout
     | Register (Maybe String) (Maybe String)
     | Profile
-    | Transactions
-    | TransactionsList
+    | PendingTransactions
+    | PastTransactions
     | AddTransaction
     | Concepts String
     | ConceptsEdit String
@@ -169,6 +169,7 @@ type alias Transaction =
     , description : String
     , fromUserBalance : Int
     , toUserBalance : Int
+    , locationId : Int
     }
 
 
@@ -364,9 +365,14 @@ tgsLocale =
     Locale (Exact 4) Western " " "." "−" "" "" "" "" ""
 
 
-sterlingLocale : Locale
-sterlingLocale =
+nationalLocale : Locale
+nationalLocale =
     Locale (Exact 2) Western " " "." "−" "" "" "" "" ""
+
+
+nationalTaxLocale : Locale
+nationalTaxLocale =
+    Locale (Exact 3) Western " " "." "−" "" "" "" "" ""
 
 
 toIntMonth : Month -> Int
@@ -680,6 +686,16 @@ formatBalanceWithMultiplier balance multiplier =
 formatBalancePlusFee : Int -> Int -> String
 formatBalancePlusFee balance fee =
     formatBalanceFloat (toFloat (balance + fee))
+
+
+formatNationalFloat : Float -> String
+formatNationalFloat balance =
+    format nationalLocale balance
+
+
+formatNationalTaxFloat : Float -> String
+formatNationalTaxFloat balance =
+    format nationalTaxLocale balance
 
 
 creatingTransactionSummary : Model -> String
@@ -1217,6 +1233,7 @@ transactionDecoder =
         |> required "Description" string
         |> required "FromUserBalance" int
         |> required "ToUserBalance" int
+        |> required "LocationId" int
 
 
 livingWageLocationDecoder : Decoder LivingWageLocation

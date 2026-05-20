@@ -12,7 +12,7 @@ import Loading
 import Login exposing (loginDecoder)
 import Test exposing (..)
 import Time
-import Transaction exposing (transactionSummary)
+import TransactionPast exposing (transactionSummary)
 import TransactionPending exposing (pendingTransactionSummary)
 import Types exposing (Msg(..), Page(..), TransactionFromType(..), TransactionType(..), User, apiActionDecoder, conceptDecoder, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDateTime, userDecoder)
 

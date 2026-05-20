@@ -458,6 +458,7 @@ transaction model (TransactionTrimmed form) =
                 , ( "FromUserId", Encode.int fromId )
                 , ( "ToUserId", Encode.int toId )
                 , ( "TxFee", Encode.int txFee )
+                , ( "LocationId", Encode.int form.locationId )
                 ]
                 |> Http.jsonBody
     in
