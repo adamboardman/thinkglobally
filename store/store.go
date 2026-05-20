@@ -3,8 +3,8 @@ package store
 import (
 	"database/sql/driver"
 	"errors"
-	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -18,12 +18,13 @@ type Store struct {
 
 type PublicUser struct {
 	gorm.Model
-	Email     string `gorm:"unique_index"`
-	FirstName string
-	MidNames  string
-	LastName  string
-	Location  string
-	PhotoID   uint
+	Email      string `gorm:"unique_index"`
+	FirstName  string
+	MidNames   string
+	LastName   string
+	Location   string
+	LocationId uint
+	PhotoId    uint
 }
 
 type PublicUserWithBalance struct {
@@ -97,7 +98,7 @@ func (d PosixDateTime) MarshalJSON() ([]byte, error) {
 	if time.Time(d).IsZero() {
 		return []byte("0"), nil
 	}
-	return []byte(strconv.FormatInt(time.Time(d).Unix(), 10)), nil
+	return []byte(strconv.FormatInt(time.Time(d).UTC().UnixMilli(), 10)), nil
 }
 
 func (d *PosixDateTime) UnmarshalJSON(b []byte) (err error) {
@@ -105,7 +106,7 @@ func (d *PosixDateTime) UnmarshalJSON(b []byte) (err error) {
 	if err != nil {
 		return
 	}
-	t := time.Unix(p, 0)
+	t := time.UnixMilli(p).UTC()
 	*d = PosixDateTime(t)
 	return
 }
@@ -132,6 +133,7 @@ type Transaction struct {
 	TxFee           uint
 	Description     string
 	Location        string
+	LocationId      uint
 	ToPreviousTId   uint
 	FromPreviousTId uint
 	Status          uint
@@ -149,12 +151,12 @@ func (t Transaction) Balance(userId uint) int64 {
 
 func readPostgresArgs() string {
 	const postgresArgsFileName = "postgres_args.txt"
-	postgresArgs, err := ioutil.ReadFile(postgresArgsFileName)
+	postgresArgs, err := os.ReadFile(postgresArgsFileName)
 	if err != nil {
-		postgresArgs, err = ioutil.ReadFile("../" + postgresArgsFileName)
+		postgresArgs, err = os.ReadFile("../" + postgresArgsFileName)
 		if err != nil {
 			postgresArgs = []byte("host=myhost port=myport sslmode=disable user=thinkglobally dbname=concepts password=mypassword")
-			err = ioutil.WriteFile(postgresArgsFileName, postgresArgs, 0666)
+			err = os.WriteFile(postgresArgsFileName, postgresArgs, 0666)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -172,8 +174,9 @@ func (s *Store) StoreInit(dbName string) {
 	s.db = db
 
 	_, _ = db.DB().Exec("CREATE EXTENSION postgis;")
+	_, _ = db.DB().Exec("SET TIME ZONE 'UTC';")
 
-	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}, &Transaction{}).Error
+	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}, &Transaction{}, &LivingWageLocation{}, &LivingWage{}).Error
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -184,6 +187,7 @@ func (s *Store) StoreInit(dbName string) {
 	db.Model(&ConceptTag{}).AddForeignKey("concept_id", "concepts(id)", "CASCADE", "RESTRICT")
 	db.Model(&Transaction{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
 	db.Model(&Transaction{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
+	db.Model(&LivingWage{}).AddForeignKey("location_id", "living_wage_locations(id)", "CASCADE", "RESTRICT")
 }
 
 func (s *Store) InsertUser(user *User) (uint, error) {
@@ -226,7 +230,8 @@ func (s *Store) LoadPublicUser(id uint) (*PublicUser, error) {
 	publicUser.MidNames = user.MidNames
 	publicUser.LastName = user.LastName
 	publicUser.Location = user.Location
-	publicUser.PhotoID = user.PhotoID
+	publicUser.LocationId = user.LocationId
+	publicUser.PhotoId = user.PhotoId
 	return &publicUser, err
 }
 
@@ -385,4 +390,102 @@ func (s *Store) LastConfirmedTransactionForUser(userId uint) (Transaction, error
 	err := s.db.Where("status > 2 AND (from_user_id=? OR to_user_id=?)", userId, userId).Order("confirmed_date DESC").Take(&transaction).Error
 	return transaction, err
 
+}
+
+type LivingWageLocation struct {
+	gorm.Model
+	Name string
+}
+
+func (s *Store) PurgeLivingWageLocation(name string) {
+	s.db.Unscoped().Where("name=?", name).Delete(LivingWageLocation{})
+}
+
+func (s *Store) InsertLivingWageLocation(livingWageLocation *LivingWageLocation) (uint, error) {
+	err := s.db.Create(livingWageLocation).Error
+	return livingWageLocation.ID, err
+}
+
+func (s *Store) UpdateLivingWageLocation(livingWageLocation *LivingWageLocation) (uint, error) {
+	err := s.db.Save(livingWageLocation).Error
+	return livingWageLocation.ID, err
+}
+
+func (s *Store) FindLivingWageLocation(name string) (*LivingWageLocation, error) {
+	location := LivingWageLocation{}
+	err := s.db.Where("name=?", name).Find(&location).Error
+	if err != nil {
+		return nil, err
+	}
+	return &location, err
+}
+
+func (s *Store) LoadLivingWageLocation(id uint) (*LivingWageLocation, error) {
+	livingWageLocation := LivingWageLocation{}
+	err := s.db.Where("id=?", id).Find(&livingWageLocation).Error
+	return &livingWageLocation, err
+}
+
+func (s *Store) ListLivingWageLocations() ([]LivingWageLocation, error) {
+	var livingWageLocation []LivingWageLocation
+	err := s.db.Limit(200).Order("name").Find(&livingWageLocation).Error
+	if err != nil {
+		return nil, err
+	}
+	return livingWageLocation, err
+}
+
+type LivingWage struct {
+	gorm.Model
+	StartDate  PosixDateTime `gorm:"type:timestamp with time zone"`
+	StopDate   PosixDateTime `gorm:"type:timestamp with time zone"`
+	Wage       float32
+	LocationId uint
+}
+
+func (s *Store) InsertLivingWage(livingWage *LivingWage) (uint, error) {
+	err := s.db.Create(livingWage).Error
+	return livingWage.ID, err
+}
+
+func (s *Store) ListLivingWages() ([]LivingWage, error) {
+	var livingWage []LivingWage
+	err := s.db.Limit(200).Order("start_date").Find(&livingWage).Error
+	if err != nil {
+		return nil, err
+	}
+	return livingWage, err
+}
+
+func (s *Store) LoadLivingWage(id uint) (*LivingWage, error) {
+	livingWage := LivingWage{}
+	err := s.db.Where("id=?", id).Find(&livingWage).Error
+	return &livingWage, err
+}
+
+func (s *Store) UpdateLivingWage(livingWage *LivingWage) (uint, error) {
+	err := s.db.Save(livingWage).Error
+	return livingWage.ID, err
+}
+
+func (s *Store) ListLivingWagesForLocation(locationId uint) ([]LivingWage, error) {
+	var livingWage []LivingWage
+	err := s.db.Where("location_id=?", locationId).Limit(200).Order("start_date").Find(&livingWage).Error
+	if err != nil {
+		return nil, err
+	}
+	return livingWage, err
+}
+
+func (s *Store) FindLivingWage(locationId uint, startDate PosixDateTime, stopDate PosixDateTime) (*LivingWage, error) {
+	livingWage := LivingWage{}
+	err := s.db.Where("location_id=? AND start_date=? AND stop_date=?", locationId, startDate, stopDate).Find(&livingWage).Error
+	if err != nil {
+		return nil, err
+	}
+	return &livingWage, err
+}
+
+func (s *Store) PurgeLivingWage(livingWage *LivingWage) {
+	s.db.Unscoped().Where("id=?", livingWage.ID).Delete(LivingWage{})
 }

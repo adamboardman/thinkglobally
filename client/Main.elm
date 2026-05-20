@@ -8,10 +8,16 @@ import Browser.Navigation as Nav
 import Concept exposing (pageConcept)
 import ConceptsEdit exposing (conceptAdd, conceptDeleteSelectedTags, conceptTag, conceptTagUpdateForm, conceptTagValidate, conceptUpdate, conceptUpdateForm, conceptValidate, loadConceptById, loadConceptTagsById, pageAddConcept, pageConceptsEdit, tagIsNotIn)
 import ConceptsList exposing (loadConceptTagsList, loadConcepts, pageConceptsList)
+import Date
 import Dict
 import Html exposing (Html, div, h1, text)
 import Html.Attributes exposing (href)
 import Http exposing (Error(..), emptyBody)
+import Iso8601
+import LivingWageEdit exposing (livingWageAdd, livingWageUpdate, livingWageUpdateForm, livingWageValidate, pageAddLivingWage, pageLivingWageEdit)
+import LivingWageList exposing (loadLivingWageById, loadLivingWages, pageLivingWageList)
+import LivingWageLocationEdit exposing (livingWageLocationAdd, livingWageLocationUpdate, livingWageLocationUpdateForm, livingWageLocationValidate, pageAddLivingWageLocation, pageLivingWageLocationEdit)
+import LivingWageLocationList exposing (loadLivingWageLocationById, loadLivingWageLocations, pageLivingWageLocationList)
 import Loading
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsEditor)
 import Ports exposing (storeExpire, storeToken)
@@ -19,11 +25,11 @@ import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidat
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
 import Set
 import Task
-import Time
+import Time exposing (utc)
 import Transaction exposing (loadTransactions, loadTxUsers, pageTransactionList)
 import TransactionCreate exposing (pageTransactionCreate, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
 import TransactionPending exposing (acceptTransaction, pageTransactionPending, rejectTransaction)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeHMSAndMultiplier, txFeeFromTgs, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyLivingWage, emptyLivingWageForm, emptyLivingWageLocation, emptyLivingWageLocationForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeHMSAndMultiplier, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, s, string, top)
 import Url.Parser.Query as Query
@@ -86,11 +92,18 @@ init flags url key =
                 , creatingTransactionWithUser = emptyUser
                 , timeZone = Time.utc
                 , time = Time.millisToPosix 0
+                , date = Time.millisToPosix 0
                 , conceptsList = []
                 , conceptTagsList = []
                 , displayableTagsList = []
                 , conceptShowTagModel = Modal.hidden
                 , selectedTxId = 0
+                , livingWage = emptyLivingWage
+                , livingWageForm = emptyLivingWageForm
+                , livingWageList = []
+                , livingWageLocation = emptyLivingWageLocation
+                , livingWageLocationForm = emptyLivingWageLocationForm
+                , livingWageLocationList = []
                 }
     in
     ( model
@@ -141,6 +154,28 @@ menu model =
                                 , Navbar.dropdownItem
                                     [ href (urlForPage AddConcept) ]
                                     [ text "Add Concept" ]
+                                ]
+                            }
+
+                      else
+                        Navbar.itemLink [ href "" ] [ text "" ]
+                    , if userIsEditor model then
+                        Navbar.dropdown
+                            { id = "living_wages_dropdown"
+                            , toggle = Navbar.dropdownToggle [ href (urlForPage model.page) ] [ text "Living Wages" ]
+                            , items =
+                                [ Navbar.dropdownItem
+                                    [ href (urlForPage LivingWageList) ]
+                                    [ text "Living Wages" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage AddLivingWage) ]
+                                    [ text "Add Living Wage" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage LivingWageLocationList) ]
+                                    [ text "Living Wage Locations" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage AddLivingWageLocation) ]
+                                    [ text "Add Living Wage Location" ]
                                 ]
                             }
 
@@ -210,9 +245,6 @@ mainContent model =
             AddTransaction ->
                 pageTransactionCreate model
 
-            NotFound ->
-                pageNotFound
-
             Concepts _ ->
                 pageConcept model
 
@@ -224,6 +256,27 @@ mainContent model =
 
             AddConcept ->
                 pageAddConcept model
+
+            LivingWageLocationList ->
+                pageLivingWageLocationList model
+
+            AddLivingWage ->
+                pageAddLivingWage model
+
+            AddLivingWageLocation ->
+                pageAddLivingWageLocation model
+
+            LivingWageList ->
+                pageLivingWageList model
+
+            LivingWageLocationEdit _ ->
+                pageLivingWageLocationEdit model
+
+            LivingWageEdit _ ->
+                pageLivingWageEdit model
+
+            NotFound ->
+                pageNotFound
 
 
 pageLogout : Model -> List (Html Msg)
@@ -416,8 +469,17 @@ update msg model =
 
                 txFee =
                     txFeeFromTgs tgs
+
+                locationId =
+                    model.transactionForm.locationId
+
+                livingWage =
+                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, timeH = newTimeH, timeM = newTimeM, timeS = newTimeS, txFee = txFee }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeH = newTimeH, timeM = newTimeM, timeS = newTimeS, txFee = txFee, national = national }) model
 
         EnteredTransactionTimeH hours ->
             let
@@ -426,8 +488,17 @@ update msg model =
 
                 txFee =
                     txFeeFromTgs tgs
+
+                locationId =
+                    model.transactionForm.locationId
+
+                livingWage =
+                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, timeH = hours, txFee = txFee }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeH = hours, txFee = txFee, national = national }) model
 
         EnteredTransactionTimeM minutes ->
             let
@@ -439,8 +510,17 @@ update msg model =
 
                 txFee =
                     txFeeFromTgs tgs
+
+                locationId =
+                    model.transactionForm.locationId
+
+                livingWage =
+                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, timeM = newMinutes, txFee = txFee }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeM = newMinutes, txFee = txFee, national = national }) model
 
         EnteredTransactionTimeS seconds ->
             let
@@ -452,8 +532,17 @@ update msg model =
 
                 txFee =
                     txFeeFromTgs tgs
+
+                locationId =
+                    model.transactionForm.locationId
+
+                livingWage =
+                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, timeS = newSeconds, txFee = txFee }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, timeS = newSeconds, txFee = txFee, national = national }) model
 
         EnteredTransactionMultiplier multiplier ->
             let
@@ -462,8 +551,42 @@ update msg model =
 
                 txFee =
                     txFeeFromTgs tgs
+
+                locationId =
+                    model.transactionForm.locationId
+
+                livingWage =
+                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
             in
-            transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier, txFee = txFee }) model
+            transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier, txFee = txFee, national = national }) model
+
+        EnteredNational national ->
+            let
+                locationId =
+                    model.transactionForm.locationId
+
+                livingWage =
+                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+                tgs =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat national) / livingWage.wage)
+
+                newTimeH =
+                    intHoursFromTgs tgs model.transactionForm.multiplier
+
+                newTimeM =
+                    intMinutesFromTgs tgs model.transactionForm.multiplier
+
+                newTimeS =
+                    intSecondsFromTgs tgs model.transactionForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+            in
+            transactionUpdateForm (\form -> { form | national = national, tgs = tgs, timeH = newTimeH, timeM = newTimeM, timeS = newTimeS, txFee = txFee }) model
 
         EnteredTransactionDescription description ->
             transactionUpdateForm (\form -> { form | description = description }) model
@@ -566,7 +689,19 @@ update msg model =
             )
 
         LoadedProfile (Ok res) ->
-            ( { model | profileForm = res, loading = Loading.Off }
+            let
+                profileForm =
+                    { id = res.id
+                    , firstName = res.firstName
+                    , midNames = res.midNames
+                    , lastName = res.lastName
+                    , location = res.location
+                    , locationId = res.locationId
+                    , email = res.email
+                    , mobile = res.mobile
+                    }
+            in
+            ( { model | profileForm = profileForm, loading = Loading.Off }
             , Cmd.none
             )
 
@@ -878,7 +1013,201 @@ update msg model =
             ( { model | timeZone = zone }, Cmd.none )
 
         TimeTick posix ->
-            ( { model | time = posix }, Cmd.none )
+            let
+                dateIso =
+                    String.fromInt (Date.year (Date.fromPosix utc posix))
+
+                zeroDateTime =
+                    Iso8601.fromTime (Time.millisToPosix 0)
+
+                zeroTime =
+                    String.slice (String.length dateIso) (String.length zeroDateTime) zeroDateTime
+
+                dateZeroTime =
+                    dateIso ++ zeroTime
+
+                dateResult =
+                    Iso8601.toTime dateZeroTime
+
+                dateTime =
+                    case dateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+            in
+            ( { model | time = posix, date = dateTime }, Cmd.none )
+
+        LoadedLivingWages (Err error) ->
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedLivingWages (Ok res) ->
+            ( { model | livingWageList = res, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedLivingWageLocations (Err error) ->
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedLivingWageLocations (Ok res) ->
+            ( { model | livingWageLocationList = res, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        EnteredLivingWageLocationName name ->
+            livingWageLocationUpdateForm (\form -> { form | name = name }) model
+
+        EnteredLivingWageWage wage ->
+            let
+                wageFloat =
+                    Maybe.withDefault 0.0 (String.toFloat wage)
+            in
+            livingWageUpdateForm (\form -> { form | wage = wageFloat }) model
+
+        SelectedLocationId location ->
+            livingWageUpdateForm (\form -> { form | locationId = Maybe.withDefault 0 (String.toInt location) }) model
+
+        SelectedProfileLocationId location ->
+            profileUpdateForm (\form -> { form | locationId = Maybe.withDefault 0 (String.toInt location) }) model
+
+        SelectedTransactionLocationId location ->
+            let
+                locationId =
+                    Maybe.withDefault 0 (String.toInt location)
+
+                livingWage =
+                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat model.transactionForm.tgs) * livingWage.wage)
+            in
+            transactionUpdateForm (\form -> { form | locationId = locationId, national = national }) model
+
+        SubmittedLivingWageForm ->
+            case livingWageValidate model.livingWageForm of
+                Ok validForm ->
+                    ( { model | problems = [], loading = Loading.On }
+                    , if model.livingWage.id > 0 then
+                        livingWageUpdate model validForm
+
+                      else
+                        livingWageAdd model validForm
+                    )
+
+                Err problems ->
+                    ( { model | problems = problems, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        SubmittedLivingWageLocationForm ->
+            case livingWageLocationValidate model.livingWageLocationForm of
+                Ok validForm ->
+                    ( { model | problems = [], loading = Loading.On }
+                    , if model.livingWageLocation.id > 0 then
+                        livingWageLocationUpdate model validForm
+
+                      else
+                        livingWageLocationAdd model validForm
+                    )
+
+                Err problems ->
+                    ( { model | problems = problems, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        AddedLivingWage result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off }
+                    , loadLivingWageById model res.resourceId
+                    )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
+                    , Cmd.none
+                    )
+
+        AddedLivingWageLocation result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off }
+                    , loadLivingWageLocationById model res.resourceId
+                    )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
+                    , Cmd.none
+                    )
+
+        LoadedLivingWage (Err error) ->
+            ( { model
+                | livingWage = emptyLivingWage
+                , livingWageForm = emptyLivingWageForm
+                , loading = Loading.Off
+                , session = sessionGivenAuthError error model
+              }
+            , Cmd.none
+            )
+
+        LoadedLivingWage (Ok res) ->
+            let
+                livingWageForm =
+                    { startDate = Iso8601.fromTime res.startDate
+                    , stopDate = Iso8601.fromTime res.stopDate
+                    , locationId = res.locationId
+                    , wage = res.wage
+                    }
+            in
+            ( { model | livingWage = res, livingWageForm = livingWageForm, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        EnteredStartDate startDate ->
+            livingWageUpdateForm (\form -> { form | startDate = startDate }) model
+
+        EnteredStopDate stopDate ->
+            livingWageUpdateForm (\form -> { form | stopDate = stopDate }) model
+
+        LoadedLivingWageLocation (Err error) ->
+            ( { model
+                | livingWageLocation = emptyLivingWageLocation
+                , livingWageLocationForm = emptyLivingWageLocationForm
+                , loading = Loading.Off
+                , session = sessionGivenAuthError error model
+              }
+            , Cmd.none
+            )
+
+        LoadedLivingWageLocation (Ok res) ->
+            let
+                livingWageLocationForm =
+                    { name = res.name
+                    }
+            in
+            ( { model | livingWageLocation = res, livingWageLocationForm = livingWageLocationForm, loading = Loading.Off }
+            , Cmd.none
+            )
 
 
 sessionGivenAuthError : Http.Error -> Model -> Session
@@ -959,6 +1288,24 @@ urlForPage page =
         AddConcept ->
             "/add_concept"
 
+        LivingWageLocationList ->
+            "/living_wage_locations"
+
+        AddLivingWageLocation ->
+            "/add_living_wage_location"
+
+        LivingWageLocationEdit string ->
+            "/living_wage_locations/" ++ string ++ "/edit"
+
+        LivingWageList ->
+            "/living_wages"
+
+        AddLivingWage ->
+            "/add_living_wage"
+
+        LivingWageEdit string ->
+            "/living_wages/" ++ string ++ "/edit"
+
 
 urlUpdate : Url -> Model -> ( Model, Cmd Msg )
 urlUpdate url model =
@@ -976,6 +1323,25 @@ urlUpdate url model =
                         , conceptTagForm = { tag = "" }
                     }
 
+                AddLivingWageLocation ->
+                    { model
+                        | page = page
+                        , livingWageLocation = emptyLivingWageLocation
+                        , livingWageLocationForm = emptyLivingWageLocationForm
+                    }
+
+                AddLivingWage ->
+                    { model
+                        | page = page
+                        , livingWage = emptyLivingWage
+                        , livingWageForm =
+                            { startDate = Iso8601.fromTime model.date
+                            , stopDate = Iso8601.fromTime model.date
+                            , locationId = 0
+                            , wage = 0.0
+                            }
+                    }
+
                 Register email verification ->
                     { model
                         | page = page
@@ -991,7 +1357,7 @@ urlUpdate url model =
                     { model | page = page }
             , case page of
                 Profile ->
-                    loadProfile model.session.loginToken
+                    Cmd.batch [ loadProfile model.session.loginToken, loadLivingWageLocations model ]
 
                 Home ->
                     Cmd.batch [ loadConcept "index" ]
@@ -1016,7 +1382,7 @@ urlUpdate url model =
                     Cmd.batch [ loadTransactions model, loadTxUsers model ]
 
                 AddTransaction ->
-                    Cmd.batch [ loadTxUsers model ]
+                    Cmd.batch [ loadTxUsers model, loadLivingWages model, loadLivingWageLocations model ]
 
                 Login ->
                     Cmd.none
@@ -1029,6 +1395,32 @@ urlUpdate url model =
 
                 AddConcept ->
                     Cmd.none
+
+                LivingWageList ->
+                    Cmd.batch [ loadLivingWages model, loadLivingWageLocations model ]
+
+                LivingWageLocationList ->
+                    Cmd.batch [ loadLivingWageLocations model ]
+
+                AddLivingWageLocation ->
+                    Cmd.none
+
+                AddLivingWage ->
+                    Cmd.batch [ loadLivingWageLocations model ]
+
+                LivingWageLocationEdit id ->
+                    let
+                        livingWageLocationId =
+                            Maybe.withDefault 0 (String.toInt id)
+                    in
+                    Cmd.batch [ loadLivingWageLocationById model livingWageLocationId ]
+
+                LivingWageEdit id ->
+                    let
+                        livingWageId =
+                            Maybe.withDefault 0 (String.toInt id)
+                    in
+                    Cmd.batch [ loadLivingWageById model livingWageId, loadLivingWageLocations model ]
 
                 NotFound ->
                     Cmd.none
@@ -1050,6 +1442,12 @@ routeParser =
         , UrlParser.map ConceptsEdit (s "concepts" </> string </> s "edit")
         , UrlParser.map ConceptsList (s "concepts")
         , UrlParser.map AddConcept (s "add_concept")
+        , UrlParser.map LivingWageLocationList (s "living_wage_locations")
+        , UrlParser.map AddLivingWageLocation (s "add_living_wage_location")
+        , UrlParser.map LivingWageLocationEdit (s "living_wage_locations" </> string </> s "edit")
+        , UrlParser.map LivingWageList (s "living_wages")
+        , UrlParser.map AddLivingWage (s "add_living_wage")
+        , UrlParser.map LivingWageEdit (s "living_wages" </> string </> s "edit")
         ]
 
 
@@ -1109,5 +1507,5 @@ subscriptions model =
 
             Nothing ->
                 Sub.none
-        , Time.every (30 * 1000) TimeTick
+        , Time.every (60 * 1000) TimeTick
         ]

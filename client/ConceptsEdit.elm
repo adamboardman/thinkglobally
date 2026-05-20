@@ -15,7 +15,7 @@ import Json.Encode as Encode exposing (Value)
 import Loading
 import Markdown
 import Set exposing (Set)
-import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptTagsListDecoder, emptyConceptForm)
+import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader, conceptDecoder, conceptTagsListDecoder)
 
 
 pageConceptsEdit : Model -> List (Html Msg)

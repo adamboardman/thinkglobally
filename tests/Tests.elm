@@ -12,8 +12,9 @@ import Loading
 import Login exposing (loginDecoder)
 import Test exposing (..)
 import Time
-import Transaction exposing (pendingTransactionSummary, transactionSummary)
-import Types exposing (Msg(..), Page(..), TransactionFromType(..), TransactionType(..), User, apiActionDecoder, conceptDecoder, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDate, userDecoder)
+import Transaction exposing (transactionSummary)
+import TransactionPending exposing (pendingTransactionSummary)
+import Types exposing (Msg(..), Page(..), TransactionFromType(..), TransactionType(..), User, apiActionDecoder, conceptDecoder, emptyConcept, emptyConceptForm, emptyProfileForm, emptyTransactionForm, emptyUser, formatBalance, formatBalancePlusFee, formatBalanceWithMultiplier, formatDateTime, userDecoder)
 
 
 decodeLogin : Test
@@ -98,7 +99,7 @@ decodeUser =
             let
                 input =
                     """
-                    {"ID":9,"CreatedAt":"2019-07-11T14:50:37.443151+01:00","UpdatedAt":"2019-07-13T21:02:21.214296+01:00","DeletedAt":null,"FirstName":"FNS","MidNames":"MN","LastName":"LN","Location":"LOC","PhotoID":0,"Email":"EAD","Mobile":"MOB","Confirmed":true,"Permissions":1}
+                    {"ID":9,"CreatedAt":"2019-07-11T14:50:37.443151+01:00","UpdatedAt":"2019-07-13T21:02:21.214296+01:00","DeletedAt":null,"FirstName":"FNS","MidNames":"MN","LastName":"LN","Location":"LOC","LocationId":0,"PhotoID":0,"Email":"EAD","Mobile":"MOB","Confirmed":true,"Permissions":1}
                     """
 
                 decodedOutput =
@@ -113,6 +114,7 @@ decodeUser =
                     , midNames = "MN"
                     , lastName = "LN"
                     , location = "LOC"
+                    , locationId = 0
                     , email = "EAD"
                     , mobile = "MOB"
                     , permissions = 1
@@ -178,6 +180,7 @@ testUser1 =
     , midNames = ""
     , lastName = "LN1"
     , location = ""
+    , locationId = 0
     , email = ""
     , mobile = ""
     , permissions = 0
@@ -192,10 +195,50 @@ testUser2 =
     , midNames = ""
     , lastName = "LN2"
     , location = ""
+    , locationId = 0
     , email = ""
     , mobile = ""
     , permissions = 0
     , balance = 0
+    }
+
+
+emptyModel =
+    { navKey = Nothing
+    , navState = Nothing
+    , page = Home
+    , loading = Loading.Off
+    , problems = []
+    , loginForm = { email = "", password = "" }
+    , registerForm = { email = "", password = "", password_confirm = "", verification = "" }
+    , session = { loginExpire = "", loginToken = "" }
+    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
+    , loggedInUser = testUser1
+    , profileForm = emptyProfileForm
+    , transactionForm = emptyTransactionForm
+    , conceptForm = emptyConceptForm
+    , conceptTagForm = { tag = "" }
+    , concept = emptyConcept
+    , creatingTransaction = TxNone
+    , creatingTransactionFrom = TxFromTGs
+    , transactions = []
+    , pendingTransactions = []
+    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
+    , creatingTransactionWithUser = emptyUser
+    , timeZone = Time.utc
+    , time = Time.millisToPosix 0
+    , date = Time.millisToPosix 0
+    , conceptsList = []
+    , conceptTagsList = []
+    , displayableTagsList = []
+    , conceptShowTagModel = Modal.hidden
+    , selectedTxId = 0
+    , livingWage = Types.emptyLivingWage
+    , livingWageForm = Types.emptyLivingWageForm
+    , livingWageList = []
+    , livingWageLocation = Types.emptyLivingWageLocation
+    , livingWageLocationForm = Types.emptyLivingWageLocationForm
+    , livingWageLocationList = []
     }
 
 
@@ -205,34 +248,7 @@ pendingTransactionSummaryOfferOut =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser1
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    emptyModel
 
                 tx =
                     { id = 1
@@ -243,7 +259,7 @@ pendingTransactionSummaryOfferOut =
                     , seconds = 3600
                     , multiplier = 1
                     , txFee = 1
-                    , status = 1
+                    , status = 1 --Offer
                     , description = ""
                     , fromUserBalance = 0
                     , toUserBalance = 0
@@ -253,13 +269,14 @@ pendingTransactionSummaryOfferOut =
                 (pendingTransactionSummary model tx)
                 (Table.tr
                     []
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "F: ", text "Yourself", Html.br [] [], text "T: ", text "FN2 LN2 (2)" ]
                     , Table.td [] [ text (formatBalance -3601) ]
                     , Table.td [] [ text "F: ", text (formatBalance -3601), Html.br [] [], text "T: ", text (formatBalance 3600) ]
                     , Table.td [] [ text "Offer pending" ]
                     , Table.td [] [ text "" ]
                     , Table.td [] [ text "" ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )
 
@@ -270,34 +287,7 @@ pendingTransactionSummaryOfferIn =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser2
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    { emptyModel | loggedInUser = testUser2 }
 
                 tx =
                     { id = 1
@@ -308,7 +298,7 @@ pendingTransactionSummaryOfferIn =
                     , seconds = 3600
                     , multiplier = 1
                     , txFee = 1
-                    , status = 1
+                    , status = 1 --Offer
                     , description = ""
                     , fromUserBalance = 0
                     , toUserBalance = 0
@@ -318,13 +308,14 @@ pendingTransactionSummaryOfferIn =
                 (pendingTransactionSummary model tx)
                 (Table.tr
                     []
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "F: ", text "FN1 LN1 (1)", Html.br [] [], text "T: ", text "Yourself" ]
                     , Table.td [] [ text (formatBalance 3600) ]
                     , Table.td [] [ text "F: ", text (formatBalance -3601), Html.br [] [], text "T: ", text (formatBalance 3600) ]
                     , Table.td [] [ text "Accept or Reject Offer" ]
                     , Table.td [] [ Button.button [ Button.primary, Button.onClick <| AcceptTransaction tx.id ] [ text "Accept" ] ]
                     , Table.td [] [ Button.button [ Button.primary, Button.onClick <| RejectTransaction tx.id ] [ text "Reject" ] ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )
 
@@ -335,34 +326,7 @@ pendingTransactionSummaryRequestIn =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser1
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    emptyModel
 
                 tx =
                     { id = 1
@@ -373,7 +337,7 @@ pendingTransactionSummaryRequestIn =
                     , seconds = 3600
                     , multiplier = 1
                     , txFee = 1
-                    , status = 2
+                    , status = 2 --Request
                     , description = ""
                     , fromUserBalance = 0
                     , toUserBalance = 0
@@ -383,13 +347,14 @@ pendingTransactionSummaryRequestIn =
                 (pendingTransactionSummary model tx)
                 (Table.tr
                     []
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "F: ", text "FN2 LN2 (2)", Html.br [] [], text "T: ", text "Yourself" ]
-                    , Table.td [] [ text (formatBalance 3599) ]
+                    , Table.td [] [ text (formatBalance 3600) ]
                     , Table.td [] [ text "F: ", text (formatBalance -3600), Html.br [] [], text "T: ", text (formatBalance 3599) ]
                     , Table.td [] [ text "Request pending" ]
                     , Table.td [] [ text "" ]
                     , Table.td [] [ text "" ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )
 
@@ -400,34 +365,7 @@ pendingTransactionSummaryRequestOut =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser2
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    { emptyModel | loggedInUser = testUser2 }
 
                 tx =
                     { id = 1
@@ -438,7 +376,7 @@ pendingTransactionSummaryRequestOut =
                     , seconds = 3600
                     , multiplier = 1
                     , txFee = 1
-                    , status = 2
+                    , status = 2 --Request
                     , description = ""
                     , fromUserBalance = 0
                     , toUserBalance = 0
@@ -448,13 +386,14 @@ pendingTransactionSummaryRequestOut =
                 (pendingTransactionSummary model tx)
                 (Table.tr
                     []
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "F: ", text "Yourself", Html.br [] [], text "T: ", text "FN1 LN1 (1)" ]
-                    , Table.td [] [ text (formatBalance -3600) ]
+                    , Table.td [] [ text (formatBalance -3599) ]
                     , Table.td [] [ text "F: ", text (formatBalance -3600), Html.br [] [], text "T: ", text (formatBalance 3599) ]
                     , Table.td [] [ text "Accept or Reject Request" ]
                     , Table.td [] [ Button.button [ Button.primary, Button.onClick <| AcceptTransaction tx.id ] [ text "Accept" ] ]
                     , Table.td [] [ Button.button [ Button.primary, Button.onClick <| RejectTransaction tx.id ] [ text "Reject" ] ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )
 
@@ -469,34 +408,7 @@ transactionSummaryOfferApprovedOut =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser1
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    emptyModel
 
                 tx =
                     { id = 1
@@ -522,13 +434,14 @@ transactionSummaryOfferApprovedOut =
                       else
                         rowAttr (style "" "")
                     ]
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "Yourself" ]
                     , Table.td [] [ text "FN2 LN2 (2)" ]
                     , Table.td [] [ text "Offer Approved" ]
                     , Table.td [] [ text "" ]
                     , Table.td [] [ text (formatBalancePlusFee tx.seconds tx.txFee) ]
                     , Table.td [] [ text (formatBalance tx.fromUserBalance) ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )
 
@@ -539,34 +452,7 @@ transactionSummaryOfferApprovedIn =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser1
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    emptyModel
 
                 tx =
                     { id = 1
@@ -592,13 +478,14 @@ transactionSummaryOfferApprovedIn =
                       else
                         rowAttr (style "" "")
                     ]
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "FN2 LN2 (2)" ]
                     , Table.td [] [ text "Yourself" ]
                     , Table.td [] [ text "Offer Approved" ]
                     , Table.td [] [ text (formatBalanceWithMultiplier tx.seconds tx.multiplier) ]
                     , Table.td [] [ text "" ]
                     , Table.td [] [ text (formatBalance tx.toUserBalance) ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )
 
@@ -609,34 +496,7 @@ transactionSummaryRequestApprovedOut =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser1
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    emptyModel
 
                 tx =
                     { id = 1
@@ -662,13 +522,14 @@ transactionSummaryRequestApprovedOut =
                       else
                         rowAttr (style "" "")
                     ]
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "Yourself" ]
                     , Table.td [] [ text "FN2 LN2 (2)" ]
                     , Table.td [] [ text "Request Approved" ]
                     , Table.td [] [ text "" ]
                     , Table.td [] [ text (formatBalanceWithMultiplier tx.seconds tx.multiplier) ]
                     , Table.td [] [ text (formatBalance tx.fromUserBalance) ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )
 
@@ -679,34 +540,7 @@ transactionSummaryRequestApprovedIn =
         \() ->
             let
                 model =
-                    { navKey = Nothing
-                    , navState = Nothing
-                    , page = Home
-                    , loading = Loading.Off
-                    , problems = []
-                    , loginForm = { email = "", password = "" }
-                    , registerForm = { email = "", password = "", password_confirm = "" }
-                    , session = { loginExpire = "", loginToken = "" }
-                    , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
-                    , loggedInUser = testUser1
-                    , profileForm = emptyProfileForm
-                    , transactionForm = emptyTransactionForm
-                    , conceptForm = emptyConceptForm
-                    , conceptTagForm = { tag = "" }
-                    , concept = emptyConcept
-                    , creatingTransaction = TxNone
-                    , creatingTransactionFrom = TxFromTGs
-                    , transactions = []
-                    , pendingTransactions = []
-                    , txUsers = Dict.fromList [ ( "1", testUser1 ), ( "2", testUser2 ) ]
-                    , creatingTransactionWithUser = emptyUser
-                    , timeZone = Time.utc
-                    , time = Time.millisToPosix 0
-                    , conceptsList = []
-                    , conceptTagsList = []
-                    , displayableTagsList = []
-                    , conceptShowTagModel = Modal.hidden
-                    }
+                    emptyModel
 
                 tx =
                     { id = 1
@@ -732,12 +566,13 @@ transactionSummaryRequestApprovedIn =
                       else
                         rowAttr (style "" "")
                     ]
-                    [ Table.td [] [ text (formatDate model tx.initiatedDate) ]
+                    [ Table.td [] [ text (formatDateTime model tx.initiatedDate) ]
                     , Table.td [] [ text "FN2 LN2 (2)" ]
                     , Table.td [] [ text "Yourself" ]
                     , Table.td [] [ text "Request Approved" ]
                     , Table.td [] [ text (formatBalanceWithMultiplier tx.seconds tx.multiplier) ]
                     , Table.td [] [ text "" ]
                     , Table.td [] [ text (formatBalance tx.toUserBalance) ]
+                    , Table.td [] [ Button.button [ Button.primary, Button.onClick <| ViewTransaction tx.id ] [ text "View" ] ]
                     ]
                 )

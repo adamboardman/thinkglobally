@@ -255,13 +255,13 @@ func TestStore_TransactionCreation(t *testing.T) {
 		s.db.Unscoped().Where("from_user_id=?", user2.ID).Delete(Transaction{})
 		s.db.Unscoped().Where("to_user_id=?", user2.ID).Delete(Transaction{})
 		transaction := Transaction{
-			InitiatedDate: PosixDateTime(time.Now()),
+			InitiatedDate: PosixDateTime(time.Now().UTC()),
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test TransactionS1",
 			Status:        TransactionOffered,
 		}
 		transactionId, _ := s.InsertTransaction(&transaction)
@@ -280,6 +280,8 @@ func TestStore_TransactionCreation(t *testing.T) {
 					So(reloadedTransaction.FromUserId, ShouldEqual, transactionFromTransactions.FromUserId)
 					So(reloadedTransaction.ToUserId, ShouldEqual, transactionFromTransactions.ToUserId)
 					So(reloadedTransaction.Status, ShouldEqual, transactionFromTransactions.Status)
+					So(reloadedTransaction.InitiatedDate, ShouldEqual, transactionFromTransactions.InitiatedDate)
+					So(reloadedTransaction.ConfirmedDate, ShouldEqual, transactionFromTransactions.ConfirmedDate)
 				})
 			})
 		})
@@ -290,13 +292,14 @@ func TestStore_TransactionRejectNoUser(t *testing.T) {
 	Convey("Create a transaction", t, func() {
 		user1 := ensureTestUserExists("user1@example.com")
 		transaction := Transaction{
-			ConfirmedDate: PosixDateTime(time.Now()),
+			InitiatedDate: PosixDateTime(time.Now().UTC()),
+			ConfirmedDate: PosixDateTime(time.Now().UTC()),
 			FromUserId:    user1.ID,
 			ToUserId:      0,
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test TransactionS2",
 			Status:        TransactionOfferApproved,
 		}
 		transactionId, _ := s.InsertTransaction(&transaction)
@@ -316,13 +319,14 @@ func TestStore_TransactionRejectTooSmallMultipler(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
-			ConfirmedDate: PosixDateTime(time.Now()),
+			InitiatedDate: PosixDateTime(time.Now().UTC()),
+			ConfirmedDate: PosixDateTime(time.Now().UTC()),
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    0.99,
-			Description:   "Test Transaction",
+			Description:   "Test TransactionS3",
 			Status:        TransactionOfferApproved,
 		}
 		transactionId, _ := s.InsertTransaction(&transaction)
@@ -342,13 +346,14 @@ func TestStore_TransactionRejectTooBigMultiplier(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
-			ConfirmedDate: PosixDateTime(time.Now()),
+			InitiatedDate: PosixDateTime(time.Now().UTC()),
+			ConfirmedDate: PosixDateTime(time.Now().UTC()),
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    3.0001,
-			Description:   "Test Transaction",
+			Description:   "Test TransactionS4",
 			Status:        TransactionOfferApproved,
 		}
 		transactionId, _ := s.InsertTransaction(&transaction)
@@ -368,13 +373,14 @@ func TestStore_TransactionPartners(t *testing.T) {
 		user1 := ensureTestUserExists("user1@example.com")
 		user2 := ensureTestUserExists("user2@example.com")
 		transaction := Transaction{
-			ConfirmedDate: PosixDateTime(time.Now()),
+			InitiatedDate: PosixDateTime(time.Now().UTC()),
+			ConfirmedDate: PosixDateTime(time.Now().UTC()),
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    3,
-			Description:   "Test Transaction",
+			Description:   "Test TransactionS5",
 			Status:        TransactionOfferApproved,
 		}
 		transactionId, _ := s.InsertTransaction(&transaction)
@@ -385,6 +391,66 @@ func TestStore_TransactionPartners(t *testing.T) {
 			users, _ := s.ListTransactionPartners(user1.ID)
 			So(users[0].ID, ShouldEqual, user1.ID)
 			So(users[1].ID, ShouldEqual, user2.ID)
+		})
+	})
+}
+
+func TestStore_InsertLivingWageLocation(t *testing.T) {
+	const name = "UK"
+	Convey("Insert a living wage location to the store", t, func() {
+		s.PurgeLivingWageLocation(name)
+		livingWageLocation := LivingWageLocation{Name: name}
+		locationId, _ := s.InsertLivingWageLocation(&livingWageLocation)
+
+		Convey("LivingWageLocation should be given an ID", func() {
+			So(locationId, ShouldBeGreaterThan, 0)
+		})
+		Convey("LivingWageLocations", func() {
+			locations, _ := s.ListLivingWageLocations()
+			So(len(locations), ShouldBeGreaterThan, 0)
+		})
+	})
+}
+
+func ensureLivingWageLocationExists(locationName string) *LivingWageLocation {
+	location, err := s.FindLivingWageLocation(locationName)
+	if err != nil {
+		location = &LivingWageLocation{
+			Name: locationName,
+		}
+		_, _ = s.InsertLivingWageLocation(location)
+	}
+	return location
+}
+
+func TestStore_InsertLivingWage(t *testing.T) {
+	const locationName = "UK"
+	Convey("Find or insert living wage to the store", t, func() {
+		livingWageLocation := ensureLivingWageLocationExists(locationName)
+		start := time.Date(2011, time.January, 1, 0, 0, 0, 0, time.UTC)
+		stop := time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC)
+		foundLivingWage, err := s.FindLivingWage(livingWageLocation.ID, PosixDateTime(start), PosixDateTime(stop))
+		if err == nil {
+			s.PurgeLivingWage(foundLivingWage)
+		}
+		livingWage := LivingWage{
+			LocationId: livingWageLocation.ID,
+			StartDate:  PosixDateTime(start),
+			StopDate:   PosixDateTime(stop),
+			Wage:       7.2,
+		}
+		livingWageId, _ := s.InsertLivingWage(&livingWage)
+
+		Convey("LivingWage should be given an ID", func() {
+			So(livingWageId, ShouldBeGreaterThan, 0)
+
+			Convey("LivingWages should contain enough wages", func() {
+				wagesForId, _ := s.ListLivingWagesForLocation(livingWageLocation.ID)
+				So(len(wagesForId), ShouldBeGreaterThan, 0)
+
+				wages, _ := s.ListLivingWages()
+				So(len(wages), ShouldBeGreaterThan, 0)
+			})
 		})
 	})
 }

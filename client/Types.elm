@@ -9,9 +9,9 @@ import Char exposing (isDigit)
 import Dict exposing (Dict)
 import Dict.Extra exposing (fromListBy)
 import FormatNumber exposing (format)
-import FormatNumber.Locales exposing (Decimals(..), Locale)
+import FormatNumber.Locales exposing (Decimals(..), Locale, System(..))
 import Http
-import Json.Decode as Decode exposing (Decoder, at, float, int, list, map7, string)
+import Json.Decode as Decode exposing (Decoder, at, float, int, list, map8, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
 import Set exposing (Set)
@@ -44,11 +44,18 @@ type alias Model =
     , creatingTransactionWithUser : User
     , timeZone : Time.Zone
     , time : Time.Posix
+    , date : Time.Posix
     , conceptsList : List Concept
     , conceptTagsList : List ConceptTag
     , displayableTagsList : List DisplayableTag
     , conceptShowTagModel : Modal.Visibility
     , selectedTxId : Int
+    , livingWage : LivingWage
+    , livingWageLocation : LivingWageLocation
+    , livingWageList : List LivingWage
+    , livingWageLocationList : List LivingWageLocation
+    , livingWageForm : LivingWageForm
+    , livingWageLocationForm : LivingWageLocationForm
     }
 
 
@@ -65,6 +72,12 @@ type Page
     | ConceptsEdit String
     | ConceptsList
     | AddConcept
+    | LivingWageLocationList
+    | AddLivingWageLocation
+    | LivingWageLocationEdit String
+    | LivingWageList
+    | AddLivingWage
+    | LivingWageEdit String
     | NotFound
 
 
@@ -87,6 +100,7 @@ type alias User =
     , midNames : String
     , lastName : String
     , location : String
+    , locationId : Int
     , email : String
     , mobile : String
     , permissions : Int
@@ -100,6 +114,21 @@ type alias Concept =
     , summary : String
     , full : String
     , tags : List Tag
+    }
+
+
+type alias LivingWageLocation =
+    { id : Int
+    , name : String
+    }
+
+
+type alias LivingWage =
+    { id : Int
+    , startDate : Time.Posix
+    , stopDate : Time.Posix
+    , locationId : Int
+    , wage : Float
     }
 
 
@@ -162,6 +191,7 @@ type alias ProfileForm =
     , midNames : String
     , lastName : String
     , location : String
+    , locationId : Int
     , email : String
     , mobile : String
     }
@@ -169,11 +199,14 @@ type alias ProfileForm =
 
 type alias TransactionForm =
     { email : String
+    , date : Time.Posix
     , tgs : String
     , timeH : String
     , timeM : String
     , timeS : String
     , multiplier : String
+    , locationId : Int
+    , national : String
     , description : String
     , txFee : String
     }
@@ -192,6 +225,19 @@ type alias ConceptTagForm =
     { tag : String }
 
 
+type alias LivingWageForm =
+    { startDate : String
+    , stopDate : String
+    , locationId : Int
+    , wage : Float
+    }
+
+
+type alias LivingWageLocationForm =
+    { name : String
+    }
+
+
 type ValidatedField
     = Email
     | Password
@@ -205,6 +251,8 @@ type ValidatedField
     | Multiplier
     | Name
     | TagTag
+    | StartDate
+    | StopDate
 
 
 type Problem
@@ -251,6 +299,7 @@ type Msg
     | EnteredTransactionTimeM String
     | EnteredTransactionTimeS String
     | EnteredTransactionMultiplier String
+    | EnteredNational String
     | EnteredTransactionDescription String
     | EnteredConceptName String
     | EnteredConceptTagCheckToDelete Int Bool
@@ -286,6 +335,21 @@ type Msg
     | ButtonConceptDeleteSelectedTags
     | CloseConceptAddTagModal
     | ViewTransaction Int
+    | SubmittedLivingWageForm
+    | SubmittedLivingWageLocationForm
+    | EnteredLivingWageLocationName String
+    | EnteredLivingWageWage String
+    | LoadedLivingWage (Result Http.Error LivingWage)
+    | LoadedLivingWages (Result Http.Error (List LivingWage))
+    | LoadedLivingWageLocation (Result Http.Error LivingWageLocation)
+    | LoadedLivingWageLocations (Result Http.Error (List LivingWageLocation))
+    | AddedLivingWage (Result Http.Error ApiActionResponse)
+    | AddedLivingWageLocation (Result Http.Error ApiActionResponse)
+    | EnteredStartDate String
+    | EnteredStopDate String
+    | SelectedLocationId String
+    | SelectedProfileLocationId String
+    | SelectedTransactionLocationId String
 
 
 
@@ -294,7 +358,12 @@ type Msg
 
 tgsLocale : Locale
 tgsLocale =
-    Locale (Exact 4) "" "." "−" "" "" "" "" ""
+    Locale (Exact 4) Western " " "." "−" "" "" "" "" ""
+
+
+sterlingLocale : Locale
+sterlingLocale =
+    Locale (Exact 2) Western " " "." "−" "" "" "" "" ""
 
 
 toIntMonth : Month -> Int
@@ -339,6 +408,21 @@ toIntMonth month =
 
 formatDate : Model -> Time.Posix -> String
 formatDate model date =
+    let
+        year =
+            String.fromInt (Time.toYear model.timeZone date)
+
+        month =
+            String.padLeft 2 '0' (String.fromInt (toIntMonth (Time.toMonth model.timeZone date)))
+
+        day =
+            String.padLeft 2 '0' (String.fromInt (Time.toDay model.timeZone date))
+    in
+    year ++ "-" ++ month ++ "-" ++ day
+
+
+formatDateTime : Model -> Time.Posix -> String
+formatDateTime model date =
     let
         year =
             String.fromInt (Time.toYear model.timeZone date)
@@ -629,7 +713,7 @@ creatingTransactionSummary model =
                 tgsAsSeconds - txFee
     in
     " "
-        ++ formatDate model model.time
+        ++ formatDateTime model model.time
         ++ ", "
         ++ valCost
         ++ " to you: "
@@ -654,10 +738,10 @@ creatingTransactionSummary model =
 dateFromTransaction : Model -> Transaction -> String
 dateFromTransaction model tx =
     if Time.posixToMillis tx.initiatedDate > 0 then
-        formatDate model tx.initiatedDate
+        formatDateTime model tx.initiatedDate
 
     else
-        formatDate model tx.confirmedDate
+        formatDateTime model tx.confirmedDate
 
 
 transactionFromUser : Model -> Transaction -> Maybe User
@@ -935,6 +1019,7 @@ emptyUser =
     , midNames = ""
     , lastName = ""
     , location = ""
+    , locationId = 0
     , email = ""
     , mobile = ""
     , permissions = 0
@@ -974,6 +1059,7 @@ emptyProfileForm =
     , midNames = ""
     , lastName = ""
     , location = ""
+    , locationId = 0
     , email = ""
     , mobile = ""
     }
@@ -982,13 +1068,48 @@ emptyProfileForm =
 emptyTransactionForm : TransactionForm
 emptyTransactionForm =
     { email = ""
+    , date = Time.millisToPosix 0
     , tgs = ""
     , timeH = ""
     , timeM = ""
     , timeS = ""
     , multiplier = "1"
+    , locationId = 0
+    , national = ""
     , description = ""
     , txFee = "00:00:01"
+    }
+
+
+emptyLivingWage : LivingWage
+emptyLivingWage =
+    { id = 0
+    , startDate = Time.millisToPosix 0
+    , stopDate = Time.millisToPosix 0
+    , locationId = 0
+    , wage = 0.0
+    }
+
+
+emptyLivingWageForm : LivingWageForm
+emptyLivingWageForm =
+    { startDate = ""
+    , stopDate = ""
+    , locationId = 0
+    , wage = 0.0
+    }
+
+
+emptyLivingWageLocation : LivingWageLocation
+emptyLivingWageLocation =
+    { id = 0
+    , name = ""
+    }
+
+
+emptyLivingWageLocationForm : LivingWageLocationForm
+emptyLivingWageLocationForm =
+    { name = ""
     }
 
 
@@ -1017,6 +1138,7 @@ userDecoder =
         |> required "MidNames" string
         |> required "LastName" string
         |> optional "Location" string ""
+        |> optional "LocationId" int 0
         |> optional "Email" string ""
         |> optional "Mobile" string ""
         |> optional "Permissions" int 0
@@ -1025,12 +1147,13 @@ userDecoder =
 
 profileDecoder : Decoder ProfileForm
 profileDecoder =
-    map7 ProfileForm
+    map8 ProfileForm
         (at [ "ID" ] int)
         (at [ "FirstName" ] string)
         (at [ "MidNames" ] string)
         (at [ "LastName" ] string)
         (at [ "Location" ] string)
+        (at [ "LocationId" ] int)
         (at [ "Email" ] string)
         (at [ "Mobile" ] string)
 
@@ -1089,6 +1212,23 @@ transactionDecoder =
         |> required "Description" string
         |> required "FromUserBalance" int
         |> required "ToUserBalance" int
+
+
+livingWageLocationDecoder : Decoder LivingWageLocation
+livingWageLocationDecoder =
+    Decode.succeed LivingWageLocation
+        |> required "ID" int
+        |> required "Name" string
+
+
+livingWageDecoder : Decoder LivingWage
+livingWageDecoder =
+    Decode.succeed LivingWage
+        |> required "ID" int
+        |> required "StartDate" posixTime
+        |> required "StopDate" posixTime
+        |> required "LocationId" int
+        |> required "Wage" float
 
 
 

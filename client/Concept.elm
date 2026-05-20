@@ -2,11 +2,8 @@ module Concept exposing (pageConcept)
 
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, div, h4, text)
-import Http exposing (emptyBody)
-import Json.Decode exposing (Decoder, list)
-import Json.Encode
 import Markdown
-import Types exposing (Concept, ConceptTag, Model, Msg(..), authHeader, conceptDecoder, conceptTagDecoder)
+import Types exposing (Concept, ConceptTag, Model, Msg(..))
 
 
 pageConcept : Model -> List (Html Msg)

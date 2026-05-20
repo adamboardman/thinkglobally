@@ -350,7 +350,7 @@ func TestAddTagToConceptAsUserShouldFail(t *testing.T) {
 func TestAddTagToConceptAsAdmin(t *testing.T) {
 	concept := ensureTestConceptExists("testConcept")
 
-	Convey("Given a test user", t, func() {
+	Convey("Given a test admin user", t, func() {
 		const emailAddress = "test-admin@example.com"
 		user := ensureTestUserExists(emailAddress)
 		user.Permissions = store.UserPermissionsEditor
@@ -866,11 +866,11 @@ func TestAcceptTransactionOffer(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction1",
 			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
@@ -900,6 +900,17 @@ func TestAcceptTransactionOffer(t *testing.T) {
 					So(approvedTransaction.FromUserBalance, ShouldEqual, -(1*60*60 + 1))
 					So(approvedTransaction.ToUserBalance, ShouldEqual, (1 * 60 * 60))
 					So(time.Time(approvedTransaction.ConfirmedDate).After(time.Time(approvedTransaction.InitiatedDate)), ShouldBeTrue)
+
+					Convey("Accept transaction again as if we didn't already do so", func() {
+						req3, _ := http.NewRequest("PATCH", "/api/transactions/"+uintToString(transactionId)+"/accept", nil)
+						req3.Header.Set("Authorization", "Bearer "+token)
+						response3 := httptest.NewRecorder()
+						a.Router.ServeHTTP(response3, req3)
+
+						Convey("The server should respond with StatusNotFound as the transaction has already been approved", func() {
+							So(response3.Code, ShouldEqual, http.StatusNotFound)
+						})
+					})
 				})
 			})
 		})
@@ -913,11 +924,11 @@ func TestAcceptTransactionOfferAsOtherUser(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction2",
 			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
@@ -961,11 +972,11 @@ func TestRejectTransactionOffer(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction3",
 			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1006,11 +1017,11 @@ func TestRejectTransactionOfferAsOtherUser(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction4",
 			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1054,11 +1065,11 @@ func TestAcceptTransactionRequest(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction5",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1100,11 +1111,11 @@ func TestRejectTransactionRequestAsOtherUser(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction6",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1148,11 +1159,11 @@ func TestRejectTransactionRequest(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction7",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1245,11 +1256,11 @@ func TestListTxUsers(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction8",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1294,11 +1305,11 @@ func TestListTransactions(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction9",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1644,11 +1655,11 @@ func TestCheckUsersBalance(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction10",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1706,11 +1717,11 @@ func TestCheckUsersBalanceIgnoresMultiplierInBalance(t *testing.T) {
 		transaction := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    2,
-			Description:   "Test Transaction",
+			Description:   "Test Transaction11",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction)
@@ -1768,31 +1779,31 @@ func TestCheckUsersBalanceAfterRejectedRequestTransaction(t *testing.T) {
 		transaction1 := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction1",
+			Description:   "Test Transaction12",
 			Status:        store.TransactionRequested,
 		}
 		transaction2 := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction2 to reject",
+			Description:   "Test Transaction13 to reject",
 			Status:        store.TransactionRequested,
 		}
 		transaction3 := store.Transaction{
 			FromUserId:    user1.ID,
 			ToUserId:      user2.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction3",
+			Description:   "Test Transaction14",
 			Status:        store.TransactionRequested,
 		}
 		ClearTransactionsMatching(transaction1)
@@ -1923,31 +1934,31 @@ func TestCheckUsersBalanceAfterRejectedOfferTransaction(t *testing.T) {
 		transaction1 := store.Transaction{
 			FromUserId:    user2.ID,
 			ToUserId:      user1.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction1",
+			Description:   "Test Transaction15",
 			Status:        store.TransactionOffered,
 		}
 		transaction2 := store.Transaction{
 			FromUserId:    user2.ID,
 			ToUserId:      user1.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction2 to reject",
+			Description:   "Test Transaction16 to reject",
 			Status:        store.TransactionOffered,
 		}
 		transaction3 := store.Transaction{
 			FromUserId:    user2.ID,
 			ToUserId:      user1.ID,
-			InitiatedDate: store.PosixDateTime(time.Now()),
+			InitiatedDate: store.PosixDateTime(time.Now().UTC()),
 			Seconds:       1 * 60 * 60,
 			TxFee:         1,
 			Multiplier:    1,
-			Description:   "Test Transaction3",
+			Description:   "Test Transaction17",
 			Status:        store.TransactionOffered,
 		}
 		ClearTransactionsMatching(transaction1)
@@ -2065,6 +2076,293 @@ func TestCheckUsersBalanceAfterRejectedOfferTransaction(t *testing.T) {
 							})
 						})
 					})
+				})
+			})
+		})
+	})
+}
+
+func checkArrayForLivingWageLocation(livingWageLocations []store.LivingWageLocation, location string) bool {
+	found := false
+	for _, livingWageLocation := range livingWageLocations {
+		if livingWageLocation.Name == location {
+			found = true
+		}
+	}
+	return found
+}
+
+func ensureTestLivingWageLocationExists(location string) *store.LivingWageLocation {
+	livingWageLocation, err := a.Store.FindLivingWageLocation(location)
+	if err != nil {
+		livingWageLocation = &store.LivingWageLocation{
+			Name: location,
+		}
+		_, _ = a.Store.InsertLivingWageLocation(livingWageLocation)
+	}
+	return livingWageLocation
+}
+
+func ensureTestLivingWageExists(location store.LivingWageLocation, start store.PosixDateTime, stop store.PosixDateTime, wage float32) *store.LivingWage {
+	livingWage, err := a.Store.FindLivingWage(location.ID, start, stop)
+	if err != nil {
+		livingWage = &store.LivingWage{
+			StartDate:  start,
+			StopDate:   stop,
+			LocationId: location.ID,
+			Wage:       wage,
+		}
+		_, _ = a.Store.InsertLivingWage(livingWage)
+	}
+	return livingWage
+}
+
+func TestListLivingWageLocations(t *testing.T) {
+	Convey("Given a test admin user origin and at least test location", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
+
+		location := ensureTestLivingWageLocationExists("TestLocation")
+
+		Convey("The admin user logs in", func() {
+			response := loginToUserJSON(user.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("List locations", func() {
+				req2, _ := http.NewRequest("GET", "/api/living_wage_locations", nil)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusOK and the users involved in the transaction should be listed", func() {
+					So(response2.Code, ShouldEqual, http.StatusOK)
+					body, err := io.ReadAll(response2.Body)
+					So(err, ShouldBeNil)
+					responseData := new([]store.LivingWageLocation)
+					err = json.Unmarshal(body, responseData)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForLivingWageLocation(*responseData, location.Name)
+					So(found, ShouldBeTrue)
+				})
+			})
+		})
+	})
+}
+
+func TestAddLivingWageLocationAsAdmin(t *testing.T) {
+	Convey("Given a test admin user", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
+
+		location := store.LivingWageLocation{
+			Name: "TestLocation",
+		}
+		a.Store.PurgeLivingWageLocation(location.Name)
+
+		Convey("The admin user logs in", func() {
+			response := loginToUserJSON(emailAddress)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Add a living wage location", func() {
+				livingWageLocationJSON := LivingWageLocationJSON{}
+				livingWageLocationJSON.Name = location.Name
+				data, _ := json.Marshal(livingWageLocationJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/living_wage_locations", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the tag should be added", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					livingWageLocations, err := a.Store.ListLivingWageLocations()
+					So(err, ShouldBeNil)
+
+					found := checkArrayForLivingWageLocation(livingWageLocations, location.Name)
+					So(found, ShouldBeTrue)
+				})
+			})
+		})
+	})
+}
+
+func checkArrayForLivingWage(livingWages []store.LivingWage, start store.PosixDateTime, stop store.PosixDateTime, locationId uint) bool {
+	found := false
+	for _, livingWage := range livingWages {
+		if livingWage.StartDate == start && livingWage.StopDate == stop && livingWage.LocationId == locationId {
+			found = true
+		}
+	}
+	return found
+}
+
+func TestLivingWagesList(t *testing.T) {
+	Convey("Given a test admin user origin and at least test living wage", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
+
+		livingWageLocation := ensureTestLivingWageLocationExists("TestLocation")
+		start := time.Date(2011, time.January, 1, 0, 0, 0, 0, time.UTC)
+		stop := time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC)
+		var wage float32 = 9.0
+		livingWage := ensureTestLivingWageExists(*livingWageLocation, store.PosixDateTime(start), store.PosixDateTime(stop), wage)
+
+		livingWageAlternateLocation := ensureTestLivingWageLocationExists("TestAlternateLocation")
+		livingWageAlternate := ensureTestLivingWageExists(*livingWageAlternateLocation, store.PosixDateTime(start), store.PosixDateTime(stop), wage*2)
+
+		Convey("The admin user logs in", func() {
+			response := loginToUserJSON(user.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("List locations", func() {
+				req2, _ := http.NewRequest("GET", "/api/living_wages", nil)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusOK and the users involved in the transaction should be listed", func() {
+					So(response2.Code, ShouldEqual, http.StatusOK)
+					body, err := io.ReadAll(response2.Body)
+					So(err, ShouldBeNil)
+					responseData := new([]store.LivingWage)
+					err = json.Unmarshal(body, responseData)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForLivingWage(*responseData, livingWage.StartDate, livingWage.StopDate, livingWage.LocationId)
+					So(found, ShouldBeTrue)
+
+					foundAlternate := checkArrayForLivingWage(*responseData, livingWageAlternate.StartDate, livingWageAlternate.StopDate, livingWageAlternate.LocationId)
+					So(foundAlternate, ShouldBeTrue)
+				})
+			})
+		})
+	})
+}
+
+func TestLivingWagesListForLocation(t *testing.T) {
+	Convey("Given a test admin user origin and at least test living wage", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
+
+		livingWageLocation := ensureTestLivingWageLocationExists("TestLocation")
+		start := time.Date(2011, time.January, 1, 0, 0, 0, 0, time.UTC)
+		stop := time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC)
+		var wage float32 = 9.0
+		livingWage := ensureTestLivingWageExists(*livingWageLocation, store.PosixDateTime(start), store.PosixDateTime(stop), wage)
+
+		livingWageAlternateLocation := ensureTestLivingWageLocationExists("TestAlternateLocation")
+		livingWageAlternate := ensureTestLivingWageExists(*livingWageAlternateLocation, store.PosixDateTime(start), store.PosixDateTime(stop), wage*2)
+
+		Convey("The admin user logs in", func() {
+			response := loginToUserJSON(user.Email)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("List locations", func() {
+				req2, _ := http.NewRequest("GET", "/api/living_wages/for_location/"+uintToString(livingWageLocation.ID), nil)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusOK and the users involved in the transaction should be listed", func() {
+					So(response2.Code, ShouldEqual, http.StatusOK)
+					body, err := io.ReadAll(response2.Body)
+					So(err, ShouldBeNil)
+					responseData := new([]store.LivingWage)
+					err = json.Unmarshal(body, responseData)
+					So(err, ShouldBeNil)
+
+					found := checkArrayForLivingWage(*responseData, livingWage.StartDate, livingWage.StopDate, livingWage.LocationId)
+					So(found, ShouldBeTrue)
+
+					foundAlternate := checkArrayForLivingWage(*responseData, livingWageAlternate.StartDate, livingWageAlternate.StopDate, livingWageAlternate.LocationId)
+					So(foundAlternate, ShouldBeFalse)
+				})
+			})
+		})
+	})
+}
+
+func TestAddLivingWageAsAdmin(t *testing.T) {
+	Convey("Given a test admin user", t, func() {
+		const emailAddress = "test-admin@example.com"
+		user := ensureTestUserExists(emailAddress)
+		user.Permissions = store.UserPermissionsEditor
+		_, _ = a.Store.UpdateUser(user)
+
+		livingWageLocation := ensureTestLivingWageLocationExists("TestLocation")
+		start := time.Date(2011, time.January, 1, 0, 0, 0, 0, time.UTC)
+		stop := time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC)
+		var wage float32 = 9.0
+		livingWage, err := a.Store.FindLivingWage(livingWageLocation.ID, store.PosixDateTime(start), store.PosixDateTime(stop))
+		if err == nil {
+			a.Store.PurgeLivingWage(livingWage)
+		}
+
+		Convey("The admin user logs in", func() {
+			response := loginToUserJSON(emailAddress)
+
+			Convey("The server should respond with StatusOK", func() {
+				So(response.Code, ShouldEqual, http.StatusOK)
+			})
+
+			token := userTokenFromLoginResponse(response)
+
+			Convey("Add a living wage", func() {
+				livingWageJSON := LivingWageJSON{}
+				livingWageJSON.StartDate = store.PosixDateTime(start)
+				livingWageJSON.StopDate = store.PosixDateTime(stop)
+				livingWageJSON.LocationId = livingWageLocation.ID
+				livingWageJSON.Wage = wage
+				data, _ := json.Marshal(livingWageJSON)
+				post_data := bytes.NewReader(data)
+				req2, _ := http.NewRequest("POST", "/api/living_wages", post_data)
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", "Bearer "+token)
+				response2 := httptest.NewRecorder()
+				a.Router.ServeHTTP(response2, req2)
+
+				Convey("The server should respond with StatusCreated and the tag should be added", func() {
+					So(response2.Code, ShouldEqual, http.StatusCreated)
+
+					livingWages, err := a.Store.ListLivingWages()
+					So(err, ShouldBeNil)
+
+					found := checkArrayForLivingWage(livingWages, store.PosixDateTime(start), store.PosixDateTime(stop), livingWageLocation.ID)
+					So(found, ShouldBeTrue)
 				})
 			})
 		})

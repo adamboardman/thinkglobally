@@ -3,6 +3,7 @@ module Profile exposing (ProfileTrimmedForm(..), pageProfile, profile, profileFi
 import Bootstrap.Button as Button
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
+import Bootstrap.Form.Select as Select
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, div, h1, text, ul)
 import Html.Attributes exposing (class, for)
@@ -10,7 +11,7 @@ import Html.Events exposing (onSubmit)
 import Http
 import Json.Encode as Encode
 import Loading
-import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), ProfileForm, User, ValidatedField(..), apiActionDecoder, authHeader)
+import Types exposing (ApiActionResponse, LivingWageLocation, Model, Msg(..), Problem(..), ProfileForm, User, ValidatedField(..), apiActionDecoder, authHeader)
 
 
 profileFieldsToValidate : List ValidatedField
@@ -35,6 +36,11 @@ pageProfile model =
             ]
         ]
     ]
+
+
+viewSelectableLocation : ProfileForm -> LivingWageLocation -> Select.Item Msg
+viewSelectableLocation form livingWageLocation =
+    Select.item [ Html.Attributes.selected (form.locationId == livingWageLocation.id), Html.Attributes.value (String.fromInt livingWageLocation.id) ] [ text livingWageLocation.name ]
 
 
 viewProfileForm : Model -> Html Msg
@@ -79,6 +85,18 @@ viewProfileForm model =
                 , Input.value model.profileForm.location
                 ]
             , Form.invalidFeedback [] [ text "Home location for display on your profile" ]
+            ]
+        , Form.group []
+            [ Form.label [ for "locationId" ] [ text "Living Wage Location" ]
+            , Select.select
+                [ Select.id "locationId"
+                , Select.onChange SelectedProfileLocationId
+                ]
+                (List.concat
+                    [ List.singleton (Select.item [ Html.Attributes.value "0" ] [ text "-[Select Location To Display Local Currency]-" ])
+                    , List.map (viewSelectableLocation model.profileForm) model.livingWageLocationList
+                    ]
+                )
             ]
         , Form.group []
             [ Form.label [ for "email" ] [ text "Email" ]
@@ -162,6 +180,7 @@ profileTrimFields form =
         , lastName = String.trim form.lastName
         , email = String.trim form.email
         , location = String.trim form.location
+        , locationId = form.locationId
         , mobile = String.trim form.mobile
         }
 
@@ -180,6 +199,7 @@ profile token (ProfileTrimmed form) =
                 , ( "LastName", Encode.string form.lastName )
                 , ( "Email", Encode.string form.email )
                 , ( "Location", Encode.string form.location )
+                , ( "LocationId", Encode.int form.locationId )
                 , ( "Mobile", Encode.string form.mobile )
                 ]
                 |> Http.jsonBody

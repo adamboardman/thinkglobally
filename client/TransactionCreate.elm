@@ -1,18 +1,20 @@
-module TransactionCreate exposing (TransactionTrimmedForm(..), pageTransactionCreate, transaction, transactionCheckBalance, transactionFieldsToValidate, transactionTrimFields, transactionUpdateForm, transactionValidate, validateField, viewCreateTransactionForm)
+module TransactionCreate exposing (..)
 
 import Bootstrap.Button as Button
 import Bootstrap.ButtonGroup as ButtonGroup
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
+import Bootstrap.Form.Select as Select
 import Bootstrap.Form.Textarea as Textarea
 import Bootstrap.Grid as Grid
 import Dict
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, div, h4, text, ul)
-import Html.Attributes as Attributes exposing (class, for)
+import Html.Attributes exposing (for)
 import Html.Events exposing (onSubmit)
 import Http exposing (emptyBody)
 import Json.Encode as Encode
+import List.Extra
 import Loading
 import Time
 import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, creatingTransactionSummary, formatBalance, secondsFromTgs, txFeeIntFromTgs, userDecoder)
@@ -75,6 +77,41 @@ viewSuggestedTransacte user =
     Button.button [ Button.secondary, Button.onClick <| EnteredTransactionEmail user.email ] [ text (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " (", user.email, ")", " " ]) ]
 
 
+viewSelectableLocation : TransactionForm -> Types.LivingWageLocation -> Select.Item Msg
+viewSelectableLocation form livingWageLocation =
+    Select.item [ Html.Attributes.selected (form.locationId == livingWageLocation.id), Html.Attributes.value (String.fromInt livingWageLocation.id) ] [ text livingWageLocation.name ]
+
+
+findLivingWageForLocationIdAndDate : Model -> Int -> Time.Posix -> Types.LivingWage
+findLivingWageForLocationIdAndDate model locationId date =
+    let
+        wagesForLocation =
+            List.filter (\wage -> wage.locationId == locationId) model.livingWageList
+
+        wagesForDate =
+            List.filter (\wage -> (Time.posixToMillis date >= Time.posixToMillis wage.startDate) && (Time.posixToMillis date < Time.posixToMillis wage.stopDate)) wagesForLocation
+
+        wageForMinDate =
+            List.Extra.minimumBy (\wage -> Time.posixToMillis wage.startDate) wagesForLocation
+
+        wageForMaxDate =
+            List.Extra.maximumBy (\wage -> Time.posixToMillis wage.stopDate) wagesForLocation
+
+        minOrMaxDate =
+            case wageForMinDate of
+                Just wage ->
+                    if Time.posixToMillis date < Time.posixToMillis wage.startDate then
+                        Maybe.withDefault Types.emptyLivingWage wageForMinDate
+
+                    else
+                        Maybe.withDefault Types.emptyLivingWage wageForMaxDate
+
+                Nothing ->
+                    Types.emptyLivingWage
+    in
+    Maybe.withDefault minOrMaxDate (List.head wagesForDate)
+
+
 viewCreateTransactionForm : Model -> Html Msg
 viewCreateTransactionForm model =
     Grid.container []
@@ -82,7 +119,7 @@ viewCreateTransactionForm model =
             [ Grid.row []
                 [ Grid.col []
                     [ Form.group []
-                        [ Form.label [ for "email" ]
+                        [ Form.label [ Html.Attributes.for "email" ]
                             [ if model.creatingTransaction == TxOffer then
                                 text "Offer to Recipient Email address"
 
@@ -155,7 +192,7 @@ viewCreateTransactionForm model =
                     [ text "Time and Multiplier" ]
                 , ButtonGroup.radioButton
                     (model.creatingTransactionFrom == TxFromNational)
-                    [ Button.primary, Button.disabled True ]
+                    [ Button.primary, Button.onClick <| TransactionFromState TxFromNational ]
                     [ text "Equivalent to national currency" ]
                 ]
             , case model.creatingTransactionFrom of
@@ -215,7 +252,7 @@ viewCreateTransactionForm model =
                                 [ Form.label [ for "multiplier" ] [ text "Multiplier" ]
                                 , Input.number
                                     [ Input.id "multiplier"
-                                    , Input.attrs [ Attributes.min "1", Attributes.max "3", Attributes.step "0.01" ]
+                                    , Input.attrs [ Html.Attributes.min "1", Html.Attributes.max "3", Html.Attributes.step "0.01" ]
                                     , Input.placeholder "Multiplier"
                                     , Input.onInput EnteredTransactionMultiplier
                                     , Input.value model.transactionForm.multiplier
@@ -227,7 +264,29 @@ viewCreateTransactionForm model =
 
                 TxFromNational ->
                     Grid.row []
-                        [ Grid.col [] [] ]
+                        [ Grid.col []
+                            [ Form.group []
+                                [ Form.label [ for "location" ] [ text "Location" ]
+                                , Select.select [ Select.id "location", Select.onChange SelectedTransactionLocationId ]
+                                    (List.concat
+                                        [ List.singleton (Select.item [ Html.Attributes.value "0" ] [ text "-[Select Location]-" ])
+                                        , List.map (viewSelectableLocation model.transactionForm) model.livingWageLocationList
+                                        ]
+                                    )
+                                ]
+                            , Form.group []
+                                [ Form.label [ for "national" ] [ text "National Currency" ]
+                                , Input.text
+                                    [ Input.id "national"
+                                    , Input.placeholder "National"
+                                    , Input.disabled (model.transactionForm.locationId == 0)
+                                    , Input.onInput EnteredNational
+                                    , Input.value model.transactionForm.national
+                                    ]
+                                , Form.invalidFeedback [] [ text "Please enter the National equivalent value for the transaction" ]
+                                ]
+                            ]
+                        ]
             , Grid.row []
                 [ Grid.col []
                     [ Form.group []
@@ -252,7 +311,7 @@ viewCreateTransactionForm model =
                 ]
             , Grid.row []
                 [ Grid.col []
-                    [ ul [ class "error-messages" ]
+                    [ ul [ Html.Attributes.class "error-messages" ]
                         (List.map viewProblem model.problems)
                     ]
                 ]
@@ -326,11 +385,14 @@ transactionTrimFields : TransactionForm -> TransactionTrimmedForm
 transactionTrimFields form =
     TransactionTrimmed
         { email = String.trim form.email
+        , date = form.date
         , tgs = String.trim form.tgs
         , timeH = String.trim form.timeH
         , timeM = String.trim form.timeM
         , timeS = String.trim form.timeS
         , multiplier = String.trim form.multiplier
+        , locationId = form.locationId
+        , national = String.trim form.national
         , description = String.trim form.description
         , txFee = String.trim form.txFee
         }

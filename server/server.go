@@ -68,6 +68,15 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 		api.PATCH("/transactions/:transactionID/accept", AcceptTransaction)
 		api.PATCH("/transactions/:transactionID/reject", RejectTransaction)
 		api.GET("/transactions", TransactionsList)
+		api.GET("/living_wage_locations", LivingWageLocationsList)
+		api.POST("/living_wage_locations", AdminPermissionsRequired(), AddLivingWageLocation)
+		api.PUT("/living_wage_locations/:locationID", AdminPermissionsRequired(), UpdateLivingWageLocation)
+		api.GET("/living_wage_locations/:locationID", LoadLivingWageLocation)
+		api.GET("/living_wages/for_location/:locationID", LivingWagesList)
+		api.GET("/living_wages", LivingWagesList)
+		api.POST("/living_wages", AdminPermissionsRequired(), AddLivingWage)
+		api.PUT("/living_wages/:livingWageID", AdminPermissionsRequired(), UpdateLivingWage)
+		api.GET("/living_wages/:livingWageID", LoadLivingWage)
 	}
 }
 
@@ -154,6 +163,7 @@ func LoadUser(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
 			return
 		}
+		//TODO check that we have interacted with this user in the past otherwise throw an error?
 		c.JSON(http.StatusOK, user)
 	}
 }
@@ -201,7 +211,8 @@ func readJSONIntoUser(id uint, c *gin.Context) (*store.User, error) {
 	user.MidNames = userJson.MidNames
 	user.LastName = userJson.LastName
 	user.Location = userJson.Location
-	user.PhotoID = userJson.PhotoID
+	user.LocationId = userJson.LocationId
+	user.PhotoId = userJson.PhotoId
 	user.Email = userJson.Email
 	user.Mobile = userJson.Mobile
 
@@ -209,13 +220,14 @@ func readJSONIntoUser(id uint, c *gin.Context) (*store.User, error) {
 }
 
 type UserJSON struct {
-	FirstName string
-	MidNames  string
-	LastName  string
-	Location  string
-	PhotoID   uint
-	Email     string
-	Mobile    string
+	FirstName  string
+	MidNames   string
+	LastName   string
+	Location   string
+	LocationId uint
+	PhotoId    uint
+	Email      string
+	Mobile     string
 }
 
 func ConceptsList(c *gin.Context) {
@@ -464,6 +476,7 @@ type TransactionJSON struct {
 	TxFee           uint
 	Description     string
 	Location        string
+	LocationId      uint
 	ToPreviousTId   uint
 	FromPreviousTId uint
 	Status          uint
@@ -487,6 +500,7 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		transaction.TxFee = transactionJSON.TxFee
 		transaction.Description = transactionJSON.Description
 		transaction.Location = transactionJSON.Location
+		transaction.LocationId = transactionJSON.LocationId
 		transaction.ToPreviousTId = transactionJSON.ToPreviousTId
 		transaction.FromPreviousTId = transactionJSON.FromPreviousTId
 		transaction.Status = transactionJSON.Status
@@ -616,7 +630,7 @@ func AcceptTransaction(c *gin.Context) {
 		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId) - int64(transaction.Seconds)
 		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId) + (int64(transaction.Seconds) - int64(transaction.TxFee))
 	}
-	transaction.ConfirmedDate = store.PosixDateTime(time.Now())
+	transaction.ConfirmedDate = store.PosixDateTime(time.Now().UTC())
 	_, err = App.Store.UpdateTransaction(transaction)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
@@ -671,7 +685,7 @@ func RejectTransaction(c *gin.Context) {
 		transaction.FromUserBalance = fromUserLastTransaction.Balance(transaction.FromUserId)
 		transaction.ToUserBalance = toUserLastTransaction.Balance(transaction.ToUserId)
 	}
-	transaction.ConfirmedDate = store.PosixDateTime(time.Now())
+	transaction.ConfirmedDate = store.PosixDateTime(time.Now().UTC())
 	_, err = App.Store.UpdateTransaction(transaction)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Transaction failed update - err: %s", err.Error())})
@@ -747,4 +761,211 @@ func publicUserWithBalanceFromUser(publicUser *store.PublicUser) store.PublicUse
 		Balance:    balance,
 	}
 	return publicUserWithBalance
+}
+
+type LivingWageLocationJSON struct {
+	ID   uint
+	Name string
+}
+
+func readJSONIntoLivingWageLocation(livingWageLocation *store.LivingWageLocation, c *gin.Context, forceUpdate bool) error {
+	livingWageLocationJSON := LivingWageLocationJSON{}
+	err := c.BindJSON(&livingWageLocationJSON)
+	if err != nil {
+		return err
+	}
+
+	if forceUpdate || livingWageLocationJSON.ID == 0 {
+		livingWageLocation.ID = livingWageLocationJSON.ID
+		livingWageLocation.Name = livingWageLocationJSON.Name
+	}
+
+	return nil
+}
+
+func AddLivingWageLocation(c *gin.Context) {
+	livingWageLocation := store.LivingWageLocation{}
+
+	err := readJSONIntoLivingWageLocation(&livingWageLocation, c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("LivingWageLocation failed validation - error: %s", err.Error())})
+		return
+	}
+
+	livingWageLocationId, err := App.Store.InsertLivingWageLocation(&livingWageLocation)
+	if err != nil || livingWageLocationId == 0 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert LivingWageLocation failed"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusCreated, "message": "LivingWageLocation created successfully", "resourceId": livingWageLocationId,
+	})
+}
+
+type LivingWageJSON struct {
+	ID         uint
+	StartDate  store.PosixDateTime
+	StopDate   store.PosixDateTime
+	Wage       float32
+	LocationId uint
+}
+
+func readJSONIntoLivingWage(livingWage *store.LivingWage, c *gin.Context, forceUpdate bool) error {
+	livingWageJSON := LivingWageJSON{}
+	err := c.BindJSON(&livingWageJSON)
+	if err != nil {
+		return err
+	}
+
+	if forceUpdate || livingWageJSON.ID == 0 {
+		livingWage.ID = livingWageJSON.ID
+		livingWage.StartDate = livingWageJSON.StartDate
+		livingWage.StopDate = livingWageJSON.StopDate
+		livingWage.Wage = livingWageJSON.Wage
+		livingWage.LocationId = livingWageJSON.LocationId
+	}
+
+	return nil
+}
+
+func LivingWageLocationsList(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	livingWageLocations, err := App.Store.ListLivingWageLocations()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Living Wage Locations not found"})
+	} else {
+		c.JSON(http.StatusOK, livingWageLocations)
+	}
+}
+
+func LoadLivingWageLocation(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	livingWageLocationId, err := strconv.Atoi(c.Param("locationID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid LocationID"})
+		return
+	}
+	livingWageLocation, err := App.Store.LoadLivingWageLocation(uint(livingWageLocationId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Living Wage Location not found"})
+		return
+	}
+	livingWageLocationJSON := LivingWageLocationJSON{}
+	livingWageLocationJSON.ID = livingWageLocation.ID
+	livingWageLocationJSON.Name = livingWageLocation.Name
+	c.JSON(http.StatusOK, livingWageLocationJSON)
+}
+
+func LivingWagesList(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+
+	var livingWages []store.LivingWage
+
+	locationId, err := strconv.Atoi(c.Param("locationID"))
+	if err == nil {
+		livingWages, err = App.Store.ListLivingWagesForLocation(uint(locationId))
+	} else {
+		livingWages, err = App.Store.ListLivingWages()
+	}
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Living Wages not found"})
+	} else {
+		c.JSON(http.StatusOK, livingWages)
+	}
+}
+
+func AddLivingWage(c *gin.Context) {
+	livingWage := store.LivingWage{}
+
+	err := readJSONIntoLivingWage(&livingWage, c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("LivingWage failed validation - error: %s", err.Error())})
+		return
+	}
+
+	livingWageId, err := App.Store.InsertLivingWage(&livingWage)
+	if err != nil || livingWageId == 0 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert LivingWage failed"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusCreated, "message": "LivingWage created successfully", "resourceId": livingWageId,
+	})
+}
+
+func LoadLivingWage(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	livingWageId, err := strconv.Atoi(c.Param("livingWageID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid LivingWageID"})
+		return
+	}
+	livingWage, err := App.Store.LoadLivingWage(uint(livingWageId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Living Wage not found"})
+		return
+	}
+	livingWageJSON := LivingWageJSON{}
+	livingWageJSON.ID = livingWage.ID
+	livingWageJSON.StartDate = livingWage.StartDate
+	livingWageJSON.StopDate = livingWage.StopDate
+	livingWageJSON.LocationId = livingWage.LocationId
+	livingWageJSON.Wage = livingWage.Wage
+	c.JSON(http.StatusOK, livingWageJSON)
+}
+
+func UpdateLivingWage(c *gin.Context) {
+	livingWageId, err := strconv.Atoi(c.Param("livingWageID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("LivingWageID invalid - err: %s", err.Error())})
+		return
+	}
+
+	livingWage := &store.LivingWage{}
+	livingWage, err = App.Store.LoadLivingWage(uint(livingWageId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Living Wage not found"})
+		return
+	}
+
+	err = readJSONIntoLivingWage(livingWage, c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Living Wage details failed validation - err: %s", err.Error())})
+		return
+	}
+
+	_, err = App.Store.UpdateLivingWage(livingWage)
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK, "message": "Living Wage updated successfully", "resourceId": livingWageId,
+		})
+	}
+}
+
+func UpdateLivingWageLocation(c *gin.Context) {
+	livingWageLocationId, err := strconv.Atoi(c.Param("locationID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("LocationID invalid - err: %s", err.Error())})
+		return
+	}
+
+	livingWageLocation := &store.LivingWageLocation{}
+	livingWageLocation, err = App.Store.LoadLivingWageLocation(uint(livingWageLocationId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Living Wage Location not found"})
+		return
+	}
+
+	err = readJSONIntoLivingWageLocation(livingWageLocation, c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Living Wage Location details failed validation - err: %s", err.Error())})
+		return
+	}
+
+	_, err = App.Store.UpdateLivingWageLocation(livingWageLocation)
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK, "message": "Living Wage Location updated successfully", "resourceId": livingWageLocationId,
+		})
+	}
 }
