@@ -1066,11 +1066,7 @@ update msg model =
             livingWageLocationUpdateForm (\form -> { form | symbol = symbol }) model
 
         EnteredLivingWageWage wage ->
-            let
-                wageFloat =
-                    Maybe.withDefault 0.0 (String.toFloat wage)
-            in
-            livingWageUpdateForm (\form -> { form | wage = wageFloat }) model
+            livingWageUpdateForm (\form -> { form | wage = wage }) model
 
         SelectedLocationId location ->
             livingWageUpdateForm (\form -> { form | locationId = Maybe.withDefault 0 (String.toInt location) }) model
@@ -1179,7 +1175,7 @@ update msg model =
                     { startDate = Iso8601.fromTime res.startDate
                     , stopDate = Iso8601.fromTime res.stopDate
                     , locationId = res.locationId
-                    , wage = res.wage
+                    , wage = String.fromFloat res.wage
                     }
             in
             ( { model | livingWage = res, livingWageForm = livingWageForm, loading = Loading.Off }
@@ -1342,7 +1338,7 @@ urlUpdate url model =
                             { startDate = Iso8601.fromTime model.date
                             , stopDate = Iso8601.fromTime model.date
                             , locationId = 0
-                            , wage = 0.0
+                            , wage = ""
                             }
                     }
 

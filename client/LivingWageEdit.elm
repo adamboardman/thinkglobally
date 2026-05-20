@@ -120,7 +120,7 @@ viewLivingWageForm model =
                 [ Input.id "wage"
                 , Input.placeholder "Living Wage Wage"
                 , Input.onInput EnteredLivingWageWage
-                , Input.value (String.fromFloat model.livingWageForm.wage)
+                , Input.value model.livingWageForm.wage
                 ]
             , Form.invalidFeedback [] [ text "Please enter a wage" ]
             ]
@@ -228,13 +228,16 @@ livingWageBody model form =
 
         stopDate =
             Time.posixToMillis stopTime
+
+        wageFloat =
+            Maybe.withDefault 0.0 (String.toFloat form.wage)
     in
     Encode.object
         [ ( "Id", Encode.int model.livingWage.id )
         , ( "StartDate", Encode.int startDate )
         , ( "StopDate", Encode.int stopDate )
         , ( "LocationId", Encode.int form.locationId )
-        , ( "Wage", Encode.float form.wage )
+        , ( "Wage", Encode.float wageFloat )
         ]
         |> Http.jsonBody
 

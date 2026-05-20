@@ -230,7 +230,7 @@ type alias LivingWageForm =
     { startDate : String
     , stopDate : String
     , locationId : Int
-    , wage : Float
+    , wage : String
     }
 
 
@@ -1099,7 +1099,7 @@ emptyLivingWageForm =
     { startDate = ""
     , stopDate = ""
     , locationId = 0
-    , wage = 0.0
+    , wage = ""
     }
 
 
