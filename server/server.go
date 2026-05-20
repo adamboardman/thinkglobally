@@ -24,10 +24,10 @@ type WebApp struct {
 
 var App *WebApp
 
-func (a *WebApp) Init(dbName string) {
+func (a *WebApp) Init() {
 	App = a
 	a.Store = &store.Store{}
-	a.Store.StoreInit("test-db")
+	a.Store.StoreInit()
 
 	// Set the router as the default one shipped with Gin
 	router := gin.Default()

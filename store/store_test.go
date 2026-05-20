@@ -13,7 +13,7 @@ var s Store
 
 func TestMain(m *testing.M) {
 	s = Store{}
-	s.StoreInit("test-db")
+	s.StoreInit()
 
 	code := m.Run()
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+
 	"github.com/adamboardman/thinkglobally/server"
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +16,7 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	a := server.WebApp{}
-	a.Init("aye-social")
+	a.Init()
 
 	a.Run(":3030")
 }

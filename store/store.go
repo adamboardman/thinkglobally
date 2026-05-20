@@ -155,7 +155,7 @@ func readPostgresArgs() string {
 	if err != nil {
 		postgresArgs, err = os.ReadFile("../" + postgresArgsFileName)
 		if err != nil {
-			postgresArgs = []byte("host=myhost port=myport sslmode=disable user=thinkglobally dbname=concepts password=mypassword")
+			postgresArgs = []byte("host=myhost port=myport sslmode=disable user=thinkglobally dbname=mydbname password=mypassword")
 			err = os.WriteFile(postgresArgsFileName, postgresArgs, 0666)
 			if err != nil {
 				log.Fatal(err)
@@ -165,7 +165,7 @@ func readPostgresArgs() string {
 	return string(postgresArgs)
 }
 
-func (s *Store) StoreInit(dbName string) {
+func (s *Store) StoreInit() {
 	db, err := gorm.Open("postgres", readPostgresArgs())
 
 	if err != nil {

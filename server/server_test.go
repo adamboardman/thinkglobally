@@ -28,7 +28,7 @@ var a WebApp
 
 func TestMain(m *testing.M) {
 	a = WebApp{}
-	a.Init("test-db")
+	a.Init()
 
 	code := m.Run()
 
