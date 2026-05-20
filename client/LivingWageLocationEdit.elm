@@ -10,7 +10,6 @@ import Html.Events exposing (onSubmit)
 import Http
 import Json.Encode as Encode exposing (Value)
 import Loading
-import Markdown
 import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagForm, LivingWageLocationForm, Model, Msg(..), Problem(..), Tag, ValidatedField(..), apiActionDecoder, authHeader)
 
 
@@ -21,7 +20,8 @@ pageLivingWageLocationEdit model =
             [ if model.loading == Loading.Off && model.livingWageLocation.id > 0 then
                 div [ class "col-12" ]
                     [ h1 [ class "text-xs-center" ] [ text "Existing Living Wage Location" ]
-                    , div [] <| Markdown.toHtml Nothing model.livingWageLocation.name
+                    , div [] [ text "Name: ", text model.livingWageLocation.name ]
+                    , div [] [ text "Symbol: ", text model.livingWageLocation.symbol ]
                     , h1 [ class "text-xs-center" ] [ text "Edit Living Wage Location" ]
                     , viewLivingWageLocationForm model
                     ]
@@ -74,6 +74,16 @@ viewLivingWageLocationForm model =
                 ]
             , Form.invalidFeedback [] [ text "Please enter a name" ]
             ]
+        , Form.group []
+            [ Form.label [ for "symbol" ] [ text "Currency Symbol" ]
+            , Input.text
+                [ Input.id "symbol"
+                , Input.placeholder "Currency Symbol"
+                , Input.onInput EnteredLivingWageLocationSymbol
+                , Input.value model.livingWageLocationForm.symbol
+                ]
+            , Form.invalidFeedback [] [ text "Please enter a symbol" ]
+            ]
         , ul [ class "error-messages" ]
             (List.map viewProblem model.problems)
         , Button.button [ Button.primary ]
@@ -94,7 +104,9 @@ type LivingWageLocationTrimmedForm
 livingWageLocationTrimFields : LivingWageLocationForm -> LivingWageLocationTrimmedForm
 livingWageLocationTrimFields form =
     LivingWageLocationTrimmed
-        { name = String.trim form.name }
+        { name = String.trim form.name
+        , symbol = String.trim form.symbol
+        }
 
 
 validateField : LivingWageLocationTrimmedForm -> ValidatedField -> List Problem
@@ -142,6 +154,7 @@ livingWageLocationUpdate model (LivingWageLocationTrimmed form) =
             Encode.object
                 [ ( "Id", Encode.int model.livingWageLocation.id )
                 , ( "Name", Encode.string form.name )
+                , ( "Symbol", Encode.string form.symbol )
                 ]
                 |> Http.jsonBody
     in
@@ -163,6 +176,7 @@ livingWageLocationAdd model (LivingWageLocationTrimmed form) =
             Encode.object
                 [ ( "Id", Encode.int model.livingWageLocation.id )
                 , ( "Name", Encode.string form.name )
+                , ( "Symbol", Encode.string form.symbol )
                 ]
                 |> Http.jsonBody
     in

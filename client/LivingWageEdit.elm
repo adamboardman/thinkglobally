@@ -19,6 +19,10 @@ import Types exposing (ApiActionResponse, ConceptForm, ConceptTag, ConceptTagFor
 
 pageLivingWageEdit : Model -> List (Html Msg)
 pageLivingWageEdit model =
+    let
+        location =
+            Maybe.withDefault Types.emptyLivingWageLocation (List.head (List.filter (\lwl -> model.livingWage.locationId == lwl.id) model.livingWageLocationList))
+    in
     [ div [ class "container page" ]
         [ div [ class "row" ]
             [ if model.loading == Loading.Off && model.livingWage.id > 0 then
@@ -28,9 +32,9 @@ pageLivingWageEdit model =
                     , Html.div [] [ text "Stop Date: ", text (formatDate model model.livingWage.stopDate) ]
                     , Html.div []
                         [ text "Location: "
-                        , text (Maybe.withDefault Types.emptyLivingWageLocation (List.head (List.filter (\location -> model.livingWage.locationId == location.id) model.livingWageLocationList))).name
+                        , text location.name
                         ]
-                    , Html.div [] [ text "Wage: ", text (format sterlingLocale model.livingWage.wage) ]
+                    , Html.div [] [ text "Wage: ", text location.symbol, text (format sterlingLocale model.livingWage.wage) ]
                     , h1 [ class "text-xs-center" ] [ text "Edit Living Wage" ]
                     , viewLivingWageForm model
                     ]
@@ -111,7 +115,7 @@ viewLivingWageForm model =
                 )
             ]
         , Form.group []
-            [ Form.label [ for "wage" ] [ text "Living Wage Wage" ]
+            [ Form.label [ for "wage" ] [ text "Living Wage per Hour" ]
             , Input.text
                 [ Input.id "wage"
                 , Input.placeholder "Living Wage Wage"

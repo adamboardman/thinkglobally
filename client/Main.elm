@@ -1062,6 +1062,9 @@ update msg model =
         EnteredLivingWageLocationName name ->
             livingWageLocationUpdateForm (\form -> { form | name = name }) model
 
+        EnteredLivingWageLocationSymbol symbol ->
+            livingWageLocationUpdateForm (\form -> { form | symbol = symbol }) model
+
         EnteredLivingWageWage wage ->
             let
                 wageFloat =
@@ -1203,6 +1206,7 @@ update msg model =
             let
                 livingWageLocationForm =
                     { name = res.name
+                    , symbol = res.symbol
                     }
             in
             ( { model | livingWageLocation = res, livingWageLocationForm = livingWageLocationForm, loading = Loading.Off }

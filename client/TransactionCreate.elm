@@ -79,7 +79,19 @@ viewSuggestedTransacte user =
 
 viewSelectableLocation : TransactionForm -> Types.LivingWageLocation -> Select.Item Msg
 viewSelectableLocation form livingWageLocation =
-    Select.item [ Html.Attributes.selected (form.locationId == livingWageLocation.id), Html.Attributes.value (String.fromInt livingWageLocation.id) ] [ text livingWageLocation.name ]
+    let
+        locationDisplay =
+            if String.length livingWageLocation.symbol > 0 then
+                livingWageLocation.name ++ " (" ++ livingWageLocation.symbol ++ ")"
+
+            else
+                livingWageLocation.name
+    in
+    Select.item
+        [ Html.Attributes.selected (form.locationId == livingWageLocation.id)
+        , Html.Attributes.value (String.fromInt livingWageLocation.id)
+        ]
+        [ text locationDisplay ]
 
 
 findLivingWageForLocationIdAndDate : Model -> Int -> Time.Posix -> Types.LivingWage

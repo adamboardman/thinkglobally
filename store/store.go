@@ -394,7 +394,8 @@ func (s *Store) LastConfirmedTransactionForUser(userId uint) (Transaction, error
 
 type LivingWageLocation struct {
 	gorm.Model
-	Name string
+	Name   string
+	Symbol string
 }
 
 func (s *Store) PurgeLivingWageLocation(name string) {

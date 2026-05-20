@@ -120,6 +120,7 @@ type alias Concept =
 type alias LivingWageLocation =
     { id : Int
     , name : String
+    , symbol : String
     }
 
 
@@ -235,6 +236,7 @@ type alias LivingWageForm =
 
 type alias LivingWageLocationForm =
     { name : String
+    , symbol : String
     }
 
 
@@ -338,6 +340,7 @@ type Msg
     | SubmittedLivingWageForm
     | SubmittedLivingWageLocationForm
     | EnteredLivingWageLocationName String
+    | EnteredLivingWageLocationSymbol String
     | EnteredLivingWageWage String
     | LoadedLivingWage (Result Http.Error LivingWage)
     | LoadedLivingWages (Result Http.Error (List LivingWage))
@@ -1104,12 +1107,14 @@ emptyLivingWageLocation : LivingWageLocation
 emptyLivingWageLocation =
     { id = 0
     , name = ""
+    , symbol = ""
     }
 
 
 emptyLivingWageLocationForm : LivingWageLocationForm
 emptyLivingWageLocationForm =
     { name = ""
+    , symbol = ""
     }
 
 
@@ -1219,6 +1224,7 @@ livingWageLocationDecoder =
     Decode.succeed LivingWageLocation
         |> required "ID" int
         |> required "Name" string
+        |> required "Symbol" string
 
 
 livingWageDecoder : Decoder LivingWage

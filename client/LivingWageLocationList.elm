@@ -1,7 +1,5 @@
 module LivingWageLocationList exposing (..)
 
-import Dict
-import Dict.Extra exposing (fromListBy)
 import FormValidation exposing (viewProblem)
 import Html exposing (Html, a, div, h4, text)
 import Html.Attributes exposing (href)
@@ -20,8 +18,16 @@ pageLivingWageLocationList model =
 
 livingWageLocationSummary : LivingWageLocation -> Html Msg
 livingWageLocationSummary livingWageLocation =
+    let
+        locationDisplay =
+            if String.length livingWageLocation.symbol > 0 then
+                livingWageLocation.name ++ " (" ++ livingWageLocation.symbol ++ ")"
+
+            else
+                livingWageLocation.name
+    in
     div []
-        [ text livingWageLocation.name
+        [ text locationDisplay
         , a [ href ("/living_wage_locations/" ++ String.fromInt livingWageLocation.id ++ "/edit") ]
             [ text "(edit)" ]
         ]

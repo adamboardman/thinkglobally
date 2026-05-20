@@ -19,14 +19,19 @@ pageLivingWageList model =
 
 livingWageSummary : Model -> LivingWage -> Html Msg
 livingWageSummary model livingWage =
+    let
+        location =
+            Maybe.withDefault emptyLivingWageLocation (List.head (List.filter (\lwl -> lwl.id == livingWage.locationId) model.livingWageLocationList))
+    in
     div []
         [ text " Start Date: "
         , text (formatDate model livingWage.startDate)
         , text ", Stop Date: "
         , text (formatDate model livingWage.stopDate)
         , text ", Location: "
-        , text (Maybe.withDefault emptyLivingWageLocation (List.head (List.filter (\lwl -> lwl.id == livingWage.locationId) model.livingWageLocationList))).name
+        , text location.name
         , text ", Wage: "
+        , text location.symbol
         , text (format sterlingLocale livingWage.wage)
         , text " "
         , a [ href ("/living_wages/" ++ String.fromInt livingWage.id ++ "/edit") ] [ text "(edit)" ]

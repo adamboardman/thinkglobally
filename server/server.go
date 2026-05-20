@@ -764,8 +764,9 @@ func publicUserWithBalanceFromUser(publicUser *store.PublicUser) store.PublicUse
 }
 
 type LivingWageLocationJSON struct {
-	ID   uint
-	Name string
+	ID     uint
+	Name   string
+	Symbol string
 }
 
 func readJSONIntoLivingWageLocation(livingWageLocation *store.LivingWageLocation, c *gin.Context, forceUpdate bool) error {
@@ -778,6 +779,7 @@ func readJSONIntoLivingWageLocation(livingWageLocation *store.LivingWageLocation
 	if forceUpdate || livingWageLocationJSON.ID == 0 {
 		livingWageLocation.ID = livingWageLocationJSON.ID
 		livingWageLocation.Name = livingWageLocationJSON.Name
+		livingWageLocation.Symbol = livingWageLocationJSON.Symbol
 	}
 
 	return nil
@@ -853,6 +855,7 @@ func LoadLivingWageLocation(c *gin.Context) {
 	livingWageLocationJSON := LivingWageLocationJSON{}
 	livingWageLocationJSON.ID = livingWageLocation.ID
 	livingWageLocationJSON.Name = livingWageLocation.Name
+	livingWageLocationJSON.Symbol = livingWageLocation.Symbol
 	c.JSON(http.StatusOK, livingWageLocationJSON)
 }
 
