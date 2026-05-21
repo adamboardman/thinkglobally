@@ -87,7 +87,7 @@ viewLivingWageForm model =
             , Input.text
                 [ Input.id "startDate"
                 , Input.placeholder "Start Date"
-                , Input.onInput EnteredStartDate
+                , Input.onInput EnteredLivingWageStartDate
                 , Input.value model.livingWageForm.startDate
                 ]
             , Form.invalidFeedback [] [ text "Please enter a start date" ]
@@ -97,7 +97,7 @@ viewLivingWageForm model =
             , Input.text
                 [ Input.id "stopDate"
                 , Input.placeholder "Stop Date"
-                , Input.onInput EnteredStopDate
+                , Input.onInput EnteredLivingWageStopDate
                 , Input.value model.livingWageForm.stopDate
                 ]
             , Form.invalidFeedback [] [ text "Please enter a stop date" ]

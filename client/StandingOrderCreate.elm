@@ -1,4 +1,4 @@
-module TransactionCreate exposing (..)
+module StandingOrderCreate exposing (..)
 
 import Bootstrap.Button as Button
 import Bootstrap.ButtonGroup as ButtonGroup
@@ -13,45 +13,44 @@ import Html exposing (Html, div, h4, text, ul)
 import Html.Attributes exposing (for)
 import Html.Events exposing (onSubmit)
 import Http exposing (emptyBody)
+import Iso8601
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, creatingTransactionSummary, formatBalance, secondsFromTgs, txFeeIntFromTgs, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), StandingOrderForm, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, creatingStandingOrderSummary, formatBalance, secondsFromTgs, txFeeIntFromTgs, userDecoder)
 
 
-transactionFieldsToValidate : List ValidatedField
-transactionFieldsToValidate =
+standingOrderFieldsToValidate : List ValidatedField
+standingOrderFieldsToValidate =
     [ Email
     , TGs
     , Multiplier
     ]
 
 
-pageTransactionCreate : Model -> List (Html Msg)
-pageTransactionCreate model =
-    [ h4 []
-        [ text "Create Transaction" ]
-    , Grid.container
-        []
+pageStandingOrderCreate : Model -> List (Html Msg)
+pageStandingOrderCreate model =
+    [ h4 [] [ text "Create StandingOrder" ]
+    , Grid.container []
         [ ButtonGroup.radioButtonGroup []
             [ ButtonGroup.radioButton
-                (model.creatingTransaction == TxNone)
-                [ Button.primary, Button.onClick <| TransactionState TxNone ]
+                (model.creatingStandingOrder == TxNone)
+                [ Button.primary, Button.onClick <| StandingOrderState TxNone ]
                 [ text "Hidden" ]
             , ButtonGroup.radioButton
-                (model.creatingTransaction == TxOffer)
-                [ Button.primary, Button.onClick <| TransactionState TxOffer ]
+                (model.creatingStandingOrder == TxOffer)
+                [ Button.primary, Button.onClick <| StandingOrderState TxOffer ]
                 [ text "Offer" ]
             , ButtonGroup.radioButton
-                (model.creatingTransaction == TxRequest)
-                [ Button.primary, Button.onClick <| TransactionState TxRequest ]
+                (model.creatingStandingOrder == TxRequest)
+                [ Button.primary, Button.onClick <| StandingOrderState TxRequest ]
                 [ text "Request" ]
             ]
-        , if model.creatingTransaction == TxNone then
-            div [] [ text "Select Offer or Request to create a new transaction" ]
+        , if model.creatingStandingOrder == TxNone then
+            div [] [ text "Select Offer or Request to create a new Standing Order" ]
 
           else
-            viewCreateTransactionForm model
+            viewCreateStandingOrderForm model
         ]
     , Html.br [] []
     , Html.br [] []
@@ -61,12 +60,12 @@ pageTransactionCreate model =
     ]
 
 
-isUserMatchingTransactionEmail : Model -> User -> Bool
-isUserMatchingTransactionEmail model user =
-    if String.length model.transactionForm.email > 0 then
+isUserMatchingStandingOrderEmail : Model -> User -> Bool
+isUserMatchingStandingOrderEmail model user =
+    if String.length model.standingOrderForm.email > 0 then
         let
             lowerEmail =
-                String.toLower model.transactionForm.email
+                String.toLower model.standingOrderForm.email
         in
         not (user.id == model.loggedInUser.id)
             && String.contains lowerEmail (String.toLower (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " ", user.email ]))
@@ -77,10 +76,10 @@ isUserMatchingTransactionEmail model user =
 
 viewSuggestedTransacte : User -> Html Msg
 viewSuggestedTransacte user =
-    Button.button [ Button.secondary, Button.onClick <| EnteredTransactionEmail user.email ] [ text (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " (", user.email, ")", " " ]) ]
+    Button.button [ Button.secondary, Button.onClick <| EnteredStandingOrderEmail user.email ] [ text (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " (", user.email, ")", " " ]) ]
 
 
-viewSelectableLocation : TransactionForm -> Types.LivingWageLocation -> Select.Item Msg
+viewSelectableLocation : StandingOrderForm -> Types.LivingWageLocation -> Select.Item Msg
 viewSelectableLocation form livingWageLocation =
     let
         locationDisplay =
@@ -97,14 +96,14 @@ viewSelectableLocation form livingWageLocation =
         [ text locationDisplay ]
 
 
-viewCreateTransactionForm : Model -> Html Msg
-viewCreateTransactionForm model =
-    Form.form [ onSubmit SubmittedTransactionForm ]
+viewCreateStandingOrderForm : Model -> Html Msg
+viewCreateStandingOrderForm model =
+    Form.form [ onSubmit SubmittedStandingOrderForm ]
         [ Grid.row []
             [ Grid.col []
                 [ Form.group []
                     [ Form.label [ Html.Attributes.for "email" ]
-                        [ if model.creatingTransaction == TxOffer then
+                        [ if model.creatingStandingOrder == TxOffer then
                             text "Offer to Recipient Email address"
 
                           else
@@ -113,15 +112,15 @@ viewCreateTransactionForm model =
                     , Input.email
                         [ Input.id "email"
                         , Input.placeholder "Email"
-                        , Input.onInput EnteredTransactionEmail
-                        , Input.value model.transactionForm.email
+                        , Input.onInput EnteredStandingOrderEmail
+                        , Input.value model.standingOrderForm.email
                         ]
                     , Form.invalidFeedback []
-                        [ if model.creatingTransaction == TxOffer then
+                        [ if model.creatingStandingOrder == TxOffer then
                             text "Please enter recipient email address"
 
                           else
-                            text "Please enter the email address you are requesting the transaction from"
+                            text "Please enter the email address you are requesting the standingOrder from"
                         ]
                     ]
                 ]
@@ -130,25 +129,25 @@ viewCreateTransactionForm model =
             [ Grid.col []
                 [ Form.row []
                     [ Form.col []
-                        (List.map viewSuggestedTransacte (List.filter (isUserMatchingTransactionEmail model) (Dict.values model.txUsers)))
+                        (List.map viewSuggestedTransacte (List.filter (isUserMatchingStandingOrderEmail model) (Dict.values model.txUsers)))
                     ]
                 ]
             ]
-        , if model.creatingTransaction == TxRequest then
+        , if model.creatingStandingOrder == TxRequest then
             Grid.row []
                 [ Grid.col []
                     [ Form.row []
                         [ Form.col []
                             [ Button.button
                                 [ Button.secondary
-                                , Button.onClick ButtonTransactionCheckBalance
-                                , Button.disabled (String.length model.transactionForm.email == 0)
+                                , Button.onClick ButtonStandingOrderCheckBalance
+                                , Button.disabled (String.length model.standingOrderForm.email == 0)
                                 ]
                                 [ text "Check balance" ]
                             ]
                         , Form.col []
                             [ text "Balance: "
-                            , text (formatBalance model.creatingTransactionWithUser.balance)
+                            , text (formatBalance model.creatingStandingOrderWithUser.balance)
                             ]
                         ]
                     ]
@@ -167,19 +166,19 @@ viewCreateTransactionForm model =
                 ]
         , ButtonGroup.radioButtonGroup []
             [ ButtonGroup.radioButton
-                (model.creatingTransactionFrom == TxFromTGs)
-                [ Button.primary, Button.onClick <| TransactionFromState TxFromTGs ]
+                (model.creatingStandingOrderFrom == TxFromTGs)
+                [ Button.primary, Button.onClick <| StandingOrderFromState TxFromTGs ]
                 [ text "Direct TGs" ]
             , ButtonGroup.radioButton
-                (model.creatingTransactionFrom == TxFromTimeMul)
-                [ Button.primary, Button.onClick <| TransactionFromState TxFromTimeMul ]
+                (model.creatingStandingOrderFrom == TxFromTimeMul)
+                [ Button.primary, Button.onClick <| StandingOrderFromState TxFromTimeMul ]
                 [ text "Time and Multiplier" ]
             , ButtonGroup.radioButton
-                (model.creatingTransactionFrom == TxFromNational)
-                [ Button.primary, Button.onClick <| TransactionFromState TxFromNational ]
+                (model.creatingStandingOrderFrom == TxFromNational)
+                [ Button.primary, Button.onClick <| StandingOrderFromState TxFromNational ]
                 [ text "Equivalent to national currency" ]
             ]
-        , case model.creatingTransactionFrom of
+        , case model.creatingStandingOrderFrom of
             TxFromTGs ->
                 Grid.row []
                     [ Grid.col []
@@ -188,10 +187,10 @@ viewCreateTransactionForm model =
                             , Input.text
                                 [ Input.id "tgs"
                                 , Input.placeholder "TGs"
-                                , Input.onInput EnteredTransactionTGs
-                                , Input.value model.transactionForm.tgs
+                                , Input.onInput EnteredStandingOrderTGs
+                                , Input.value model.standingOrderForm.tgs
                                 ]
-                            , Form.invalidFeedback [] [ text "Please enter the TGs for the transaction" ]
+                            , Form.invalidFeedback [] [ text "Please enter the TGs for the standingOrder" ]
                             ]
                         ]
                     ]
@@ -204,8 +203,8 @@ viewCreateTransactionForm model =
                             , Input.text
                                 [ Input.id "timeH"
                                 , Input.placeholder "Hours"
-                                , Input.onInput EnteredTransactionTimeH
-                                , Input.value model.transactionForm.timeH
+                                , Input.onInput EnteredStandingOrderTimeH
+                                , Input.value model.standingOrderForm.timeH
                                 ]
                             ]
                         ]
@@ -215,8 +214,8 @@ viewCreateTransactionForm model =
                             , Input.text
                                 [ Input.id "timeM"
                                 , Input.placeholder "Minutes"
-                                , Input.onInput EnteredTransactionTimeM
-                                , Input.value model.transactionForm.timeM
+                                , Input.onInput EnteredStandingOrderTimeM
+                                , Input.value model.standingOrderForm.timeM
                                 ]
                             ]
                         ]
@@ -226,8 +225,8 @@ viewCreateTransactionForm model =
                             , Input.text
                                 [ Input.id "timeS"
                                 , Input.placeholder "Seconds"
-                                , Input.onInput EnteredTransactionTimeS
-                                , Input.value model.transactionForm.timeS
+                                , Input.onInput EnteredStandingOrderTimeS
+                                , Input.value model.standingOrderForm.timeS
                                 ]
                             ]
                         ]
@@ -238,10 +237,10 @@ viewCreateTransactionForm model =
                                 [ Input.id "multiplier"
                                 , Input.attrs [ Html.Attributes.min "1", Html.Attributes.max "3", Html.Attributes.step "0.01" ]
                                 , Input.placeholder "Multiplier"
-                                , Input.onInput EnteredTransactionMultiplier
-                                , Input.value model.transactionForm.multiplier
+                                , Input.onInput EnteredStandingOrderMultiplier
+                                , Input.value model.standingOrderForm.multiplier
                                 ]
-                            , Form.invalidFeedback [] [ text "Please enter the transaction multiplier, defaults to one" ]
+                            , Form.invalidFeedback [] [ text "Please enter the standingOrder multiplier, defaults to one" ]
                             ]
                         ]
                     ]
@@ -251,10 +250,10 @@ viewCreateTransactionForm model =
                     [ Grid.col []
                         [ Form.group []
                             [ Form.label [ for "location" ] [ text "Location" ]
-                            , Select.select [ Select.id "location", Select.onChange SelectedTransactionLocationId ]
+                            , Select.select [ Select.id "location", Select.onChange SelectedStandingOrderLocationId ]
                                 (List.concat
                                     [ List.singleton (Select.item [ Html.Attributes.value "0" ] [ text "-[Select Location]-" ])
-                                    , List.map (viewSelectableLocation model.transactionForm) model.livingWageLocationList
+                                    , List.map (viewSelectableLocation model.standingOrderForm) model.livingWageLocationList
                                     ]
                                 )
                             ]
@@ -263,19 +262,62 @@ viewCreateTransactionForm model =
                             , Input.text
                                 [ Input.id "national"
                                 , Input.placeholder "National"
-                                , Input.disabled (model.transactionForm.locationId == 0)
-                                , Input.onInput EnteredTransactionNational
-                                , Input.value model.transactionForm.national
+                                , Input.disabled (model.standingOrderForm.locationId == 0)
+                                , Input.onInput EnteredStandingOrderNational
+                                , Input.value model.standingOrderForm.national
                                 ]
-                            , Form.invalidFeedback [] [ text "Please enter the National equivalent value for the transaction" ]
+                            , Form.invalidFeedback [] [ text "Please enter the National equivalent value for the standingOrder" ]
                             ]
                         ]
                     ]
+        , Form.group []
+            [ Form.label [ for "startDate" ] [ text "Start Date" ]
+            , Input.text
+                [ Input.id "startDate"
+                , Input.placeholder "Start Date"
+                , Input.onInput EnteredStandingOrderStartDate
+                , Input.value model.standingOrderForm.startDate
+                ]
+            , Form.invalidFeedback [] [ text "Please enter a start date" ]
+            ]
+        , Form.group []
+            [ Form.label [ for "stopDate" ] [ text "Stop Date" ]
+            , Input.text
+                [ Input.id "stopDate"
+                , Input.placeholder "Stop Date"
+                , Input.onInput EnteredStandingOrderStopDate
+                , Input.value model.standingOrderForm.stopDate
+                ]
+            , Form.invalidFeedback [] [ text "Please enter a stop date" ]
+            ]
+        , Form.group []
+            [ Form.label [ for "frequency" ] [ text "Frequency" ]
+            , Html.br [] []
+            , ButtonGroup.radioButtonGroup []
+                [ ButtonGroup.radioButton
+                    (model.standingOrderForm.frequency == Types.FrequencyDaily)
+                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyDaily ]
+                    [ text "Daily" ]
+                , ButtonGroup.radioButton
+                    (model.standingOrderForm.frequency == Types.FrequencyWeekly)
+                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyWeekly ]
+                    [ text "Weekly" ]
+                , ButtonGroup.radioButton
+                    (model.standingOrderForm.frequency == Types.FrequencyMonthly)
+                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyMonthly ]
+                    [ text "Monthly" ]
+                , ButtonGroup.radioButton
+                    (model.standingOrderForm.frequency == Types.FrequencyAnnually)
+                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyAnnually ]
+                    [ text "Annually" ]
+                ]
+            , Form.invalidFeedback [] [ text "Please select the frequency of the standing order" ]
+            ]
         , Grid.row []
             [ Grid.col []
                 [ Form.group []
                     [ Form.label [] [ text "Summary - " ]
-                    , text (creatingTransactionSummary model)
+                    , text (creatingStandingOrderSummary model)
                     ]
                 ]
             ]
@@ -286,10 +328,10 @@ viewCreateTransactionForm model =
                     , Textarea.textarea
                         [ Textarea.id "description"
                         , Textarea.rows 2
-                        , Textarea.onInput EnteredTransactionDescription
-                        , Textarea.value model.transactionForm.description
+                        , Textarea.onInput EnteredStandingOrderDescription
+                        , Textarea.value model.standingOrderForm.description
                         ]
-                    , Form.invalidFeedback [] [ text "Please enter the transaction description" ]
+                    , Form.invalidFeedback [] [ text "Please enter the standingOrder description" ]
                     ]
                 ]
             ]
@@ -302,7 +344,7 @@ viewCreateTransactionForm model =
         , Grid.row []
             [ Grid.col []
                 [ Button.button [ Button.primary ]
-                    [ text "Submit Transaction" ]
+                    [ text "Submit Standing Order" ]
                 ]
             ]
         , Grid.row []
@@ -312,18 +354,18 @@ viewCreateTransactionForm model =
         ]
 
 
-transactionUpdateForm : (TransactionForm -> TransactionForm) -> Model -> ( Model, Cmd Msg )
-transactionUpdateForm transform model =
-    ( { model | transactionForm = transform model.transactionForm }, Cmd.none )
+standingOrderUpdateForm : (StandingOrderForm -> StandingOrderForm) -> Model -> ( Model, Cmd Msg )
+standingOrderUpdateForm transform model =
+    ( { model | standingOrderForm = transform model.standingOrderForm }, Cmd.none )
 
 
-transactionValidate : TransactionForm -> Result (List Problem) TransactionTrimmedForm
-transactionValidate form =
+standingOrderValidate : StandingOrderForm -> Result (List Problem) StandingOrderTrimmedForm
+standingOrderValidate form =
     let
         trimmedForm =
-            transactionTrimFields form
+            standingOrderTrimFields form
     in
-    case List.concatMap (validateField trimmedForm) transactionFieldsToValidate of
+    case List.concatMap (validateField trimmedForm) standingOrderFieldsToValidate of
         [] ->
             Ok trimmedForm
 
@@ -331,8 +373,8 @@ transactionValidate form =
             Err problems
 
 
-validateField : TransactionTrimmedForm -> ValidatedField -> List Problem
-validateField (TransactionTrimmed form) field =
+validateField : StandingOrderTrimmedForm -> ValidatedField -> List Problem
+validateField (StandingOrderTrimmed form) field =
     List.map (InvalidEntry field) <|
         case field of
             Email ->
@@ -367,15 +409,16 @@ validateField (TransactionTrimmed form) field =
                 []
 
 
-type TransactionTrimmedForm
-    = TransactionTrimmed TransactionForm
+type StandingOrderTrimmedForm
+    = StandingOrderTrimmed StandingOrderForm
 
 
-transactionTrimFields : TransactionForm -> TransactionTrimmedForm
-transactionTrimFields form =
-    TransactionTrimmed
+standingOrderTrimFields : StandingOrderForm -> StandingOrderTrimmedForm
+standingOrderTrimFields form =
+    StandingOrderTrimmed
         { email = String.trim form.email
-        , date = form.date
+        , startDate = form.startDate
+        , stopDate = form.stopDate
         , tgs = String.trim form.tgs
         , timeH = String.trim form.timeH
         , timeM = String.trim form.timeM
@@ -385,6 +428,7 @@ transactionTrimFields form =
         , national = String.trim form.national
         , description = String.trim form.description
         , txFee = String.trim form.txFee
+        , frequency = form.frequency
         }
 
 
@@ -392,25 +436,39 @@ transactionTrimFields form =
 -- HTTP
 
 
-transaction : Model -> TransactionTrimmedForm -> Cmd Msg
-transaction model (TransactionTrimmed form) =
+standingOrder : Model -> StandingOrderTrimmedForm -> Cmd Msg
+standingOrder model (StandingOrderTrimmed form) =
     let
         status =
-            if model.creatingTransaction == TxOffer then
+            if model.creatingStandingOrder == TxOffer then
                 1
 
             else
                 2
 
+        frequency =
+            case form.frequency of
+                Types.FrequencyDaily ->
+                    1
+
+                Types.FrequencyWeekly ->
+                    2
+
+                Types.FrequencyMonthly ->
+                    3
+
+                Types.FrequencyAnnually ->
+                    4
+
         fromId =
-            if model.creatingTransaction == TxOffer then
+            if model.creatingStandingOrder == TxOffer then
                 model.loggedInUser.id
 
             else
                 0
 
         toId =
-            if model.creatingTransaction == TxOffer then
+            if model.creatingStandingOrder == TxOffer then
                 0
 
             else
@@ -425,13 +483,43 @@ transaction model (TransactionTrimmed form) =
         txFee =
             txFeeIntFromTgs form.tgs
 
+        timeStartDateResult =
+            Iso8601.toTime form.startDate
+
+        startTime =
+            case timeStartDateResult of
+                Ok time ->
+                    time
+
+                _ ->
+                    model.time
+
+        startDate =
+            Time.posixToMillis startTime
+
+        timeStopDateResult =
+            Iso8601.toTime form.stopDate
+
+        stopTime =
+            case timeStopDateResult of
+                Ok time ->
+                    time
+
+                _ ->
+                    model.time
+
+        stopDate =
+            Time.posixToMillis stopTime
+
         body =
             Encode.object
                 [ ( "Email", Encode.string form.email )
-                , ( "InitiatedDate", Encode.int (Time.posixToMillis model.time) )
+                , ( "StartDate", Encode.int startDate )
+                , ( "StopDate", Encode.int stopDate )
                 , ( "Seconds", Encode.int seconds )
                 , ( "Multiplier", Encode.float multiplier )
                 , ( "Status", Encode.int status )
+                , ( "Frequency", Encode.int frequency )
                 , ( "Description", Encode.string form.description )
                 , ( "FromUserId", Encode.int fromId )
                 , ( "ToUserId", Encode.int toId )
@@ -442,8 +530,8 @@ transaction model (TransactionTrimmed form) =
     in
     Http.request
         { method = "POST"
-        , url = "/api/transactions"
-        , expect = Http.expectJson AddedTransaction apiActionDecoder
+        , url = "/api/standing_orders"
+        , expect = Http.expectJson AddedStandingOrder apiActionDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = body
         , timeout = Nothing
@@ -451,12 +539,12 @@ transaction model (TransactionTrimmed form) =
         }
 
 
-transactionCheckBalance : Model -> Cmd Msg
-transactionCheckBalance model =
+standingOrderCheckBalance : Model -> Cmd Msg
+standingOrderCheckBalance model =
     Http.request
         { method = "GET"
-        , url = "/api/users?Email=" ++ model.transactionForm.email
-        , expect = Http.expectJson LoadedTransactionUserWithBalance userDecoder
+        , url = "/api/users?Email=" ++ model.standingOrderForm.email
+        , expect = Http.expectJson LoadedStandingOrderUserWithBalance userDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = emptyBody
         , timeout = Nothing

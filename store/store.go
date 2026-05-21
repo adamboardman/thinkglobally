@@ -122,6 +122,22 @@ func (d *PosixDateTime) Scan(src interface{}) error {
 	return nil
 }
 
+func (d PosixDateTime) AddDate(years int, months int, days int) PosixDateTime {
+	return PosixDateTime(time.Time(d).AddDate(years, months, days))
+}
+
+func (d PosixDateTime) Days() uint64 {
+	unixSeconds := time.Time(d).UTC().Unix()
+	secondsPerMinute := 60
+	secondsPerHour := 60 * secondsPerMinute
+	secondsPerDay := 24 * secondsPerHour
+	return uint64(unixSeconds) / uint64(secondsPerDay)
+}
+
+func (d PosixDateTime) DateString() string {
+	return time.Time(d).Format("2006-01-02")
+}
+
 type Transaction struct {
 	gorm.Model
 	InitiatedDate   PosixDateTime `gorm:"type:timestamp with time zone"`
@@ -132,8 +148,8 @@ type Transaction struct {
 	Multiplier      float32
 	TxFee           uint
 	Description     string
-	Location        string
 	LocationId      uint
+	StandingOrderId uint
 	ToPreviousTId   uint
 	FromPreviousTId uint
 	Status          uint
@@ -176,7 +192,7 @@ func (s *Store) StoreInit() {
 	_, _ = db.DB().Exec("CREATE EXTENSION postgis;")
 	_, _ = db.DB().Exec("SET TIME ZONE 'UTC';")
 
-	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}, &Transaction{}, &LivingWageLocation{}, &LivingWage{}).Error
+	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}, &Transaction{}, &LivingWageLocation{}, &LivingWage{}, &StandingOrder{}).Error
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -188,6 +204,8 @@ func (s *Store) StoreInit() {
 	db.Model(&Transaction{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
 	db.Model(&Transaction{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
 	db.Model(&LivingWage{}).AddForeignKey("location_id", "living_wage_locations(id)", "CASCADE", "RESTRICT")
+	db.Model(&StandingOrder{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
+	db.Model(&StandingOrder{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
 }
 
 func (s *Store) InsertUser(user *User) (uint, error) {
@@ -364,6 +382,12 @@ func (s *Store) ListTransactionsForUser(userId uint) ([]Transaction, error) {
 	return transactions, err
 }
 
+func (s *Store) LastTransactionForStandingOrder(standingOrderId uint) (Transaction, error) {
+	var transaction Transaction
+	err := s.db.Where("standing_order_id=?", standingOrderId).Order("initiated_date").Last(&transaction).Error
+	return transaction, err
+}
+
 func (s *Store) PurgeTransaction(transaction Transaction) {
 	s.db.Unscoped().Where("id=?", transaction.ID).Delete(Transaction{})
 }
@@ -375,6 +399,9 @@ func (s *Store) LoadTransaction(id uint) (*Transaction, error) {
 }
 
 func (s *Store) UpdateTransaction(transaction *Transaction) (uint, error) {
+	if transaction.Multiplier < 1 || transaction.Multiplier > 3 {
+		return 0, nil
+	}
 	err := s.db.Save(transaction).Error
 	return transaction.ID, err
 }
@@ -489,4 +516,73 @@ func (s *Store) FindLivingWage(locationId uint, startDate PosixDateTime, stopDat
 
 func (s *Store) PurgeLivingWage(livingWage *LivingWage) {
 	s.db.Unscoped().Where("id=?", livingWage.ID).Delete(LivingWage{})
+}
+
+const (
+	FrequencyUnknown = iota
+	FrequencyDaily
+	FrequencyWeekly
+	FrequencyMonthly
+	FrequencyAnnually
+)
+
+type StandingOrder struct {
+	gorm.Model
+	StartDate         PosixDateTime `gorm:"type:timestamp with time zone"`
+	StopDate          PosixDateTime `gorm:"type:timestamp with time zone"`
+	ConfirmedDate     PosixDateTime `gorm:"type:timestamp with time zone"`
+	ProcessedUptoDate PosixDateTime `gorm:"type:timestamp with time zone"`
+	FromUserId        uint
+	ToUserId          uint
+	Seconds           uint64 `gorm:"type:bigint"`
+	Multiplier        float32
+	TxFee             uint
+	Description       string
+	LocationId        uint
+	Status            uint
+	Frequency         uint
+}
+
+func (s *Store) InsertStandingOrder(standingOrder *StandingOrder) (uint, error) {
+	if standingOrder.Multiplier < 1 || standingOrder.Multiplier > 3 {
+		return 0, nil
+	}
+	err := s.db.Create(standingOrder).Error
+	return standingOrder.ID, err
+}
+
+func (s *Store) ListStandingOrdersForUser(userId uint) ([]StandingOrder, error) {
+	var standingOrders []StandingOrder
+	err := s.db.Where("from_user_id=? OR to_user_id=?", userId, userId).Order("start_date, stop_date").Find(&standingOrders).Error
+	return standingOrders, err
+}
+
+func (s *Store) ListStandingOrdersToProcess() ([]StandingOrder, error) {
+	var standingOrders []StandingOrder
+	now := PosixDateTime(time.Now().UTC())
+	err := s.db.Where("status > 2 AND (stop_date<start_date OR ? < stop_date OR processed_upto_date<=?) AND processed_upto_date<=?", now, now, now).Order("processed_upto_date").Find(&standingOrders).Error
+	return standingOrders, err
+}
+
+func (s *Store) PurgeStandingOrder(standingOrder StandingOrder) {
+	s.db.Unscoped().Where("id=?", standingOrder.ID).Delete(StandingOrder{})
+}
+
+func (s *Store) LoadStandingOrder(id uint) (*StandingOrder, error) {
+	standingOrder := StandingOrder{}
+	err := s.db.Where("id=?", id).Find(&standingOrder).Error
+	return &standingOrder, err
+}
+
+func (s *Store) UpdateStandingOrder(standingOrder *StandingOrder) (uint, error) {
+	if standingOrder.Multiplier < 1 || standingOrder.Multiplier > 3 {
+		return 0, nil
+	}
+	err := s.db.Save(standingOrder).Error
+	return standingOrder.ID, err
+}
+
+func (s *Store) DeleteStandingOrder(id uint) error {
+	err := s.db.Unscoped().Where("id=?", id).Delete(StandingOrder{}).Error
+	return err
 }

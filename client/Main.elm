@@ -24,12 +24,15 @@ import Ports exposing (storeExpire, storeToken)
 import Profile exposing (pageProfile, profile, profileUpdateForm, profileValidate)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
 import Set
+import StandingOrderCreate exposing (pageStandingOrderCreate, standingOrderUpdateForm)
+import StandingOrderExisting exposing (loadStandingOrders, pageStandingOrderList, stopStandingOrder)
+import StandingOrderPending exposing (acceptStandingOrder, pageStandingOrderPending, rejectStandingOrder, withdrawStandingOrder)
 import Task
 import Time exposing (utc)
 import TransactionCreate exposing (pageTransactionCreate, transaction, transactionCheckBalance, transactionUpdateForm, transactionValidate)
 import TransactionPast exposing (loadTransactions, loadTxUsers, pageTransactionList)
 import TransactionPending exposing (acceptTransaction, pageTransactionPending, rejectTransaction)
-import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyLivingWage, emptyLivingWageForm, emptyLivingWageLocation, emptyLivingWageLocationForm, emptyProfileForm, emptySession, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeHMSAndMultiplier, txFeeFromTgs, userDecoder)
+import Types exposing (LoginForm, Model, Msg(..), Page(..), Problem(..), Session, Transaction, TransactionFromType(..), TransactionType(..), User, authHeader, conceptDecoder, displayableTagsListFrom, emptyConcept, emptyConceptForm, emptyLivingWage, emptyLivingWageForm, emptyLivingWageLocation, emptyLivingWageLocationForm, emptyProfileForm, emptySession, emptyStandingOrderForm, emptyTransactionForm, emptyUser, indexUser, intHoursFromTgs, intMinutesFromTgs, intSecondsFromTgs, isNot, padAndCapTimePart, profileDecoder, tgsFromTimeHMSAndMultiplier, txFeeFromTgs, userDecoder)
 import Url exposing (Url)
 import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, s, string, top)
 import Url.Parser.Query as Query
@@ -104,6 +107,12 @@ init flags url key =
                 , livingWageLocation = emptyLivingWageLocation
                 , livingWageLocationForm = emptyLivingWageLocationForm
                 , livingWageLocationList = []
+                , creatingStandingOrder = TxNone
+                , creatingStandingOrderFrom = TxFromTGs
+                , creatingStandingOrderWithUser = emptyUser
+                , standingOrderForm = emptyStandingOrderForm
+                , pastStandingOrders = []
+                , pendingStandingOrders = []
                 }
     in
     ( model
@@ -146,7 +155,7 @@ menu model =
                     [ if userIsEditor model then
                         Navbar.dropdown
                             { id = "concepts_dropdown"
-                            , toggle = Navbar.dropdownToggle [ href (urlForPage model.page) ] [ text "Concepts" ]
+                            , toggle = Navbar.dropdownToggle [] [ text "Concepts" ]
                             , items =
                                 [ Navbar.dropdownItem
                                     [ href (urlForPage ConceptsList) ]
@@ -158,11 +167,11 @@ menu model =
                             }
 
                       else
-                        Navbar.itemLink [ href "" ] [ text "" ]
+                        Navbar.itemLink [] [ text "" ]
                     , if userIsEditor model then
                         Navbar.dropdown
                             { id = "living_wages_dropdown"
-                            , toggle = Navbar.dropdownToggle [ href (urlForPage model.page) ] [ text "Living Wages" ]
+                            , toggle = Navbar.dropdownToggle [] [ text "Living Wages" ]
                             , items =
                                 [ Navbar.dropdownItem
                                     [ href (urlForPage LivingWageList) ]
@@ -180,16 +189,16 @@ menu model =
                             }
 
                       else
-                        Navbar.itemLink [ href "" ] [ text "" ]
+                        Navbar.itemLink [] [ text "" ]
                     , if loggedIn model then
                         Navbar.itemLink [ href (urlForPage Profile) ] [ text "Profile" ]
 
                       else
-                        Navbar.itemLink [ href "" ] [ text "" ]
+                        Navbar.itemLink [] [ text "" ]
                     , if loggedIn model then
                         Navbar.dropdown
                             { id = "transactions_dropdown"
-                            , toggle = Navbar.dropdownToggle [ href (urlForPage model.page) ] [ text "Transactions" ]
+                            , toggle = Navbar.dropdownToggle [] [ text "Transactions" ]
                             , items =
                                 [ Navbar.dropdownItem
                                     [ href (urlForPage PendingTransactions) ]
@@ -204,7 +213,26 @@ menu model =
                             }
 
                       else
-                        Navbar.itemLink [ href "" ] [ text "" ]
+                        Navbar.itemLink [] [ text "" ]
+                    , if loggedIn model then
+                        Navbar.dropdown
+                            { id = "standing_orders_dropdown"
+                            , toggle = Navbar.dropdownToggle [] [ text "Standing Orders" ]
+                            , items =
+                                [ Navbar.dropdownItem
+                                    [ href (urlForPage PendingStandingOrders) ]
+                                    [ text "Pending Standing Orders" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage PastStandingOrders) ]
+                                    [ text "Existing Standing Orders" ]
+                                , Navbar.dropdownItem
+                                    [ href (urlForPage AddStandingOrder) ]
+                                    [ text "Create Standing Order" ]
+                                ]
+                            }
+
+                      else
+                        Navbar.itemLink [] [ text "" ]
                     , if loggedIn model then
                         Navbar.itemLink [ href (urlForPage Logout) ] [ text "Logout" ]
 
@@ -274,6 +302,15 @@ mainContent model =
 
             LivingWageEdit _ ->
                 pageLivingWageEdit model
+
+            AddStandingOrder ->
+                pageStandingOrderCreate model
+
+            PendingStandingOrders ->
+                pageStandingOrderPending model
+
+            PastStandingOrders ->
+                pageStandingOrderList model
 
             NotFound ->
                 pageNotFound
@@ -474,7 +511,7 @@ update msg model =
                     model.transactionForm.locationId
 
                 livingWage =
-                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+                    Types.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
 
                 national =
                     String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
@@ -493,7 +530,7 @@ update msg model =
                     model.transactionForm.locationId
 
                 livingWage =
-                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+                    Types.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
 
                 national =
                     String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
@@ -515,7 +552,7 @@ update msg model =
                     model.transactionForm.locationId
 
                 livingWage =
-                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+                    Types.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
 
                 national =
                     String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
@@ -537,7 +574,7 @@ update msg model =
                     model.transactionForm.locationId
 
                 livingWage =
-                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+                    Types.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
 
                 national =
                     String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
@@ -556,20 +593,20 @@ update msg model =
                     model.transactionForm.locationId
 
                 livingWage =
-                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+                    Types.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
 
                 national =
                     String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
             in
             transactionUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier, txFee = txFee, national = national }) model
 
-        EnteredNational national ->
+        EnteredTransactionNational national ->
             let
                 locationId =
                     model.transactionForm.locationId
 
                 livingWage =
-                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+                    Types.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
 
                 tgs =
                     String.fromFloat (Maybe.withDefault 0 (String.toFloat national) / livingWage.wage)
@@ -1080,7 +1117,7 @@ update msg model =
                     Maybe.withDefault 0 (String.toInt location)
 
                 livingWage =
-                    TransactionCreate.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+                    Types.findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
 
                 national =
                     String.fromFloat (Maybe.withDefault 0 (String.toFloat model.transactionForm.tgs) * livingWage.wage)
@@ -1182,10 +1219,10 @@ update msg model =
             , Cmd.none
             )
 
-        EnteredStartDate startDate ->
+        EnteredLivingWageStartDate startDate ->
             livingWageUpdateForm (\form -> { form | startDate = startDate }) model
 
-        EnteredStopDate stopDate ->
+        EnteredLivingWageStopDate stopDate ->
             livingWageUpdateForm (\form -> { form | stopDate = stopDate }) model
 
         LoadedLivingWageLocation (Err error) ->
@@ -1207,6 +1244,401 @@ update msg model =
             in
             ( { model | livingWageLocation = res, livingWageLocationForm = livingWageLocationForm, loading = Loading.Off }
             , Cmd.none
+            )
+
+        StandingOrderState transactionType ->
+            ( { model | creatingStandingOrder = transactionType }
+            , Cmd.none
+            )
+
+        StandingOrderFromState transactionFromType ->
+            ( { model | creatingStandingOrderFrom = transactionFromType }
+            , Cmd.none
+            )
+
+        EnteredStandingOrderEmail email ->
+            ( { model | creatingStandingOrderWithUser = emptyUser, standingOrderForm = (\form -> { form | email = email }) model.standingOrderForm }, Cmd.none )
+
+        EnteredStandingOrderTGs tgs ->
+            let
+                newTimeH =
+                    intHoursFromTgs tgs model.standingOrderForm.multiplier
+
+                newTimeM =
+                    intMinutesFromTgs tgs model.standingOrderForm.multiplier
+
+                newTimeS =
+                    intSecondsFromTgs tgs model.standingOrderForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+
+                locationId =
+                    model.standingOrderForm.locationId
+
+                timeStartDateResult =
+                    Iso8601.toTime model.standingOrderForm.startDate
+
+                date =
+                    case timeStartDateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+
+                livingWage =
+                    Types.findLivingWageForLocationIdAndDate model locationId date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
+            in
+            standingOrderUpdateForm (\form -> { form | tgs = tgs, timeH = newTimeH, timeM = newTimeM, timeS = newTimeS, txFee = txFee, national = national }) model
+
+        EnteredStandingOrderTimeH hours ->
+            let
+                tgs =
+                    tgsFromTimeHMSAndMultiplier hours model.standingOrderForm.timeM model.standingOrderForm.timeS model.standingOrderForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+
+                locationId =
+                    model.standingOrderForm.locationId
+
+                timeStartDateResult =
+                    Iso8601.toTime model.standingOrderForm.startDate
+
+                date =
+                    case timeStartDateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+
+                livingWage =
+                    Types.findLivingWageForLocationIdAndDate model locationId date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
+            in
+            standingOrderUpdateForm (\form -> { form | tgs = tgs, timeH = hours, txFee = txFee, national = national }) model
+
+        EnteredStandingOrderTimeM minutes ->
+            let
+                newMinutes =
+                    padAndCapTimePart minutes
+
+                tgs =
+                    tgsFromTimeHMSAndMultiplier model.standingOrderForm.timeH newMinutes model.standingOrderForm.timeS model.standingOrderForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+
+                locationId =
+                    model.standingOrderForm.locationId
+
+                timeStartDateResult =
+                    Iso8601.toTime model.standingOrderForm.startDate
+
+                date =
+                    case timeStartDateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+
+                livingWage =
+                    Types.findLivingWageForLocationIdAndDate model locationId date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
+            in
+            standingOrderUpdateForm (\form -> { form | tgs = tgs, timeM = newMinutes, txFee = txFee, national = national }) model
+
+        EnteredStandingOrderTimeS seconds ->
+            let
+                newSeconds =
+                    padAndCapTimePart seconds
+
+                tgs =
+                    tgsFromTimeHMSAndMultiplier model.standingOrderForm.timeH model.standingOrderForm.timeM newSeconds model.standingOrderForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+
+                locationId =
+                    model.standingOrderForm.locationId
+
+                timeStartDateResult =
+                    Iso8601.toTime model.standingOrderForm.startDate
+
+                date =
+                    case timeStartDateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+
+                livingWage =
+                    Types.findLivingWageForLocationIdAndDate model locationId date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
+            in
+            standingOrderUpdateForm (\form -> { form | tgs = tgs, timeS = newSeconds, txFee = txFee, national = national }) model
+
+        EnteredStandingOrderMultiplier multiplier ->
+            let
+                tgs =
+                    tgsFromTimeHMSAndMultiplier model.standingOrderForm.timeH model.standingOrderForm.timeM model.standingOrderForm.timeS multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+
+                locationId =
+                    model.standingOrderForm.locationId
+
+                timeStartDateResult =
+                    Iso8601.toTime model.standingOrderForm.startDate
+
+                date =
+                    case timeStartDateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+
+                livingWage =
+                    Types.findLivingWageForLocationIdAndDate model locationId date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat tgs) * livingWage.wage)
+            in
+            standingOrderUpdateForm (\form -> { form | tgs = tgs, multiplier = multiplier, txFee = txFee, national = national }) model
+
+        EnteredStandingOrderNational national ->
+            let
+                locationId =
+                    model.standingOrderForm.locationId
+
+                timeStartDateResult =
+                    Iso8601.toTime model.standingOrderForm.startDate
+
+                date =
+                    case timeStartDateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+
+                livingWage =
+                    Types.findLivingWageForLocationIdAndDate model locationId date
+
+                tgs =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat national) / livingWage.wage)
+
+                newTimeH =
+                    intHoursFromTgs tgs model.standingOrderForm.multiplier
+
+                newTimeM =
+                    intMinutesFromTgs tgs model.standingOrderForm.multiplier
+
+                newTimeS =
+                    intSecondsFromTgs tgs model.standingOrderForm.multiplier
+
+                txFee =
+                    txFeeFromTgs tgs
+            in
+            standingOrderUpdateForm (\form -> { form | national = national, tgs = tgs, timeH = newTimeH, timeM = newTimeM, timeS = newTimeS, txFee = txFee }) model
+
+        EnteredStandingOrderDescription description ->
+            standingOrderUpdateForm (\form -> { form | description = description }) model
+
+        ButtonStandingOrderCheckBalance ->
+            ( { model | loading = Loading.On }
+            , StandingOrderCreate.standingOrderCheckBalance model
+            )
+
+        EnteredStandingOrderStartDate startDate ->
+            standingOrderUpdateForm (\form -> { form | startDate = startDate }) model
+
+        EnteredStandingOrderStopDate stopDate ->
+            standingOrderUpdateForm (\form -> { form | stopDate = stopDate }) model
+
+        SelectedStandingOrderLocationId location ->
+            let
+                locationId =
+                    Maybe.withDefault 0 (String.toInt location)
+
+                timeStartDateResult =
+                    Iso8601.toTime model.standingOrderForm.startDate
+
+                date =
+                    case timeStartDateResult of
+                        Ok time ->
+                            time
+
+                        _ ->
+                            model.time
+
+                livingWage =
+                    Types.findLivingWageForLocationIdAndDate model locationId date
+
+                national =
+                    String.fromFloat (Maybe.withDefault 0 (String.toFloat model.standingOrderForm.tgs) * livingWage.wage)
+            in
+            standingOrderUpdateForm (\form -> { form | locationId = locationId, national = national }) model
+
+        SelectedStandingOrderFrequency frequency ->
+            standingOrderUpdateForm (\form -> { form | frequency = frequency }) model
+
+        SubmittedStandingOrderForm ->
+            case StandingOrderCreate.standingOrderValidate model.standingOrderForm of
+                Ok validForm ->
+                    ( { model | problems = [], loading = Loading.On }
+                    , StandingOrderCreate.standingOrder model validForm
+                    )
+
+                Err problems ->
+                    ( { model | problems = problems, loading = Loading.Off }
+                    , Cmd.none
+                    )
+
+        AddedStandingOrder result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off, standingOrderForm = emptyStandingOrderForm, creatingStandingOrder = TxNone }, loadStandingOrders model )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
+                    , Cmd.none
+                    )
+
+        LoadedStandingOrderUserWithBalance (Err error) ->
+            ( { model | creatingStandingOrderWithUser = emptyUser, loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedStandingOrderUserWithBalance (Ok res) ->
+            ( { model | creatingStandingOrderWithUser = res, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedStandingOrders (Err error) ->
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedStandingOrders (Ok res) ->
+            let
+                pastS =
+                    List.filter (\t -> t.status > 2) res
+
+                pendingS =
+                    List.filter (\t -> t.status == 1 || t.status == 2) res
+            in
+            ( { model | pastStandingOrders = pastS, pendingStandingOrders = pendingS, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        ViewStandingOrder soId ->
+            ( { model | selectedTxId = soId }, Cmd.none )
+
+        AcceptStandingOrder soId ->
+            ( { model | loading = Loading.On }
+            , acceptStandingOrder model soId
+            )
+
+        RejectStandingOrder soId ->
+            ( { model | loading = Loading.On }
+            , rejectStandingOrder model soId
+            )
+
+        WithdrawStandingOrder soId ->
+            ( { model | loading = Loading.On }
+            , withdrawStandingOrder model soId
+            )
+
+        StopStandingOrder soId ->
+            ( { model | loading = Loading.On }
+            , stopStandingOrder model soId
+            )
+
+        AcceptedStandingOrder result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off }, loadStandingOrders model )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
+                    , loadStandingOrders model
+                    )
+
+        RejectedStandingOrder result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, loading = Loading.Off }, loadStandingOrders model )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+
+                        newSession =
+                            sessionGivenAuthError error model
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = newSession }
+                    , loadStandingOrders model
+                    )
+
+        StandingOrderDeleted (Err error) ->
+            let
+                serverErrors =
+                    decodeErrors error
+                        |> List.map ServerError
+            in
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        StandingOrderDeleted (Ok res) ->
+            ( { model | loading = Loading.Off }
+            , loadStandingOrders model
+            )
+
+        StandingOrderStopped (Err error) ->
+            let
+                serverErrors =
+                    decodeErrors error
+                        |> List.map ServerError
+            in
+            ( { model | problems = List.append model.problems serverErrors, loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        StandingOrderStopped (Ok res) ->
+            ( { model | loading = Loading.Off }
+            , loadStandingOrders model
             )
 
 
@@ -1306,6 +1738,15 @@ urlForPage page =
         LivingWageEdit string ->
             "/living_wages/" ++ string ++ "/edit"
 
+        AddStandingOrder ->
+            "/add_standing_order"
+
+        PendingStandingOrders ->
+            "/standing_orders/pending"
+
+        PastStandingOrders ->
+            "/standing_orders"
+
 
 urlUpdate : Url -> Model -> ( Model, Cmd Msg )
 urlUpdate url model =
@@ -1339,6 +1780,17 @@ urlUpdate url model =
                             , stopDate = Iso8601.fromTime model.date
                             , locationId = 0
                             , wage = ""
+                            }
+                    }
+
+                AddStandingOrder ->
+                    { model
+                        | page = page
+                        , standingOrderForm =
+                            { emptyStandingOrderForm
+                                | startDate = Iso8601.fromTime model.time
+                                , stopDate = Iso8601.fromTime model.time
+                                , locationId = 0
                             }
                     }
 
@@ -1422,8 +1874,17 @@ urlUpdate url model =
                     in
                     Cmd.batch [ loadLivingWageById model livingWageId, loadLivingWageLocations model ]
 
+                AddStandingOrder ->
+                    Cmd.batch [ loadTxUsers model, loadLivingWages model, loadLivingWageLocations model ]
+
                 NotFound ->
                     Cmd.none
+
+                PendingStandingOrders ->
+                    Cmd.batch [ loadStandingOrders model, loadTxUsers model, loadLivingWages model, loadLivingWageLocations model ]
+
+                PastStandingOrders ->
+                    Cmd.batch [ loadStandingOrders model, loadTxUsers model, loadLivingWages model, loadLivingWageLocations model ]
             )
 
 
@@ -1448,6 +1909,9 @@ routeParser =
         , UrlParser.map LivingWageList (s "living_wages")
         , UrlParser.map AddLivingWage (s "add_living_wage")
         , UrlParser.map LivingWageEdit (s "living_wages" </> string </> s "edit")
+        , UrlParser.map AddStandingOrder (s "add_standing_order")
+        , UrlParser.map PendingStandingOrders (s "standing_orders" </> s "pending")
+        , UrlParser.map PastStandingOrders (s "standing_orders")
         ]
 
 

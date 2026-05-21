@@ -13,10 +13,10 @@ pendingTransactionSummary : Model -> Transaction -> Row Msg
 pendingTransactionSummary model tx =
     Table.tr []
         [ Table.td [] [ text (Types.dateFromTransaction model tx) ]
-        , Table.td [] [ text "F: ", text (Types.transactionFromUserName model tx), Html.br [] [], text "T: ", text (Types.transactionToUserName model tx) ]
+        , Table.td [] [ text "F: ", text (Types.summaryUserGivenAnId model tx.fromUserId), Html.br [] [], text "T: ", text (Types.summaryUserGivenAnId model tx.toUserId) ]
         , Table.td [] [ text (format tgsLocale (Types.tgsFromTransaction model tx)) ]
         , Table.td [] [ text "F: ", text (formatBalance (Types.transactionNewBalanceFrom model tx)), Html.br [] [], text "T: ", text (formatBalance (Types.transactionNewBalanceTo model tx)) ]
-        , Table.td [] [ text (Types.transactionStatus model tx) ]
+        , Table.td [] [ text (Types.transactionStatus model tx.status tx.fromUserId tx.toUserId) ]
         , Table.td []
             [ if (tx.status == 1 && tx.toUserId == model.loggedInUser.id) || (tx.status == 2 && tx.fromUserId == model.loggedInUser.id) then
                 Button.button [ Button.primary, Button.onClick <| AcceptTransaction tx.id ] [ text "Accept" ]

@@ -454,3 +454,156 @@ func TestStore_InsertLivingWage(t *testing.T) {
 		})
 	})
 }
+
+func getStandingOrderFromStandingOrders(standingOrders []StandingOrder, id uint) *StandingOrder {
+	for _, standingOrder := range standingOrders {
+		if standingOrder.ID == id {
+			return &standingOrder
+		}
+	}
+	return nil
+}
+
+func EnsureSingleStandingOrderForTestUsers() (*User, StandingOrder, uint) {
+	user1 := ensureTestUserExists("user1@example.com")
+	s.db.Unscoped().Where("from_user_id=?", user1.ID).Delete(StandingOrder{})
+	s.db.Unscoped().Where("to_user_id=?", user1.ID).Delete(StandingOrder{})
+	user2 := ensureTestUserExists("user2@example.com")
+	s.db.Unscoped().Where("from_user_id=?", user2.ID).Delete(StandingOrder{})
+	s.db.Unscoped().Where("to_user_id=?", user2.ID).Delete(StandingOrder{})
+	standingOrder := StandingOrder{
+		StartDate:   PosixDateTime(time.Now().UTC()),
+		FromUserId:  user1.ID,
+		ToUserId:    user2.ID,
+		Seconds:     1 * 60 * 60,
+		TxFee:       1,
+		Multiplier:  1,
+		Description: "Test StandingOrderS1",
+		Status:      TransactionOffered,
+		Frequency:   FrequencyMonthly,
+	}
+	standingOrderId, _ := s.InsertStandingOrder(&standingOrder)
+	return user1, standingOrder, standingOrderId
+}
+
+func TestStore_StandingOrderCreation(t *testing.T) {
+	Convey("Create a standing order", t, func() {
+		user1, standingOrder, standingOrderId := EnsureSingleStandingOrderForTestUsers()
+
+		Convey("Standing Order should be created", func() {
+			standingOrders, _ := s.ListStandingOrdersForUser(user1.ID)
+			standingOrderFromStandingOrders := getStandingOrderFromStandingOrders(standingOrders, standingOrder.ID)
+			So(standingOrderFromStandingOrders.ID, ShouldEqual, standingOrderId)
+
+			Convey("Updating the standing order", func() {
+				standingOrderFromStandingOrders.Status = TransactionOfferApproved
+				standingOrderId2, _ := s.UpdateStandingOrder(standingOrderFromStandingOrders)
+				Convey("Concept should keep the same ID and content", func() {
+					So(standingOrderId2, ShouldEqual, standingOrderId)
+					reloadedStandingOrder, _ := s.LoadStandingOrder(standingOrderId2)
+					So(reloadedStandingOrder.ID, ShouldEqual, standingOrderFromStandingOrders.ID)
+					So(reloadedStandingOrder.FromUserId, ShouldEqual, standingOrderFromStandingOrders.FromUserId)
+					So(reloadedStandingOrder.ToUserId, ShouldEqual, standingOrderFromStandingOrders.ToUserId)
+					So(reloadedStandingOrder.Status, ShouldEqual, standingOrderFromStandingOrders.Status)
+					So(reloadedStandingOrder.StartDate, ShouldEqual, standingOrderFromStandingOrders.StartDate)
+					So(reloadedStandingOrder.StopDate, ShouldEqual, standingOrderFromStandingOrders.StopDate)
+					So(reloadedStandingOrder.Frequency, ShouldEqual, standingOrderFromStandingOrders.Frequency)
+					So(reloadedStandingOrder.ProcessedUptoDate, ShouldEqual, standingOrderFromStandingOrders.ProcessedUptoDate)
+				})
+			})
+		})
+	})
+}
+
+func TestStore_StandingOrderProcessingFreshlyCreated(t *testing.T) {
+	Convey("Create a standing order", t, func() {
+		_, standingOrder, _ := EnsureSingleStandingOrderForTestUsers()
+
+		Convey("Standing order should not require processing", func() {
+			standingOrdersToProcess, _ := s.ListStandingOrdersToProcess()
+			standingOrderFromStandingOrders := getStandingOrderFromStandingOrders(standingOrdersToProcess, standingOrder.ID)
+			So(standingOrderFromStandingOrders, ShouldEqual, (*StandingOrder)(nil))
+		})
+	})
+}
+
+func TestStore_StandingOrderProcessingReadyToProcess(t *testing.T) {
+	Convey("Create a standing order", t, func() {
+		_, standingOrder, standingOrderId := EnsureSingleStandingOrderForTestUsers()
+		standingOrder.Status = TransactionOfferApproved
+		standingOrderId2, _ := s.UpdateStandingOrder(&standingOrder)
+
+		Convey("Standing order should require processing", func() {
+			standingOrdersToProcess, _ := s.ListStandingOrdersToProcess()
+			standingOrderFromStandingOrders := getStandingOrderFromStandingOrders(standingOrdersToProcess, standingOrder.ID)
+			So(standingOrderFromStandingOrders.ID, ShouldEqual, standingOrderId)
+			So(standingOrderFromStandingOrders.ID, ShouldEqual, standingOrderId2)
+		})
+	})
+}
+
+func TestStore_StandingOrderProcessingAlreadyProcessed(t *testing.T) {
+	Convey("Create a standing order", t, func() {
+		_, standingOrder, _ := EnsureSingleStandingOrderForTestUsers()
+		standingOrder.Status = TransactionOfferApproved
+		standingOrder.ProcessedUptoDate = PosixDateTime((time.Now().Add(time.Hour * 24)).UTC())
+		standingOrderId2, _ := s.UpdateStandingOrder(&standingOrder)
+		So(standingOrder.ID, ShouldEqual, standingOrderId2)
+
+		Convey("Standing order should not require processing", func() {
+			standingOrdersToProcess, _ := s.ListStandingOrdersToProcess()
+			standingOrderFromStandingOrders := getStandingOrderFromStandingOrders(standingOrdersToProcess, standingOrder.ID)
+			So(standingOrderFromStandingOrders, ShouldEqual, (*StandingOrder)(nil))
+		})
+	})
+}
+
+func TestStore_StandingOrderProcessingAlreadyPassed(t *testing.T) {
+	Convey("Create a standing order", t, func() {
+		_, standingOrder, standingOrderId := EnsureSingleStandingOrderForTestUsers()
+		standingOrder.StartDate = PosixDateTime((time.Now().Add(-time.Hour * 24 * 31)).UTC())
+		standingOrder.StopDate = PosixDateTime(time.Now().UTC())
+		standingOrder.Status = TransactionOfferApproved
+		standingOrderId2, _ := s.UpdateStandingOrder(&standingOrder)
+		So(standingOrder.ID, ShouldEqual, standingOrderId2)
+
+		Convey("Standing order should require processing", func() {
+			standingOrdersToProcess, _ := s.ListStandingOrdersToProcess()
+			standingOrderFromStandingOrders := getStandingOrderFromStandingOrders(standingOrdersToProcess, standingOrder.ID)
+			So(standingOrderFromStandingOrders.ID, ShouldEqual, standingOrderId)
+			So(standingOrderFromStandingOrders.ID, ShouldEqual, standingOrderId2)
+		})
+	})
+}
+
+func TestStore_StandingOrderProcessingAlreadyPassedAndProcessed(t *testing.T) {
+	Convey("Create a standing order", t, func() {
+		_, standingOrder, _ := EnsureSingleStandingOrderForTestUsers()
+		standingOrder.StartDate = PosixDateTime((time.Now().Add(-time.Hour * 24 * 31)).UTC())
+		standingOrder.StopDate = PosixDateTime(time.Now().UTC())
+		standingOrder.Status = TransactionOfferApproved
+		standingOrder.ProcessedUptoDate = PosixDateTime((time.Now().Add(time.Hour * 24)).UTC())
+		standingOrderId2, _ := s.UpdateStandingOrder(&standingOrder)
+		So(standingOrder.ID, ShouldEqual, standingOrderId2)
+
+		Convey("Standing order should not require processing", func() {
+			standingOrdersToProcess, _ := s.ListStandingOrdersToProcess()
+			standingOrderFromStandingOrders := getStandingOrderFromStandingOrders(standingOrdersToProcess, standingOrder.ID)
+			So(standingOrderFromStandingOrders, ShouldEqual, (*StandingOrder)(nil))
+		})
+	})
+}
+
+func TestStore_TestDays(t *testing.T) {
+	Convey("Create a few dates", t, func() {
+		date := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+		date1 := PosixDateTime(date)
+		date2 := PosixDateTime(date.Add(time.Hour * 24 * 1))
+		date3 := PosixDateTime(date.Add(time.Hour * 24 * 31))
+		date4 := PosixDateTime(date.Add(time.Hour * 24 * 30 * 12))
+		So(date1.Days(), ShouldEqual, 20454)
+		So(date2.Days(), ShouldEqual, 20455)
+		So(date3.Days(), ShouldEqual, 20485)
+		So(date4.Days(), ShouldEqual, 20814)
+	})
+}

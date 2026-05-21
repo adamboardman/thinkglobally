@@ -6,8 +6,7 @@ import Html exposing (Html, h4, text)
 import Html.Attributes exposing (style)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
-import TransactionCreate
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), authHeader, formatBalance, formatBalancePlusFee, transactionDecoder, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), StandingOrder, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), authHeader, formatBalance, formatBalancePlusFee, transactionDecoder, userDecoder)
 
 
 transactionSummary : Model -> Transaction -> Row Msg
@@ -46,9 +45,9 @@ transactionSummary model tx =
             rowAttr (style "" "")
         ]
         [ Table.td [] [ text (Types.dateFromTransaction model tx) ]
-        , Table.td [] [ text (Types.transactionFromUserName model tx) ]
-        , Table.td [] [ text (Types.transactionToUserName model tx) ]
-        , Table.td [] [ text (Types.transactionStatus model tx) ]
+        , Table.td [] [ text (Types.summaryUserGivenAnId model tx.fromUserId) ]
+        , Table.td [] [ text (Types.summaryUserGivenAnId model tx.toUserId) ]
+        , Table.td [] [ text (Types.transactionStatus model tx.status tx.fromUserId tx.toUserId) ]
         , Table.td [] [ text tgsIn ]
         , Table.td [] [ text tgsOut ]
         , Table.td [] [ text (formatBalance balance) ]
@@ -60,22 +59,22 @@ transactionBalancesDetailedSummary : Model -> Transaction -> List (Html Msg)
 transactionBalancesDetailedSummary model tx =
     if model.page == PastTransactions then
         [ text "Transaction Balances: "
-        , text (Types.transactionFromUserName model tx)
+        , text (Types.summaryUserGivenAnId model tx.fromUserId)
         , text ": "
         , text (formatBalance tx.fromUserBalance)
         , text ", "
-        , text (Types.transactionToUserName model tx)
+        , text (Types.summaryUserGivenAnId model tx.toUserId)
         , text ": "
         , text (formatBalance tx.toUserBalance)
         ]
 
     else
         [ text "Resultant Balances: "
-        , text (Types.transactionFromUserName model tx)
+        , text (Types.summaryUserGivenAnId model tx.fromUserId)
         , text ": "
         , text (formatBalance (Types.transactionNewBalanceFrom model tx))
         , text ", "
-        , text (Types.transactionToUserName model tx)
+        , text (Types.summaryUserGivenAnId model tx.toUserId)
         , text ": "
         , text (formatBalance (Types.transactionNewBalanceTo model tx))
         ]
@@ -95,11 +94,11 @@ transactionValueDetailedSummary model tx =
             Maybe.withDefault Types.emptyLivingWageLocation (List.head (List.filter (\lwl -> locationId == lwl.id) model.livingWageLocationList))
 
         livingWage =
-            TransactionCreate.findLivingWageForLocationIdAndDate model locationId tx.initiatedDate
+            Types.findLivingWageForLocationIdAndDate model locationId tx.initiatedDate
 
         national =
             if livingWage.wage > 0 then
-                " - " ++ location.name ++ ":" ++ location.symbol ++ Types.formatNationalFloat ((toFloat (Types.transactionTgsAsSeconds model tx) / 3600) * livingWage.wage)
+                " - " ++ location.name ++ ":" ++ location.symbol ++ Types.formatNationalFloat ((toFloat (Types.summaryTgsAsSeconds model tx.status tx.fromUserId tx.seconds tx.txFee) / 3600) * livingWage.wage)
 
             else
                 ""
@@ -127,7 +126,7 @@ transactionTaxDetailedSummary model tx =
             Maybe.withDefault Types.emptyLivingWageLocation (List.head (List.filter (\lwl -> locationId == lwl.id) model.livingWageLocationList))
 
         livingWage =
-            TransactionCreate.findLivingWageForLocationIdAndDate model locationId tx.initiatedDate
+            Types.findLivingWageForLocationIdAndDate model locationId tx.initiatedDate
 
         national =
             if livingWage.wage > 0 then
@@ -150,14 +149,30 @@ transactionDetailedSummary model txs =
     case List.head (List.filter (Types.isSelectedTx model.selectedTxId) txs) of
         Just tx ->
             [ Html.div [] [ text "Date: ", text (Types.dateFromTransaction model tx) ]
-            , Html.div [] [ text "Type: ", text (Types.transactionActivity tx) ]
-            , Html.div [] [ text "From: ", text (Types.transactionFromUserName model tx) ]
-            , Html.div [] [ text "To: ", text (Types.transactionToUserName model tx) ]
+            , Html.div [] [ text "Type: ", text (Types.transactionActivity tx.status) ]
+            , Html.div [] [ text "From: ", text (Types.summaryUserGivenAnId model tx.fromUserId) ]
+            , Html.div [] [ text "To: ", text (Types.summaryUserGivenAnId model tx.toUserId) ]
             , Html.div [] (transactionValueDetailedSummary model tx)
             , Html.div [] (transactionTaxDetailedSummary model tx)
             , Html.div [] (transactionBalancesDetailedSummary model tx)
-            , Html.div [] [ text "Status: ", text (Types.transactionStatus model tx) ]
+            , Html.div [] [ text "Status: ", text (Types.transactionStatus model tx.status tx.fromUserId tx.toUserId) ]
             , Html.div [] [ text "Description: ", text tx.description ]
+            , if tx.standingOrderId > 0 then
+                let
+                    standingOrders =
+                        List.filter (\so -> so.id == tx.standingOrderId) model.pastStandingOrders
+
+                    standingOrder =
+                        Maybe.withDefault Types.emptyStandingOrder (List.head standingOrders)
+                in
+                Html.div []
+                    [ text "This Transaction was generated from a "
+                    , text (Types.frequencyStringFromInt standingOrder.frequency)
+                    , text " Standing Order"
+                    ]
+
+              else
+                Html.div [] [ text "" ]
             ]
 
         Nothing ->

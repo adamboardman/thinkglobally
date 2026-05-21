@@ -13,6 +13,7 @@ import FormatNumber.Locales exposing (Decimals(..), Locale, System(..))
 import Http
 import Json.Decode as Decode exposing (Decoder, at, float, int, list, map8, string)
 import Json.Decode.Pipeline exposing (optional, required)
+import List.Extra
 import Loading
 import Set exposing (Set)
 import String
@@ -56,6 +57,12 @@ type alias Model =
     , livingWageLocationList : List LivingWageLocation
     , livingWageForm : LivingWageForm
     , livingWageLocationForm : LivingWageLocationForm
+    , creatingStandingOrder : TransactionType
+    , creatingStandingOrderFrom : TransactionFromType
+    , creatingStandingOrderWithUser : User
+    , standingOrderForm : StandingOrderForm
+    , pastStandingOrders : List StandingOrder
+    , pendingStandingOrders : List StandingOrder
     }
 
 
@@ -78,6 +85,9 @@ type Page
     | LivingWageList
     | AddLivingWage
     | LivingWageEdit String
+    | AddStandingOrder
+    | PendingStandingOrders
+    | PastStandingOrders
     | NotFound
 
 
@@ -170,6 +180,25 @@ type alias Transaction =
     , fromUserBalance : Int
     , toUserBalance : Int
     , locationId : Int
+    , standingOrderId : Int
+    }
+
+
+type alias StandingOrder =
+    { id : Int
+    , startDate : Time.Posix
+    , stopDate : Time.Posix
+    , confirmedDate : Time.Posix
+    , processedUptoDate : Time.Posix
+    , fromUserId : Int
+    , toUserId : Int
+    , seconds : Int
+    , multiplier : Float
+    , txFee : Int
+    , status : Int
+    , description : String
+    , locationId : Int
+    , frequency : Int
     }
 
 
@@ -214,6 +243,23 @@ type alias TransactionForm =
     }
 
 
+type alias StandingOrderForm =
+    { email : String
+    , startDate : String
+    , stopDate : String
+    , tgs : String
+    , timeH : String
+    , timeM : String
+    , timeS : String
+    , multiplier : String
+    , locationId : Int
+    , national : String
+    , description : String
+    , txFee : String
+    , frequency : FrequencyFormType
+    }
+
+
 type alias ConceptForm =
     { name : String
     , tags : List ConceptTag
@@ -251,6 +297,7 @@ type ValidatedField
     | Location
     | Mobile
     | Time
+    | TGs
     | Multiplier
     | Name
     | TagTag
@@ -273,6 +320,13 @@ type TransactionFromType
     = TxFromTGs
     | TxFromTimeMul
     | TxFromNational
+
+
+type FrequencyFormType
+    = FrequencyDaily
+    | FrequencyWeekly
+    | FrequencyMonthly
+    | FrequencyAnnually
 
 
 type Msg
@@ -302,7 +356,7 @@ type Msg
     | EnteredTransactionTimeM String
     | EnteredTransactionTimeS String
     | EnteredTransactionMultiplier String
-    | EnteredNational String
+    | EnteredTransactionNational String
     | EnteredTransactionDescription String
     | EnteredConceptName String
     | EnteredConceptTagCheckToDelete Int Bool
@@ -349,11 +403,39 @@ type Msg
     | LoadedLivingWageLocations (Result Http.Error (List LivingWageLocation))
     | AddedLivingWage (Result Http.Error ApiActionResponse)
     | AddedLivingWageLocation (Result Http.Error ApiActionResponse)
-    | EnteredStartDate String
-    | EnteredStopDate String
+    | EnteredLivingWageStartDate String
+    | EnteredLivingWageStopDate String
     | SelectedLocationId String
     | SelectedProfileLocationId String
     | SelectedTransactionLocationId String
+    | StandingOrderState TransactionType
+    | StandingOrderFromState TransactionFromType
+    | EnteredStandingOrderEmail String
+    | EnteredStandingOrderTGs String
+    | EnteredStandingOrderTimeH String
+    | EnteredStandingOrderTimeM String
+    | EnteredStandingOrderTimeS String
+    | EnteredStandingOrderMultiplier String
+    | EnteredStandingOrderNational String
+    | EnteredStandingOrderDescription String
+    | EnteredStandingOrderStartDate String
+    | EnteredStandingOrderStopDate String
+    | ButtonStandingOrderCheckBalance
+    | SelectedStandingOrderLocationId String
+    | SelectedStandingOrderFrequency FrequencyFormType
+    | SubmittedStandingOrderForm
+    | AddedStandingOrder (Result Http.Error ApiActionResponse)
+    | LoadedStandingOrderUserWithBalance (Result Http.Error User)
+    | LoadedStandingOrders (Result Http.Error (List StandingOrder))
+    | ViewStandingOrder Int
+    | AcceptStandingOrder Int
+    | RejectStandingOrder Int
+    | WithdrawStandingOrder Int
+    | StopStandingOrder Int
+    | AcceptedStandingOrder (Result Http.Error ApiActionResponse)
+    | RejectedStandingOrder (Result Http.Error ApiActionResponse)
+    | StandingOrderDeleted (Result Http.Error ApiActionResponse)
+    | StandingOrderStopped (Result Http.Error ApiActionResponse)
 
 
 
@@ -668,6 +750,11 @@ isSelectedTx txId tx =
     tx.id == txId
 
 
+isSelectedStandingOrder : Int -> StandingOrder -> Bool
+isSelectedStandingOrder soId so =
+    so.id == soId
+
+
 formatBalanceFloat : Float -> String
 formatBalanceFloat balance =
     format tgsLocale (balance / 3600)
@@ -696,6 +783,36 @@ formatNationalFloat balance =
 formatNationalTaxFloat : Float -> String
 formatNationalTaxFloat balance =
     format nationalTaxLocale balance
+
+
+findLivingWageForLocationIdAndDate : Model -> Int -> Time.Posix -> LivingWage
+findLivingWageForLocationIdAndDate model locationId date =
+    let
+        wagesForLocation =
+            List.filter (\wage -> wage.locationId == locationId) model.livingWageList
+
+        wagesForDate =
+            List.filter (\wage -> (Time.posixToMillis date >= Time.posixToMillis wage.startDate) && (Time.posixToMillis date < Time.posixToMillis wage.stopDate)) wagesForLocation
+
+        wageForMinDate =
+            List.Extra.minimumBy (\wage -> Time.posixToMillis wage.startDate) wagesForLocation
+
+        wageForMaxDate =
+            List.Extra.maximumBy (\wage -> Time.posixToMillis wage.stopDate) wagesForLocation
+
+        minOrMaxDate =
+            case wageForMinDate of
+                Just wage ->
+                    if Time.posixToMillis date < Time.posixToMillis wage.startDate then
+                        Maybe.withDefault emptyLivingWage wageForMinDate
+
+                    else
+                        Maybe.withDefault emptyLivingWage wageForMaxDate
+
+                Nothing ->
+                    emptyLivingWage
+    in
+    Maybe.withDefault minOrMaxDate (List.head wagesForDate)
 
 
 creatingTransactionSummary : Model -> String
@@ -730,6 +847,19 @@ creatingTransactionSummary model =
 
             else
                 tgsAsSeconds - txFee
+
+        locationId =
+            model.transactionForm.locationId
+
+        livingWage =
+            findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
+
+        nationalValueWarning =
+            if model.transactionForm.locationId > 0 && Time.posixToMillis livingWage.stopDate < Time.posixToMillis model.transactionForm.date then
+                "WARNING: Living Wage values are only indicative as we haven't found the current value"
+
+            else
+                ""
     in
     " "
         ++ formatDateTime model model.time
@@ -751,6 +881,101 @@ creatingTransactionSummary model =
         ++ plusMinus
         ++ " "
         ++ model.transactionForm.txFee
+        ++ " [Transaction Fee] "
+        ++ nationalValueWarning
+
+
+frequencyStringFromType : FrequencyFormType -> String
+frequencyStringFromType frequency =
+    case frequency of
+        FrequencyDaily ->
+            "Day"
+
+        FrequencyWeekly ->
+            "Week"
+
+        FrequencyMonthly ->
+            "Month"
+
+        FrequencyAnnually ->
+            "Year"
+
+
+frequencyStringFromInt : Int -> String
+frequencyStringFromInt frequency =
+    case frequency of
+        1 ->
+            "Daily"
+
+        2 ->
+            "Weekly"
+
+        3 ->
+            "Monthly"
+
+        4 ->
+            "Annually"
+
+        _ ->
+            ""
+
+
+creatingStandingOrderSummary : Model -> String
+creatingStandingOrderSummary model =
+    let
+        valCost =
+            if model.creatingStandingOrder == TxOffer then
+                "Cost"
+
+            else
+                "Value"
+
+        plusMinus =
+            if model.creatingStandingOrder == TxOffer then
+                "+"
+
+            else
+                "-"
+
+        tgs =
+            Maybe.withDefault 0 (String.toFloat model.standingOrderForm.tgs)
+
+        tgsAsSeconds =
+            tgs * 60 * 60
+
+        txFee =
+            toFloat (secondsFromTime model.standingOrderForm.txFee)
+
+        transactionTgs =
+            if model.creatingStandingOrder == TxOffer then
+                tgsAsSeconds + txFee
+
+            else
+                tgsAsSeconds - txFee
+
+        frequency =
+            frequencyStringFromType model.standingOrderForm.frequency
+    in
+    " "
+        ++ valCost
+        ++ " to you: "
+        ++ formatBalanceFloat transactionTgs
+        ++ "TGs, every: "
+        ++ frequency
+        ++ ", from ("
+        ++ model.standingOrderForm.tgs
+        ++ " TGs or "
+        ++ padAndCapTimePart model.standingOrderForm.timeH
+        ++ ":"
+        ++ padAndCapTimePart model.standingOrderForm.timeM
+        ++ ":"
+        ++ padAndCapTimePart model.standingOrderForm.timeS
+        ++ " * "
+        ++ model.standingOrderForm.multiplier
+        ++ ") "
+        ++ plusMinus
+        ++ " "
+        ++ model.standingOrderForm.txFee
         ++ " [Transaction Fee]"
 
 
@@ -763,85 +988,75 @@ dateFromTransaction model tx =
         formatDateTime model tx.confirmedDate
 
 
-transactionFromUser : Model -> Transaction -> Maybe User
-transactionFromUser model tx =
-    Dict.get (String.fromInt tx.fromUserId) model.txUsers
+userGivenAnId : Model -> Int -> Maybe User
+userGivenAnId model userId =
+    Dict.get (String.fromInt userId) model.txUsers
 
 
-transactionToUser : Model -> Transaction -> Maybe User
-transactionToUser model tx =
-    Dict.get (String.fromInt tx.toUserId) model.txUsers
-
-
-transactionFromUserName : Model -> Transaction -> String
-transactionFromUserName model tx =
-    if model.loggedInUser.id == tx.fromUserId then
+summaryUserGivenAnId : Model -> Int -> String
+summaryUserGivenAnId model userId =
+    if model.loggedInUser.id == userId then
         "Yourself"
 
     else
-        case transactionFromUser model tx of
+        case userGivenAnId model userId of
             Just user ->
-                user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
+                user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt userId ++ ")"
 
             Nothing ->
-                String.fromInt tx.fromUserId
+                String.fromInt userId
 
 
-transactionToUserName : Model -> Transaction -> String
-transactionToUserName model tx =
-    if model.loggedInUser.id == tx.toUserId then
-        "Yourself"
-
-    else
-        case transactionToUser model tx of
-            Just user ->
-                user.firstName ++ " " ++ user.lastName ++ " (" ++ String.fromInt user.id ++ ")"
-
-            Nothing ->
-                String.fromInt tx.toUserId
-
-
-transactionTgsAsSeconds : Model -> Transaction -> Int
-transactionTgsAsSeconds model tx =
-    if tx.fromUserId == model.loggedInUser.id then
-        case tx.status of
+summaryTgsAsSeconds : Model -> Int -> Int -> Int -> Int -> Int
+summaryTgsAsSeconds model status fromUserId seconds txFee =
+    if fromUserId == model.loggedInUser.id then
+        case status of
             1 ->
-                tx.seconds + tx.txFee
+                seconds + txFee
 
             2 ->
-                tx.seconds - tx.txFee
+                seconds - txFee
 
             3 ->
-                tx.seconds + tx.txFee
+                seconds + txFee
 
             4 ->
-                tx.seconds - tx.txFee
+                seconds - txFee
 
             5 ->
-                tx.seconds + tx.txFee
+                seconds + txFee
 
             6 ->
-                tx.seconds - tx.txFee
+                seconds - txFee
 
             _ ->
                 0
 
     else
-        tx.seconds
+        seconds
 
 
 tgsFromTransaction : Model -> Transaction -> Float
 tgsFromTransaction model tx =
     if tx.fromUserId == model.loggedInUser.id then
-        toFloat -(transactionTgsAsSeconds model tx) / 3600
+        toFloat -(summaryTgsAsSeconds model tx.status tx.fromUserId tx.seconds tx.txFee) / 3600
 
     else
-        toFloat (transactionTgsAsSeconds model tx) / 3600
+        toFloat (summaryTgsAsSeconds model tx.status tx.fromUserId tx.seconds tx.txFee) / 3600
+
+
+tgsFromStandingOrder : Model -> StandingOrder -> Float
+tgsFromStandingOrder model so =
+    if so.fromUserId == model.loggedInUser.id then
+        toFloat -(summaryTgsAsSeconds model so.status so.fromUserId so.seconds so.txFee) / 3600
+
+    else
+        toFloat (summaryTgsAsSeconds model so.status so.fromUserId so.seconds so.txFee) / 3600
 
 
 transactionNewBalanceFrom : Model -> Transaction -> Int
 transactionNewBalanceFrom model tx =
-    case ( transactionFromUser model tx, tx.status ) of
+    case ( userGivenAnId model tx.fromUserId, tx.status ) of
         ( Just user, 1 ) ->
             user.balance - round (toFloat tx.seconds + toFloat tx.txFee)
 
@@ -866,7 +1081,7 @@ transactionNewBalanceFrom model tx =
 
 transactionNewBalanceTo : Model -> Transaction -> Int
 transactionNewBalanceTo model tx =
-    case ( transactionToUser model tx, tx.status ) of
+    case ( userGivenAnId model tx.toUserId, tx.status ) of
         ( Just user, 1 ) ->
             user.balance + round (toFloat tx.seconds)
 
@@ -889,18 +1104,18 @@ transactionNewBalanceTo model tx =
             0
 
 
-transactionStatus : Model -> Transaction -> String
-transactionStatus model tx =
-    case tx.status of
+transactionStatus : Model -> Int -> Int -> Int -> String
+transactionStatus model status fromUserId toUserId =
+    case status of
         1 ->
-            if tx.fromUserId == model.loggedInUser.id then
+            if fromUserId == model.loggedInUser.id then
                 "Offer pending"
 
             else
                 "Accept or Reject Offer"
 
         2 ->
-            if tx.toUserId == model.loggedInUser.id then
+            if toUserId == model.loggedInUser.id then
                 "Request pending"
 
             else
@@ -922,9 +1137,9 @@ transactionStatus model tx =
             ""
 
 
-transactionActivity : Transaction -> String
-transactionActivity tx =
-    case tx.status of
+transactionActivity : Int -> String
+transactionActivity status =
+    case status of
         1 ->
             "Offer"
 
@@ -1100,6 +1315,43 @@ emptyTransactionForm =
     }
 
 
+emptyStandingOrderForm : StandingOrderForm
+emptyStandingOrderForm =
+    { email = ""
+    , startDate = ""
+    , stopDate = ""
+    , tgs = ""
+    , timeH = ""
+    , timeM = ""
+    , timeS = ""
+    , multiplier = "1"
+    , locationId = 0
+    , national = ""
+    , description = ""
+    , txFee = "00:00:01"
+    , frequency = FrequencyMonthly
+    }
+
+
+emptyStandingOrder : StandingOrder
+emptyStandingOrder =
+    { id = 0
+    , startDate = Time.millisToPosix 0
+    , stopDate = Time.millisToPosix 0
+    , confirmedDate = Time.millisToPosix 0
+    , processedUptoDate = Time.millisToPosix 0
+    , fromUserId = 0
+    , toUserId = 0
+    , seconds = 0
+    , multiplier = 1.0
+    , txFee = 0
+    , status = 0
+    , description = ""
+    , locationId = 0
+    , frequency = 3
+    }
+
+
 emptyLivingWage : LivingWage
 emptyLivingWage =
     { id = 0
@@ -1234,6 +1486,26 @@ transactionDecoder =
         |> required "FromUserBalance" int
         |> required "ToUserBalance" int
         |> required "LocationId" int
+        |> required "StandingOrderId" int
+
+
+standingOrderDecoder : Decoder StandingOrder
+standingOrderDecoder =
+    Decode.succeed StandingOrder
+        |> required "ID" int
+        |> required "StartDate" posixTime
+        |> required "StopDate" posixTime
+        |> required "ConfirmedDate" posixTime
+        |> required "ProcessedUptoDate" posixTime
+        |> required "FromUserId" int
+        |> required "ToUserId" int
+        |> required "Seconds" int
+        |> required "Multiplier" float
+        |> required "TxFee" int
+        |> required "Status" int
+        |> required "Description" string
+        |> required "LocationId" int
+        |> required "Frequency" int
 
 
 livingWageLocationDecoder : Decoder LivingWageLocation

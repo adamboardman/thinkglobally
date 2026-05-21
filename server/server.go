@@ -37,6 +37,26 @@ func (a *WebApp) Init() {
 	addApiRoutes(a, router)
 	//addPhotoRoutes(a, router)
 	addDefaultRouteToWebApp(router)
+
+	performAnyRemainingDailyTasks()
+	addTickerForDailyTasks()
+}
+
+func addTickerForDailyTasks() {
+	ticker := time.NewTicker(12 * time.Hour)
+	go func() {
+		for {
+			fmt.Println("Performing for any daily outstanding tasks")
+			performAnyRemainingDailyTasks()
+			<-ticker.C
+		}
+	}()
+}
+
+func performAnyRemainingDailyTasks() {
+	ProcessStandingOrders()
+
+	//TODO - Update statistics?
 }
 
 func addApiRoutes(a *WebApp, router *gin.Engine) {
@@ -77,6 +97,12 @@ func addApiRoutes(a *WebApp, router *gin.Engine) {
 		api.POST("/living_wages", AdminPermissionsRequired(), AddLivingWage)
 		api.PUT("/living_wages/:livingWageID", AdminPermissionsRequired(), UpdateLivingWage)
 		api.GET("/living_wages/:livingWageID", LoadLivingWage)
+		api.POST("/standing_orders", AddStandingOrder)
+		api.PATCH("/standing_orders/:standingOrderID/accept", AcceptStandingOrder)
+		api.PATCH("/standing_orders/:standingOrderID/reject", RejectStandingOrder)
+		api.GET("/standing_orders", StandingOrdersList)
+		api.DELETE("/standing_orders/:standingOrderID", AdminPermissionsRequired(), DeleteStandingOrder)
+		api.PATCH("/standing_orders/:standingOrderID/stop", StopStandingOrder)
 	}
 }
 
@@ -475,7 +501,6 @@ type TransactionJSON struct {
 	Multiplier      float32
 	TxFee           uint
 	Description     string
-	Location        string
 	LocationId      uint
 	ToPreviousTId   uint
 	FromPreviousTId uint
@@ -499,7 +524,6 @@ func readJSONIntoTransaction(transaction *store.Transaction, c *gin.Context, for
 		transaction.Multiplier = transactionJSON.Multiplier
 		transaction.TxFee = transactionJSON.TxFee
 		transaction.Description = transactionJSON.Description
-		transaction.Location = transactionJSON.Location
 		transaction.LocationId = transactionJSON.LocationId
 		transaction.ToPreviousTId = transactionJSON.ToPreviousTId
 		transaction.FromPreviousTId = transactionJSON.FromPreviousTId
@@ -969,6 +993,363 @@ func UpdateLivingWageLocation(c *gin.Context) {
 	if err == nil {
 		c.JSON(http.StatusOK, gin.H{
 			"status": http.StatusOK, "message": "Living Wage Location updated successfully", "resourceId": livingWageLocationId,
+		})
+	}
+}
+
+type StandingOrderJSON struct {
+	ID                uint
+	FromUserId        uint
+	ToUserId          uint
+	StartDate         store.PosixDateTime
+	StopDate          store.PosixDateTime
+	ProcessedUptoDate store.PosixDateTime
+	Email             string
+	Seconds           uint64
+	Multiplier        float32
+	TxFee             uint
+	Description       string
+	LocationId        uint
+	Status            uint
+	Frequency         uint
+}
+
+func readJSONIntoStandingOrder(standingOrder *store.StandingOrder, c *gin.Context, forceUpdate bool) error {
+	standingOrderJSON := StandingOrderJSON{}
+	err := c.BindJSON(&standingOrderJSON)
+	if err != nil {
+		return err
+	}
+
+	if forceUpdate || standingOrderJSON.ID == 0 {
+		standingOrder.ID = standingOrderJSON.ID
+		standingOrder.FromUserId = standingOrderJSON.FromUserId
+		standingOrder.ToUserId = standingOrderJSON.ToUserId
+		standingOrder.StartDate = standingOrderJSON.StartDate
+		standingOrder.StopDate = standingOrderJSON.StopDate
+		standingOrder.ProcessedUptoDate = standingOrderJSON.ProcessedUptoDate
+		standingOrder.Seconds = standingOrderJSON.Seconds
+		standingOrder.Multiplier = standingOrderJSON.Multiplier
+		standingOrder.TxFee = standingOrderJSON.TxFee
+		standingOrder.Description = standingOrderJSON.Description
+		standingOrder.LocationId = standingOrderJSON.LocationId
+		standingOrder.Status = standingOrderJSON.Status
+		standingOrder.Frequency = standingOrderJSON.Frequency
+	}
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+
+	switch standingOrder.Status {
+	case store.TransactionOffered:
+		if standingOrder.FromUserId != loggedInUserId {
+			return errors.New("you can only offer standing orders from yourself")
+		}
+	case store.TransactionRequested:
+		if standingOrder.ToUserId != loggedInUserId {
+			return errors.New("you can only request standing orders to yourself")
+		}
+	}
+	if standingOrder.FromUserId == standingOrder.ToUserId {
+		return errors.New("you can not create standing orders from and to yourself")
+	}
+	txFee := uint(math.Floor(0.0002 * float64(standingOrder.Seconds)))
+	if standingOrder.TxFee < 1 || standingOrder.TxFee < txFee {
+		return errors.New("you must pay a 0.02% or greater transaction fee")
+	}
+
+	switch standingOrder.Status {
+	case store.TransactionOffered:
+		if standingOrder.ToUserId == 0 {
+			standingOrder.ToUserId = FindOrAddUserForStandingOrder(standingOrderJSON, loggedInUserId)
+		}
+		break
+	case store.TransactionRequested:
+		if standingOrder.FromUserId == 0 {
+			standingOrder.FromUserId = FindOrAddUserForStandingOrder(standingOrderJSON, loggedInUserId)
+		}
+		break
+	}
+
+	if standingOrder.FromUserId == standingOrder.ToUserId {
+		return errors.New("you can not create standing orders from and to yourself")
+	}
+
+	return nil
+}
+
+func FindOrAddUserForStandingOrder(standingOrderJSON StandingOrderJSON, loggedInUserId uint) uint {
+	user, err := App.Store.FindUser(standingOrderJSON.Email)
+	self, err2 := App.Store.LoadPublicUser(loggedInUserId)
+	if err != nil && err2 == nil {
+		invite := self.FirstName + " " + self.LastName
+		if standingOrderJSON.Status == store.TransactionOffered {
+			invite += " offered "
+		} else {
+			invite += " requested "
+		}
+		invite += "the following standing order "
+		invite += fmt.Sprintf("%g", float64(standingOrderJSON.Seconds)/3600.0)
+		invite += "TGs"
+		err, user = InviteUser(standingOrderJSON.Email, invite, standingOrderJSON.Description)
+		if err != nil {
+			return 0
+		}
+	}
+	return user.ID
+}
+
+func AddStandingOrder(c *gin.Context) {
+	standingOrder := store.StandingOrder{}
+
+	err := readJSONIntoStandingOrder(&standingOrder, c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Standing Order failed validation - error: %s", err.Error())})
+		return
+	}
+
+	standingOrderId, err := App.Store.InsertStandingOrder(&standingOrder)
+	if err != nil || standingOrderId == 0 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert Standing Order failed"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusCreated, "message": "Standing Order created successfully", "resourceId": standingOrderId,
+	})
+}
+
+func AcceptStandingOrder(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+
+	standingOrderId, err := strconv.Atoi(c.Param("standingOrderID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid StandingOrderId"})
+		return
+	}
+	standingOrder, err := App.Store.LoadStandingOrder(uint(standingOrderId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Standing Order not found"})
+		return
+	}
+	if standingOrder.Status != store.TransactionOffered && standingOrder.Status != store.TransactionRequested {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Standing Order not offered or requested"})
+		return
+	}
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+	if standingOrder.Status == store.TransactionOffered {
+		if standingOrder.ToUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only accept offer standing order offered to yourself"})
+			return
+		}
+
+		standingOrder.Status = store.TransactionOfferApproved
+	}
+	if standingOrder.Status == store.TransactionRequested {
+		if standingOrder.FromUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only accept request standing order requested from yourself"})
+			return
+		}
+
+		standingOrder.Status = store.TransactionRequestApproved
+	}
+	standingOrder.ConfirmedDate = store.PosixDateTime(time.Now().UTC())
+	_, err = App.Store.UpdateStandingOrder(standingOrder)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Standing Order failed update - err: %s", err.Error())})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusAccepted, "message": "Standing Order updated successfully", "resourceId": standingOrderId,
+	})
+}
+
+func RejectStandingOrder(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+
+	standingOrderId, err := strconv.Atoi(c.Param("standingOrderID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid StandingOrderId"})
+		return
+	}
+	standingOrder, err := App.Store.LoadStandingOrder(uint(standingOrderId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Standing Order not found"})
+		return
+	}
+	if standingOrder.Status != store.TransactionOffered && standingOrder.Status != store.TransactionRequested {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Standing Order not offered or requested"})
+		return
+	}
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+	if standingOrder.Status == store.TransactionOffered {
+		if standingOrder.ToUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only reject a standing order offered to yourself"})
+			return
+		}
+
+		standingOrder.Status = store.TransactionOfferRejected
+	}
+	if standingOrder.Status == store.TransactionRequested {
+		if standingOrder.FromUserId != loggedInUserId {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only reject a standing order requested from yourself"})
+			return
+		}
+
+		standingOrder.Status = store.TransactionRequestRejected
+	}
+	standingOrder.ConfirmedDate = store.PosixDateTime(time.Now().UTC())
+	_, err = App.Store.UpdateStandingOrder(standingOrder)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Standing Order failed update - err: %s", err.Error())})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusAccepted, "message": "Standing Order updated successfully", "resourceId": standingOrderId,
+	})
+}
+func StopStandingOrder(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+
+	standingOrderId, err := strconv.Atoi(c.Param("standingOrderID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid StandingOrderId"})
+		return
+	}
+	standingOrder, err := App.Store.LoadStandingOrder(uint(standingOrderId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Standing Order not found"})
+		return
+	}
+	if standingOrder.Status == store.TransactionOffered || standingOrder.Status == store.TransactionRequested {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Standing Order not approved"})
+		return
+	}
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+	if standingOrder.ToUserId != loggedInUserId && standingOrder.FromUserId != loggedInUserId {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "You can only stop a standing order you are party to"})
+		return
+	}
+	standingOrder.StopDate = store.PosixDateTime(time.Now().UTC())
+	_, err = App.Store.UpdateStandingOrder(standingOrder)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Standing Order failed update - err: %s", err.Error())})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusAccepted, "message": "Standing Order updated successfully", "resourceId": standingOrderId,
+	})
+}
+func StandingOrdersList(c *gin.Context) {
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+
+	c.Header("Content-Type", "application/json")
+	standingOrders, err := App.Store.ListStandingOrdersForUser(loggedInUserId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Standing Orders not found"})
+	} else {
+		c.JSON(http.StatusOK, standingOrders)
+	}
+}
+
+func ProcessStandingOrders() {
+	standingOrders, err := App.Store.ListStandingOrdersToProcess()
+
+	if err != nil {
+		fmt.Println("Processing Standing Orders failed with error" + err.Error())
+		return
+	}
+	for _, standingOrder := range standingOrders {
+		transaction, err := App.Store.LastTransactionForStandingOrder(standingOrder.ID)
+		fromUserLastTransaction, _ := App.Store.LastConfirmedTransactionForUser(standingOrder.FromUserId)
+		toUserLastTransaction, _ := App.Store.LastConfirmedTransactionForUser(standingOrder.ToUserId)
+		var newTransaction store.Transaction
+		if err != nil {
+			newTransaction.ID = 0
+			newTransaction.InitiatedDate = standingOrder.StartDate
+			newTransaction.ConfirmedDate = store.PosixDateTime(time.Now().UTC())
+			newTransaction.FromUserId = standingOrder.FromUserId
+			newTransaction.ToUserId = standingOrder.ToUserId
+			newTransaction.Seconds = standingOrder.Seconds
+			newTransaction.Multiplier = standingOrder.Multiplier
+			newTransaction.TxFee = standingOrder.TxFee
+			newTransaction.Description = newTransaction.InitiatedDate.DateString() + " " + standingOrder.Description
+			newTransaction.LocationId = standingOrder.LocationId
+			newTransaction.StandingOrderId = standingOrder.ID
+			newTransaction.Status = standingOrder.Status
+			newTransaction.FromUserBalance = fromUserLastTransaction.Balance(newTransaction.FromUserId) - (int64(newTransaction.Seconds) + int64(newTransaction.TxFee))
+			newTransaction.ToUserBalance = toUserLastTransaction.Balance(newTransaction.ToUserId) + int64(newTransaction.Seconds)
+		} else {
+			newTransaction = transaction
+			newTransaction.ID = 0
+			switch standingOrder.Frequency {
+			case store.FrequencyDaily:
+				newTransaction.InitiatedDate = newTransaction.InitiatedDate.AddDate(0, 0, 1)
+			case store.FrequencyWeekly:
+				newTransaction.InitiatedDate = newTransaction.InitiatedDate.AddDate(0, 0, 7)
+			case store.FrequencyMonthly:
+				newTransaction.InitiatedDate = newTransaction.InitiatedDate.AddDate(0, 1, 0)
+			case store.FrequencyAnnually:
+				newTransaction.InitiatedDate = newTransaction.InitiatedDate.AddDate(1, 0, 0)
+			default:
+				panic("unhandled default case")
+			}
+			newTransaction.Description = newTransaction.InitiatedDate.DateString() + " " + standingOrder.Description
+			newTransaction.ConfirmedDate = store.PosixDateTime(time.Now().UTC())
+			newTransaction.FromUserBalance = fromUserLastTransaction.Balance(newTransaction.FromUserId) - (int64(newTransaction.Seconds) + int64(newTransaction.TxFee))
+			newTransaction.ToUserBalance = toUserLastTransaction.Balance(newTransaction.ToUserId) + int64(newTransaction.Seconds)
+		}
+		if newTransaction.InitiatedDate.Days() <= standingOrder.StopDate.Days() {
+			_, err = App.Store.InsertTransaction(&newTransaction)
+			if err != nil {
+				fmt.Println("Processing Standing Orders inserting transaction failed with error" + err.Error())
+				return
+			}
+		}
+
+		switch standingOrder.Frequency {
+		case store.FrequencyDaily:
+			standingOrder.ProcessedUptoDate = newTransaction.InitiatedDate.AddDate(0, 0, 1)
+		case store.FrequencyWeekly:
+			standingOrder.ProcessedUptoDate = newTransaction.InitiatedDate.AddDate(0, 0, 7)
+		case store.FrequencyMonthly:
+			standingOrder.ProcessedUptoDate = newTransaction.InitiatedDate.AddDate(0, 1, 0)
+		case store.FrequencyAnnually:
+			standingOrder.ProcessedUptoDate = newTransaction.InitiatedDate.AddDate(1, 0, 0)
+		default:
+			panic("unhandled default case")
+		}
+
+		_, err = App.Store.UpdateStandingOrder(&standingOrder)
+		if err != nil {
+			fmt.Println("Processing Standing Orders updating standing order failed with error" + err.Error())
+			return
+		}
+	}
+}
+
+func DeleteStandingOrder(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	id, err := strconv.Atoi(c.Param("standingOrderID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Invalid StandingOrderId - err: %s", err.Error())})
+		return
+	}
+	err = App.Store.DeleteStandingOrder(uint(id))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Delete StandingOrder Failed - err: %s", err.Error())})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK, "message": "ConceptTag deleted", "resourceId": id,
 		})
 	}
 }
