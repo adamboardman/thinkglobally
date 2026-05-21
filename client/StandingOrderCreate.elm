@@ -23,6 +23,7 @@ import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), P
 standingOrderFieldsToValidate : List ValidatedField
 standingOrderFieldsToValidate =
     [ Email
+    , StartDate
     , TGs
     , Multiplier
     ]
@@ -288,7 +289,7 @@ viewCreateStandingOrderForm model =
                 , Input.onInput EnteredStandingOrderStopDate
                 , Input.value model.standingOrderForm.stopDate
                 ]
-            , Form.invalidFeedback [] [ text "Please enter a stop date" ]
+            , Form.invalidFeedback [] [ text "Please enter a stop date - leave blank for never ending" ]
             ]
         , Form.group []
             [ Form.label [ for "frequency" ] [ text "Frequency" ]
@@ -377,6 +378,13 @@ validateField : StandingOrderTrimmedForm -> ValidatedField -> List Problem
 validateField (StandingOrderTrimmed form) field =
     List.map (InvalidEntry field) <|
         case field of
+            StartDate ->
+                if String.isEmpty form.startDate then
+                    [ "Start Date can't be blank" ]
+
+                else
+                    []
+
             Email ->
                 if String.isEmpty form.email then
                     [ "Email can't be blank" ]

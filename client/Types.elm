@@ -296,7 +296,6 @@ type ValidatedField
     | LastName
     | Location
     | Mobile
-    | Time
     | TGs
     | Multiplier
     | Name
