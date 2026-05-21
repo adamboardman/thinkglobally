@@ -506,7 +506,7 @@ standingOrder model (StandingOrderTrimmed form) =
                     time
 
                 _ ->
-                    model.time
+                    Time.millisToPosix 0
 
         stopDate =
             Time.posixToMillis stopTime

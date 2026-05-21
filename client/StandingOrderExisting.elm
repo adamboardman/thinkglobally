@@ -13,6 +13,13 @@ import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), P
 standingOrderSummary : Model -> StandingOrder -> Row Msg
 standingOrderSummary model so =
     let
+        stopDate =
+            if Time.posixToMillis so.stopDate > 0 then
+                Types.formatDateTime model so.stopDate
+
+            else
+                "(forever)"
+
         tgsIn =
             if model.loggedInUser.id == so.toUserId then
                 formatBalance so.seconds
@@ -46,7 +53,7 @@ standingOrderSummary model so =
             rowAttr (style "" "")
         ]
         [ Table.td [] [ text (Types.formatDateTime model so.startDate) ]
-        , Table.td [] [ text (Types.formatDateTime model so.stopDate) ]
+        , Table.td [] [ text stopDate ]
         , Table.td [] [ text (Types.summaryUserGivenAnId model so.fromUserId) ]
         , Table.td [] [ text (Types.summaryUserGivenAnId model so.toUserId) ]
         , Table.td [] [ text (Types.transactionStatus model so.status so.fromUserId so.toUserId) ]
@@ -130,6 +137,13 @@ standingOrderDetailedSummary model standOrders =
     case List.head (List.filter (Types.isSelectedStandingOrder model.selectedTxId) standOrders) of
         Just so ->
             let
+                stopDate =
+                    if Time.posixToMillis so.stopDate > 0 then
+                        Types.formatDateTime model so.stopDate
+
+                    else
+                        "(forever)"
+
                 confirmed =
                     if Time.posixToMillis so.confirmedDate > 0 then
                         Types.formatDateTime model so.confirmedDate
@@ -146,7 +160,7 @@ standingOrderDetailedSummary model standOrders =
             in
             [ Html.div [] [ text "Type: ", text (Types.transactionActivity so.status) ]
             , Html.div [] [ text "Start Date: ", text (Types.formatDateTime model so.startDate) ]
-            , Html.div [] [ text "Stop Date: ", text (Types.formatDateTime model so.stopDate) ]
+            , Html.div [] [ text "Stop Date: ", text stopDate ]
             , Html.div [] [ text "Confirmed Date: ", text confirmed ]
             , Html.div [] [ text "Processed upto Date: ", text processed ]
             , Html.div [] [ text "From: ", text (Types.summaryUserGivenAnId model so.fromUserId) ]

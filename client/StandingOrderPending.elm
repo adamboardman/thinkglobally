@@ -6,14 +6,23 @@ import FormatNumber exposing (format)
 import Html exposing (Html, h4, text)
 import Http exposing (emptyBody)
 import StandingOrderExisting
+import Time
 import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), StandingOrder, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, tgsLocale)
 
 
 pendingStandingOrderSummary : Model -> StandingOrder -> Row Msg
 pendingStandingOrderSummary model so =
+    let
+        stopDate =
+            if Time.posixToMillis so.stopDate > 0 then
+                Types.formatDateTime model so.stopDate
+
+            else
+                "(forever)"
+    in
     Table.tr []
         [ Table.td [] [ text (Types.formatDateTime model so.startDate) ]
-        , Table.td [] [ text (Types.formatDateTime model so.stopDate) ]
+        , Table.td [] [ text stopDate ]
         , Table.td [] [ text "F: ", text (Types.summaryUserGivenAnId model so.fromUserId), Html.br [] [], text "T: ", text (Types.summaryUserGivenAnId model so.toUserId) ]
         , Table.td [] [ text (format tgsLocale (Types.tgsFromStandingOrder model so)) ]
         , Table.td [] [ text (Types.frequencyStringFromInt so.frequency) ]
@@ -51,12 +60,12 @@ pageStandingOrderPending model =
                 { options = [ Table.striped, Table.hover ]
                 , thead =
                     Table.simpleThead
-                        [ Table.th [] [ text "Date" ]
+                        [ Table.th [] [ text "Start Date" ]
+                        , Table.th [] [ text "Stop Date" ]
                         , Table.th [] [ text "Parties" ]
                         , Table.th [] [ text "TGs" ]
                         , Table.th [] [ text "Frequency" ]
                         , Table.th [] [ text "Status" ]
-                        , Table.th [] [ text "" ]
                         , Table.th [] [ text "" ]
                         , Table.th [] [ text "" ]
                         , Table.th [] [ text "" ]

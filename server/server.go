@@ -1308,7 +1308,7 @@ func ProcessStandingOrders() {
 			newTransaction.FromUserBalance = fromUserLastTransaction.Balance(newTransaction.FromUserId) - (int64(newTransaction.Seconds) + int64(newTransaction.TxFee))
 			newTransaction.ToUserBalance = toUserLastTransaction.Balance(newTransaction.ToUserId) + int64(newTransaction.Seconds)
 		}
-		if newTransaction.InitiatedDate.Days() <= standingOrder.StopDate.Days() {
+		if newTransaction.InitiatedDate.Days() <= standingOrder.StopDate.Days() || standingOrder.StopDate.Days() < standingOrder.StartDate.Days() {
 			_, err = App.Store.InsertTransaction(&newTransaction)
 			if err != nil {
 				fmt.Println("Processing Standing Orders inserting transaction failed with error" + err.Error())
