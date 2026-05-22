@@ -16,7 +16,7 @@ import Http exposing (emptyBody)
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, creatingTransactionSummary, formatBalance, secondsFromTgs, txFeeIntFromTgs, userDecoder)
+import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, creatingTransactionSummary, creatingTransactionWarning, formatBalance, secondsFromTgs, txFeeIntFromTgs, userDecoder)
 
 
 transactionFieldsToValidate : List ValidatedField
@@ -276,6 +276,8 @@ viewCreateTransactionForm model =
                 [ Form.group []
                     [ Form.label [] [ text "Summary - " ]
                     , text (creatingTransactionSummary model)
+                    , Html.br [] []
+                    , text (creatingTransactionWarning model)
                     ]
                 ]
             ]

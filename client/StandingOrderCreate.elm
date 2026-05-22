@@ -17,15 +17,15 @@ import Iso8601
 import Json.Encode as Encode
 import Loading
 import Time
-import Types exposing (ApiActionResponse, Concept, ConceptTag, Model, Msg(..), Page(..), Problem(..), StandingOrderForm, Transaction, TransactionForm, TransactionFromType(..), TransactionType(..), User, ValidatedField(..), apiActionDecoder, authHeader, creatingStandingOrderSummary, formatBalance, secondsFromTgs, txFeeIntFromTgs, userDecoder)
+import Types exposing (Model, Msg)
 
 
-standingOrderFieldsToValidate : List ValidatedField
+standingOrderFieldsToValidate : List Types.ValidatedField
 standingOrderFieldsToValidate =
-    [ Email
-    , StartDate
-    , TGs
-    , Multiplier
+    [ Types.Email
+    , Types.StartDate
+    , Types.TGs
+    , Types.Multiplier
     ]
 
 
@@ -35,19 +35,19 @@ pageStandingOrderCreate model =
     , Grid.container []
         [ ButtonGroup.radioButtonGroup []
             [ ButtonGroup.radioButton
-                (model.creatingStandingOrder == TxNone)
-                [ Button.primary, Button.onClick <| StandingOrderState TxNone ]
+                (model.creatingStandingOrder == Types.TxNone)
+                [ Button.primary, Button.onClick <| Types.StandingOrderState Types.TxNone ]
                 [ text "Hidden" ]
             , ButtonGroup.radioButton
-                (model.creatingStandingOrder == TxOffer)
-                [ Button.primary, Button.onClick <| StandingOrderState TxOffer ]
+                (model.creatingStandingOrder == Types.TxOffer)
+                [ Button.primary, Button.onClick <| Types.StandingOrderState Types.TxOffer ]
                 [ text "Offer" ]
             , ButtonGroup.radioButton
-                (model.creatingStandingOrder == TxRequest)
-                [ Button.primary, Button.onClick <| StandingOrderState TxRequest ]
+                (model.creatingStandingOrder == Types.TxRequest)
+                [ Button.primary, Button.onClick <| Types.StandingOrderState Types.TxRequest ]
                 [ text "Request" ]
             ]
-        , if model.creatingStandingOrder == TxNone then
+        , if model.creatingStandingOrder == Types.TxNone then
             div [] [ text "Select Offer or Request to create a new Standing Order" ]
 
           else
@@ -61,7 +61,7 @@ pageStandingOrderCreate model =
     ]
 
 
-isUserMatchingStandingOrderEmail : Model -> User -> Bool
+isUserMatchingStandingOrderEmail : Model -> Types.User -> Bool
 isUserMatchingStandingOrderEmail model user =
     if String.length model.standingOrderForm.email > 0 then
         let
@@ -75,12 +75,12 @@ isUserMatchingStandingOrderEmail model user =
         False
 
 
-viewSuggestedTransacte : User -> Html Msg
+viewSuggestedTransacte : Types.User -> Html Msg
 viewSuggestedTransacte user =
-    Button.button [ Button.secondary, Button.onClick <| EnteredStandingOrderEmail user.email ] [ text (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " (", user.email, ")", " " ]) ]
+    Button.button [ Button.secondary, Button.onClick <| Types.EnteredStandingOrderEmail user.email ] [ text (String.concat [ user.firstName, " ", user.midNames, " ", user.lastName, " (", user.email, ")", " " ]) ]
 
 
-viewSelectableLocation : StandingOrderForm -> Types.LivingWageLocation -> Select.Item Msg
+viewSelectableLocation : Types.StandingOrderForm -> Types.LivingWageLocation -> Select.Item Msg
 viewSelectableLocation form livingWageLocation =
     let
         locationDisplay =
@@ -99,12 +99,12 @@ viewSelectableLocation form livingWageLocation =
 
 viewCreateStandingOrderForm : Model -> Html Msg
 viewCreateStandingOrderForm model =
-    Form.form [ onSubmit SubmittedStandingOrderForm ]
+    Form.form [ onSubmit Types.SubmittedStandingOrderForm ]
         [ Grid.row []
             [ Grid.col []
                 [ Form.group []
                     [ Form.label [ Html.Attributes.for "email" ]
-                        [ if model.creatingStandingOrder == TxOffer then
+                        [ if model.creatingStandingOrder == Types.TxOffer then
                             text "Offer to Recipient Email address"
 
                           else
@@ -113,11 +113,11 @@ viewCreateStandingOrderForm model =
                     , Input.email
                         [ Input.id "email"
                         , Input.placeholder "Email"
-                        , Input.onInput EnteredStandingOrderEmail
+                        , Input.onInput Types.EnteredStandingOrderEmail
                         , Input.value model.standingOrderForm.email
                         ]
                     , Form.invalidFeedback []
-                        [ if model.creatingStandingOrder == TxOffer then
+                        [ if model.creatingStandingOrder == Types.TxOffer then
                             text "Please enter recipient email address"
 
                           else
@@ -134,21 +134,21 @@ viewCreateStandingOrderForm model =
                     ]
                 ]
             ]
-        , if model.creatingStandingOrder == TxRequest then
+        , if model.creatingStandingOrder == Types.TxRequest then
             Grid.row []
                 [ Grid.col []
                     [ Form.row []
                         [ Form.col []
                             [ Button.button
                                 [ Button.secondary
-                                , Button.onClick ButtonStandingOrderCheckBalance
+                                , Button.onClick Types.ButtonStandingOrderCheckBalance
                                 , Button.disabled (String.length model.standingOrderForm.email == 0)
                                 ]
                                 [ text "Check balance" ]
                             ]
                         , Form.col []
                             [ text "Balance: "
-                            , text (formatBalance model.creatingStandingOrderWithUser.balance)
+                            , text (Types.formatBalance model.creatingStandingOrderWithUser.balance)
                             ]
                         ]
                     ]
@@ -160,27 +160,27 @@ viewCreateStandingOrderForm model =
                     [ Form.row []
                         [ Form.col []
                             [ text "Your balance: "
-                            , text (formatBalance model.loggedInUser.balance)
+                            , text (Types.formatBalance model.loggedInUser.balance)
                             ]
                         ]
                     ]
                 ]
         , ButtonGroup.radioButtonGroup []
             [ ButtonGroup.radioButton
-                (model.creatingStandingOrderFrom == TxFromTGs)
-                [ Button.primary, Button.onClick <| StandingOrderFromState TxFromTGs ]
+                (model.creatingStandingOrderFrom == Types.TxFromTGs)
+                [ Button.primary, Button.onClick <| Types.StandingOrderFromState Types.TxFromTGs ]
                 [ text "Direct TGs" ]
             , ButtonGroup.radioButton
-                (model.creatingStandingOrderFrom == TxFromTimeMul)
-                [ Button.primary, Button.onClick <| StandingOrderFromState TxFromTimeMul ]
+                (model.creatingStandingOrderFrom == Types.TxFromTimeMul)
+                [ Button.primary, Button.onClick <| Types.StandingOrderFromState Types.TxFromTimeMul ]
                 [ text "Time and Multiplier" ]
             , ButtonGroup.radioButton
-                (model.creatingStandingOrderFrom == TxFromNational)
-                [ Button.primary, Button.onClick <| StandingOrderFromState TxFromNational ]
+                (model.creatingStandingOrderFrom == Types.TxFromNational)
+                [ Button.primary, Button.onClick <| Types.StandingOrderFromState Types.TxFromNational ]
                 [ text "Equivalent to national currency" ]
             ]
         , case model.creatingStandingOrderFrom of
-            TxFromTGs ->
+            Types.TxFromTGs ->
                 Grid.row []
                     [ Grid.col []
                         [ Form.group []
@@ -188,7 +188,7 @@ viewCreateStandingOrderForm model =
                             , Input.text
                                 [ Input.id "tgs"
                                 , Input.placeholder "TGs"
-                                , Input.onInput EnteredStandingOrderTGs
+                                , Input.onInput Types.EnteredStandingOrderTGs
                                 , Input.value model.standingOrderForm.tgs
                                 ]
                             , Form.invalidFeedback [] [ text "Please enter the TGs for the standingOrder" ]
@@ -196,7 +196,7 @@ viewCreateStandingOrderForm model =
                         ]
                     ]
 
-            TxFromTimeMul ->
+            Types.TxFromTimeMul ->
                 Grid.row []
                     [ Grid.col []
                         [ Form.group []
@@ -204,7 +204,7 @@ viewCreateStandingOrderForm model =
                             , Input.text
                                 [ Input.id "timeH"
                                 , Input.placeholder "Hours"
-                                , Input.onInput EnteredStandingOrderTimeH
+                                , Input.onInput Types.EnteredStandingOrderTimeH
                                 , Input.value model.standingOrderForm.timeH
                                 ]
                             ]
@@ -215,7 +215,7 @@ viewCreateStandingOrderForm model =
                             , Input.text
                                 [ Input.id "timeM"
                                 , Input.placeholder "Minutes"
-                                , Input.onInput EnteredStandingOrderTimeM
+                                , Input.onInput Types.EnteredStandingOrderTimeM
                                 , Input.value model.standingOrderForm.timeM
                                 ]
                             ]
@@ -226,7 +226,7 @@ viewCreateStandingOrderForm model =
                             , Input.text
                                 [ Input.id "timeS"
                                 , Input.placeholder "Seconds"
-                                , Input.onInput EnteredStandingOrderTimeS
+                                , Input.onInput Types.EnteredStandingOrderTimeS
                                 , Input.value model.standingOrderForm.timeS
                                 ]
                             ]
@@ -238,7 +238,7 @@ viewCreateStandingOrderForm model =
                                 [ Input.id "multiplier"
                                 , Input.attrs [ Html.Attributes.min "1", Html.Attributes.max "3", Html.Attributes.step "0.01" ]
                                 , Input.placeholder "Multiplier"
-                                , Input.onInput EnteredStandingOrderMultiplier
+                                , Input.onInput Types.EnteredStandingOrderMultiplier
                                 , Input.value model.standingOrderForm.multiplier
                                 ]
                             , Form.invalidFeedback [] [ text "Please enter the standingOrder multiplier, defaults to one" ]
@@ -246,12 +246,12 @@ viewCreateStandingOrderForm model =
                         ]
                     ]
 
-            TxFromNational ->
+            Types.TxFromNational ->
                 Grid.row []
                     [ Grid.col []
                         [ Form.group []
                             [ Form.label [ for "location" ] [ text "Location" ]
-                            , Select.select [ Select.id "location", Select.onChange SelectedStandingOrderLocationId ]
+                            , Select.select [ Select.id "location", Select.onChange Types.SelectedStandingOrderLocationId ]
                                 (List.concat
                                     [ List.singleton (Select.item [ Html.Attributes.value "0" ] [ text "-[Select Location]-" ])
                                     , List.map (viewSelectableLocation model.standingOrderForm) model.livingWageLocationList
@@ -264,7 +264,7 @@ viewCreateStandingOrderForm model =
                                 [ Input.id "national"
                                 , Input.placeholder "National"
                                 , Input.disabled (model.standingOrderForm.locationId == 0)
-                                , Input.onInput EnteredStandingOrderNational
+                                , Input.onInput Types.EnteredStandingOrderNational
                                 , Input.value model.standingOrderForm.national
                                 ]
                             , Form.invalidFeedback [] [ text "Please enter the National equivalent value for the standingOrder" ]
@@ -276,7 +276,7 @@ viewCreateStandingOrderForm model =
             , Input.text
                 [ Input.id "startDate"
                 , Input.placeholder "Start Date"
-                , Input.onInput EnteredStandingOrderStartDate
+                , Input.onInput Types.EnteredStandingOrderStartDate
                 , Input.value model.standingOrderForm.startDate
                 ]
             , Form.invalidFeedback [] [ text "Please enter a start date" ]
@@ -286,7 +286,7 @@ viewCreateStandingOrderForm model =
             , Input.text
                 [ Input.id "stopDate"
                 , Input.placeholder "Stop Date"
-                , Input.onInput EnteredStandingOrderStopDate
+                , Input.onInput Types.EnteredStandingOrderStopDate
                 , Input.value model.standingOrderForm.stopDate
                 ]
             , Form.invalidFeedback [] [ text "Please enter a stop date - leave blank for never ending" ]
@@ -297,19 +297,19 @@ viewCreateStandingOrderForm model =
             , ButtonGroup.radioButtonGroup []
                 [ ButtonGroup.radioButton
                     (model.standingOrderForm.frequency == Types.FrequencyDaily)
-                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyDaily ]
+                    [ Button.primary, Button.onClick <| Types.SelectedStandingOrderFrequency Types.FrequencyDaily ]
                     [ text "Daily" ]
                 , ButtonGroup.radioButton
                     (model.standingOrderForm.frequency == Types.FrequencyWeekly)
-                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyWeekly ]
+                    [ Button.primary, Button.onClick <| Types.SelectedStandingOrderFrequency Types.FrequencyWeekly ]
                     [ text "Weekly" ]
                 , ButtonGroup.radioButton
                     (model.standingOrderForm.frequency == Types.FrequencyMonthly)
-                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyMonthly ]
+                    [ Button.primary, Button.onClick <| Types.SelectedStandingOrderFrequency Types.FrequencyMonthly ]
                     [ text "Monthly" ]
                 , ButtonGroup.radioButton
                     (model.standingOrderForm.frequency == Types.FrequencyAnnually)
-                    [ Button.primary, Button.onClick <| SelectedStandingOrderFrequency Types.FrequencyAnnually ]
+                    [ Button.primary, Button.onClick <| Types.SelectedStandingOrderFrequency Types.FrequencyAnnually ]
                     [ text "Annually" ]
                 ]
             , Form.invalidFeedback [] [ text "Please select the frequency of the standing order" ]
@@ -318,7 +318,9 @@ viewCreateStandingOrderForm model =
             [ Grid.col []
                 [ Form.group []
                     [ Form.label [] [ text "Summary - " ]
-                    , text (creatingStandingOrderSummary model)
+                    , text (Types.creatingStandingOrderSummary model)
+                    , Html.br [] []
+                    , text (Types.creatingStandingOrderWarning model)
                     ]
                 ]
             ]
@@ -329,7 +331,7 @@ viewCreateStandingOrderForm model =
                     , Textarea.textarea
                         [ Textarea.id "description"
                         , Textarea.rows 2
-                        , Textarea.onInput EnteredStandingOrderDescription
+                        , Textarea.onInput Types.EnteredStandingOrderDescription
                         , Textarea.value model.standingOrderForm.description
                         ]
                     , Form.invalidFeedback [] [ text "Please enter the standingOrder description" ]
@@ -355,12 +357,12 @@ viewCreateStandingOrderForm model =
         ]
 
 
-standingOrderUpdateForm : (StandingOrderForm -> StandingOrderForm) -> Model -> ( Model, Cmd Msg )
+standingOrderUpdateForm : (Types.StandingOrderForm -> Types.StandingOrderForm) -> Model -> ( Model, Cmd Msg )
 standingOrderUpdateForm transform model =
     ( { model | standingOrderForm = transform model.standingOrderForm }, Cmd.none )
 
 
-standingOrderValidate : StandingOrderForm -> Result (List Problem) StandingOrderTrimmedForm
+standingOrderValidate : Types.StandingOrderForm -> Result (List Types.Problem) StandingOrderTrimmedForm
 standingOrderValidate form =
     let
         trimmedForm =
@@ -374,18 +376,18 @@ standingOrderValidate form =
             Err problems
 
 
-validateField : StandingOrderTrimmedForm -> ValidatedField -> List Problem
+validateField : StandingOrderTrimmedForm -> Types.ValidatedField -> List Types.Problem
 validateField (StandingOrderTrimmed form) field =
-    List.map (InvalidEntry field) <|
+    List.map (Types.InvalidEntry field) <|
         case field of
-            StartDate ->
+            Types.StartDate ->
                 if String.isEmpty form.startDate then
                     [ "Start Date can't be blank" ]
 
                 else
                     []
 
-            Email ->
+            Types.Email ->
                 if String.isEmpty form.email then
                     [ "Email can't be blank" ]
 
@@ -395,14 +397,14 @@ validateField (StandingOrderTrimmed form) field =
                 else
                     [ "Email must contain '@'" ]
 
-            TGs ->
+            Types.TGs ->
                 if String.isEmpty form.tgs then
                     [ "You must enter some TGs" ]
 
                 else
                     []
 
-            Multiplier ->
+            Types.Multiplier ->
                 let
                     multiplier =
                         Maybe.withDefault 0 (String.toFloat form.multiplier)
@@ -418,10 +420,10 @@ validateField (StandingOrderTrimmed form) field =
 
 
 type StandingOrderTrimmedForm
-    = StandingOrderTrimmed StandingOrderForm
+    = StandingOrderTrimmed Types.StandingOrderForm
 
 
-standingOrderTrimFields : StandingOrderForm -> StandingOrderTrimmedForm
+standingOrderTrimFields : Types.StandingOrderForm -> StandingOrderTrimmedForm
 standingOrderTrimFields form =
     StandingOrderTrimmed
         { email = String.trim form.email
@@ -448,7 +450,7 @@ standingOrder : Model -> StandingOrderTrimmedForm -> Cmd Msg
 standingOrder model (StandingOrderTrimmed form) =
     let
         status =
-            if model.creatingStandingOrder == TxOffer then
+            if model.creatingStandingOrder == Types.TxOffer then
                 1
 
             else
@@ -469,27 +471,27 @@ standingOrder model (StandingOrderTrimmed form) =
                     4
 
         fromId =
-            if model.creatingStandingOrder == TxOffer then
+            if model.creatingStandingOrder == Types.TxOffer then
                 model.loggedInUser.id
 
             else
                 0
 
         toId =
-            if model.creatingStandingOrder == TxOffer then
+            if model.creatingStandingOrder == Types.TxOffer then
                 0
 
             else
                 model.loggedInUser.id
 
         seconds =
-            secondsFromTgs form.tgs
+            Types.secondsFromTgs form.tgs
 
         multiplier =
             Maybe.withDefault 0 (String.toFloat form.multiplier)
 
         txFee =
-            txFeeIntFromTgs form.tgs
+            Types.txFeeIntFromTgs form.tgs
 
         timeStartDateResult =
             Iso8601.toTime form.startDate
@@ -539,8 +541,8 @@ standingOrder model (StandingOrderTrimmed form) =
     Http.request
         { method = "POST"
         , url = "/api/standing_orders"
-        , expect = Http.expectJson AddedStandingOrder apiActionDecoder
-        , headers = [ authHeader model.session.loginToken ]
+        , expect = Http.expectJson Types.AddedStandingOrder Types.apiActionDecoder
+        , headers = [ Types.authHeader model.session.loginToken ]
         , body = body
         , timeout = Nothing
         , tracker = Nothing
@@ -552,8 +554,8 @@ standingOrderCheckBalance model =
     Http.request
         { method = "GET"
         , url = "/api/users?Email=" ++ model.standingOrderForm.email
-        , expect = Http.expectJson LoadedStandingOrderUserWithBalance userDecoder
-        , headers = [ authHeader model.session.loginToken ]
+        , expect = Http.expectJson Types.LoadedStandingOrderUserWithBalance Types.userDecoder
+        , headers = [ Types.authHeader model.session.loginToken ]
         , body = emptyBody
         , timeout = Nothing
         , tracker = Nothing

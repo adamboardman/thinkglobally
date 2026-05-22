@@ -162,7 +162,7 @@ standingOrderDetailedSummary model standOrders =
             , Html.div [] [ text "Start Date: ", text (Types.formatDateTime model so.startDate) ]
             , Html.div [] [ text "Stop Date: ", text stopDate ]
             , Html.div [] [ text "Confirmed Date: ", text confirmed ]
-            , Html.div [] [ text "Processed upto Date: ", text processed ]
+            , Html.div [] [ text "Next Due Date: ", text processed ]
             , Html.div [] [ text "From: ", text (Types.summaryUserGivenAnId model so.fromUserId) ]
             , Html.div [] [ text "To: ", text (Types.summaryUserGivenAnId model so.toUserId) ]
             , Html.div [] (standingOrderValueDetailedSummary model so)

@@ -849,16 +849,6 @@ creatingTransactionSummary model =
 
         locationId =
             model.transactionForm.locationId
-
-        livingWage =
-            findLivingWageForLocationIdAndDate model locationId model.transactionForm.date
-
-        nationalValueWarning =
-            if model.transactionForm.locationId > 0 && Time.posixToMillis livingWage.stopDate < Time.posixToMillis model.transactionForm.date then
-                "WARNING: Living Wage values are only indicative as we haven't found the current value"
-
-            else
-                ""
     in
     " "
         ++ formatDateTime model model.time
@@ -881,7 +871,28 @@ creatingTransactionSummary model =
         ++ " "
         ++ model.transactionForm.txFee
         ++ " [Transaction Fee] "
-        ++ nationalValueWarning
+
+
+creatingTransactionWarning : Model -> String
+creatingTransactionWarning model =
+    let
+        locationId =
+            model.transactionForm.locationId
+
+        livingWage =
+            findLivingWageForLocationIdAndDate model locationId model.time
+
+        nationalValueWarning =
+            if locationId > 0 && Time.posixToMillis livingWage.stopDate == 0 then
+                "WARNING: No Living Wage values available for location"
+
+            else if locationId > 0 && Time.posixToMillis livingWage.stopDate < Time.posixToMillis model.time then
+                "WARNING: Living Wage values are subject to change as we haven't entered a value for the current time, valid until: " ++ formatDate model livingWage.stopDate
+
+            else
+                ""
+    in
+    nationalValueWarning
 
 
 frequencyStringFromType : FrequencyFormType -> String
@@ -976,6 +987,28 @@ creatingStandingOrderSummary model =
         ++ " "
         ++ model.standingOrderForm.txFee
         ++ " [Transaction Fee]"
+
+
+creatingStandingOrderWarning : Model -> String
+creatingStandingOrderWarning model =
+    let
+        locationId =
+            model.standingOrderForm.locationId
+
+        livingWage =
+            findLivingWageForLocationIdAndDate model locationId model.time
+
+        nationalValueWarning =
+            if locationId > 0 && Time.posixToMillis livingWage.stopDate == 0 then
+                "WARNING: No Living Wage values available for location"
+
+            else if locationId > 0 && Time.posixToMillis livingWage.stopDate < Time.posixToMillis model.time then
+                "WARNING: Living Wage values are subject to change as we haven't entered a value for the current time, valid until: " ++ formatDate model livingWage.stopDate
+
+            else
+                ""
+    in
+    nationalValueWarning
 
 
 dateFromTransaction : Model -> Transaction -> String
