@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "A time based alternative to currencies",
   "dependencies": {
-    "elm": "^0.19.1-4",
+    "elm": "^0.19.2-0",
     "elm-format": "^0.8.4",
-    "elm-test": "^0.19.1-revision5",
+    "elm-test": "^0.19.2-0",
     "uglify-js": "^3.12.5"
   },
   "scripts": {},

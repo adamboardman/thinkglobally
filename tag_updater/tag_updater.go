@@ -24,7 +24,7 @@ func UpdateTags(conceptTags []store.ConceptTag, concepts []store.Concept, tagged
 	var outTags strings.Builder
 	outTagsFromDisplayableTags(displayedTags, &outTags)
 
-	return outTags.String() + outBody.String();
+	return outTags.String() + outBody.String()
 }
 
 func outBodyFromMarkdownAndDisplayableTags(taggedMarkDown string, displayedTags []DisplayableTag, displayableTags []DisplayableTag, outBody *strings.Builder) []DisplayableTag {
@@ -44,7 +44,7 @@ func outBodyFromMarkdownAndDisplayableTags(taggedMarkDown string, displayedTags 
 func checkAndWriteTagsToBody(displayableTags []DisplayableTag, inPos int, taggedMarkDown string, outBody *strings.Builder, displayedTags []DisplayableTag, broken bool) (int, []DisplayableTag, bool) {
 	for _, displayableTag := range displayableTags {
 		tag := displayableTag.Tag
-		if found, foundTag:= checkForTagInMarkdown(inPos, tag, taggedMarkDown); found {
+		if found, foundTag := checkForTagInMarkdown(inPos, tag, taggedMarkDown); found {
 			writeTagToBody(taggedMarkDown, inPos, outBody, tag)
 			displayedTags = append(displayedTags, DisplayableTag{
 				FirstTag: displayableTag.FirstTag,
@@ -90,7 +90,7 @@ func skipExistingTags(inPos int, taggedMarkDown string) int {
 }
 
 func writeTagToBody(taggedMarkDown string, inPos int, outBody *strings.Builder, tag string) {
-	needsBrackets := inPos==0 || taggedMarkDown[inPos-1:inPos] != "["
+	needsBrackets := inPos == 0 || taggedMarkDown[inPos-1:inPos] != "["
 	if needsBrackets {
 		outBody.WriteString("[")
 	}

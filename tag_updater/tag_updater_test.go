@@ -1,9 +1,9 @@
 package tag_updater
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/adamboardman/gorm"
 	"github.com/adamboardman/thinkglobally/store"
+	. "github.com/smartystreets/goconvey/convey"
+	"gorm.io/gorm"
 	"os"
 	"testing"
 )

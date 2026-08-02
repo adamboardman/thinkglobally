@@ -52,6 +52,12 @@ go build main.go
 ./main
 ```
 
+### Update Dependencies
+```
+go mod tidy
+npm install
+```
+
 ### Add as a systemd service
 /lib/systemd/system/thinkglobally.service
 ```
