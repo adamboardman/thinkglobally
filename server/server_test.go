@@ -2207,8 +2207,14 @@ func TestAddLivingWageLocationAsAdmin(t *testing.T) {
 func checkArrayForLivingWage(livingWages []store.LivingWage, start store.PosixDateTime, stop store.PosixDateTime, locationId uint) bool {
 	found := false
 	for _, livingWage := range livingWages {
-		if livingWage.StartDate == start && livingWage.StopDate == stop && livingWage.LocationId == locationId {
-			found = true
+		if livingWage.LocationId == locationId {
+			livingWageStartValue, _ := livingWage.StartDate.Value()
+			startValue, _ := start.Value()
+			livingWageStopValue, _ := livingWage.StopDate.Value()
+			stopValue, _ := stop.Value()
+			if livingWageStartValue == startValue && livingWageStopValue == stopValue {
+				found = true
+			}
 		}
 	}
 	return found

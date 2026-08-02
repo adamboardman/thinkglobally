@@ -3,13 +3,13 @@ package store
 import (
 	"database/sql/driver"
 	"errors"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"log"
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/adamboardman/gorm"
-	_ "github.com/adamboardman/gorm/dialects/postgres"
 )
 
 type Store struct {
@@ -112,7 +112,7 @@ func (d *PosixDateTime) UnmarshalJSON(b []byte) (err error) {
 }
 
 func (d PosixDateTime) Value() (driver.Value, error) {
-	return time.Time(d), nil
+	return time.Time(d).UTC(), nil
 }
 
 func (d *PosixDateTime) Scan(src interface{}) error {
@@ -171,7 +171,7 @@ func readPostgresArgs() string {
 	if err != nil {
 		postgresArgs, err = os.ReadFile("../" + postgresArgsFileName)
 		if err != nil {
-			postgresArgs = []byte("host=myhost port=myport sslmode=disable user=thinkglobally dbname=mydbname password=mypassword")
+			postgresArgs = []byte("host=myhost port=myport sslmode=disable user=myusername dbname=mydbname password=mypassword")
 			err = os.WriteFile(postgresArgsFileName, postgresArgs, 0666)
 			if err != nil {
 				log.Fatal(err)
@@ -182,30 +182,39 @@ func readPostgresArgs() string {
 }
 
 func (s *Store) StoreInit() {
-	db, err := gorm.Open("postgres", readPostgresArgs())
+	pg := postgres.Open(readPostgresArgs())
+	db, err := gorm.Open(pg, &gorm.Config{
+		// DEBUG - add/remove to investigate SQL queries being executed
+		// Logger: logger.Default.LogMode(logger.Info),
+	})
 
 	if err != nil {
 		log.Fatal(err)
 	}
 	s.db = db
 
-	_, _ = db.DB().Exec("CREATE EXTENSION postgis;")
-	_, _ = db.DB().Exec("SET TIME ZONE 'UTC';")
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	sqlDB.Exec("CREATE EXTENSION postgis;")
+	sqlDB.Exec("SET TIME ZONE 'UTC';")
 
-	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}, &Transaction{}, &LivingWageLocation{}, &LivingWage{}, &StandingOrder{}).Error
+	err = db.AutoMigrate(&User{}, &Concept{}, &ConceptTag{}, &Transaction{}, &LivingWageLocation{}, &LivingWage{}, &StandingOrder{})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//DEBUG - add/remove to investigate SQL queries being executed
-	//db.LogMode(true)
-
-	db.Model(&ConceptTag{}).AddForeignKey("concept_id", "concepts(id)", "CASCADE", "RESTRICT")
-	db.Model(&Transaction{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
-	db.Model(&Transaction{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
-	db.Model(&LivingWage{}).AddForeignKey("location_id", "living_wage_locations(id)", "CASCADE", "RESTRICT")
-	db.Model(&StandingOrder{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
-	db.Model(&StandingOrder{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
+	// We already have these created in our database from the old gorm code where they existed
+	// The new model of linking directly to an instance of the Object involves lots of extra
+	// database loading so we have rejected upgrading to that, suspect custom Exec lines will
+	// be required for any new foreign keys need.
+	// 	db.Model(&ConceptTag{}).AddForeignKey("concept_id", "concepts(id)", "CASCADE", "RESTRICT")
+	// 	db.Model(&Transaction{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
+	// 	db.Model(&Transaction{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
+	// 	db.Model(&LivingWage{}).AddForeignKey("location_id", "living_wage_locations(id)", "CASCADE", "RESTRICT")
+	// 	db.Model(&StandingOrder{}).AddForeignKey("from_user_id", "users(id)", "CASCADE", "RESTRICT")
+	// 	db.Model(&StandingOrder{}).AddForeignKey("to_user_id", "users(id)", "CASCADE", "RESTRICT")
 }
 
 func (s *Store) InsertUser(user *User) (uint, error) {
@@ -220,7 +229,7 @@ func (s *Store) UpdateUser(user *User) (uint, error) {
 
 func (s *Store) FindUser(email string) (*User, error) {
 	user := User{}
-	err := s.db.Where("email=?", email).Find(&user).Error
+	err := s.db.Where("email=?", email).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +238,7 @@ func (s *Store) FindUser(email string) (*User, error) {
 
 func (s *Store) PurgeUser(email string) {
 	user := User{}
-	err := s.db.Where("email=?", email).Find(&user).Error
+	err := s.db.Where("email=?", email).First(&user).Error
 	if err != nil {
 		s.db.Unscoped().Where("from_user_id=? OR to_user_id=?", user.ID, user.ID).Delete(Transaction{})
 	}
@@ -238,7 +247,7 @@ func (s *Store) PurgeUser(email string) {
 
 func (s *Store) LoadPublicUser(id uint) (*PublicUser, error) {
 	user := User{}
-	err := s.db.Where("id=?", id).Find(&user).Error
+	err := s.db.Where("id=?", id).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +267,7 @@ func (s *Store) LoadPrivilegedUserAsSelf(userId uint, loggedInUserId uint) (*Pri
 		return nil, errors.New("cannot load others users")
 	}
 	user := PrivilegedUser{}
-	err := s.db.Where("id=?", userId).Find(&user).Error
+	err := s.db.Where("id=?", userId).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +279,7 @@ func (s *Store) LoadUserAsSelf(userId uint, loggedInUserId uint) (*User, error) 
 		return nil, errors.New("cannot load others users")
 	}
 	user := User{}
-	err := s.db.Where("id=?", userId).Find(&user).Error
+	err := s.db.Where("id=?", userId).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -287,19 +296,19 @@ func (s *Store) UpdateConcept(concept *Concept) (uint, error) {
 	return concept.ID, err
 }
 
-func (s *Store) PurgeConcept(email string) {
-	s.db.Unscoped().Where("name=?", email).Delete(Concept{})
+func (s *Store) PurgeConcept(name string) {
+	s.db.Unscoped().Where("name=?", name).Delete(Concept{})
 }
 
 func (s *Store) LoadConcept(id uint) (*Concept, error) {
 	concept := Concept{}
-	err := s.db.Where("id=?", id).Find(&concept).Error
+	err := s.db.Where("id=?", id).First(&concept).Error
 	return &concept, err
 }
 
 func (s *Store) FindConcept(name string) (*Concept, error) {
 	concept := Concept{}
-	err := s.db.Where("name=?", name).Find(&concept).Error
+	err := s.db.Where("name=?", name).First(&concept).Error
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +337,7 @@ func (s *Store) UpdateConceptTag(conceptTag *ConceptTag) (uint, error) {
 func (s *Store) ConceptTagsAsStrings(concept *Concept) ([]string, error) {
 	var names []string
 	var conceptTags []ConceptTag
-	err := s.db.Where("concept_id=?", concept.ID).Order("order").Find(&conceptTags).Error
+	err := s.db.Where("concept_id=?", concept.ID).Order("concept_tags.order").Find(&conceptTags).Error
 	if err == nil {
 		for _, conceptTag := range conceptTags {
 			names = append(names, conceptTag.Tag)
@@ -340,7 +349,7 @@ func (s *Store) ConceptTagsAsStrings(concept *Concept) ([]string, error) {
 
 func (s *Store) FindConceptTag(tag string) (*ConceptTag, error) {
 	conceptTag := ConceptTag{}
-	err := s.db.Where("tag=?", tag).Find(&conceptTag).Error
+	err := s.db.Where("tag=?", tag).First(&conceptTag).Error
 	if err != nil {
 		return nil, err
 	}
@@ -349,13 +358,13 @@ func (s *Store) FindConceptTag(tag string) (*ConceptTag, error) {
 
 func (s *Store) ConceptTagsForConceptId(conceptId uint) ([]ConceptTag, error) {
 	var conceptTags []ConceptTag
-	err := s.db.Where("concept_id=?", conceptId).Order("order").Find(&conceptTags).Error
+	err := s.db.Where("concept_id=?", conceptId).Order("concept_tags.order").Find(&conceptTags).Error
 	return conceptTags, err
 }
 
 func (s *Store) ListConceptTags() ([]ConceptTag, error) {
 	var conceptTags []ConceptTag
-	err := s.db.Order("order").Find(&conceptTags).Error
+	err := s.db.Order("concept_tags.order").Find(&conceptTags).Error
 	return conceptTags, err
 }
 
@@ -394,7 +403,7 @@ func (s *Store) PurgeTransaction(transaction Transaction) {
 
 func (s *Store) LoadTransaction(id uint) (*Transaction, error) {
 	transaction := Transaction{}
-	err := s.db.Where("id=?", id).Find(&transaction).Error
+	err := s.db.Where("id=?", id).First(&transaction).Error
 	return &transaction, err
 }
 
@@ -441,7 +450,7 @@ func (s *Store) UpdateLivingWageLocation(livingWageLocation *LivingWageLocation)
 
 func (s *Store) FindLivingWageLocation(name string) (*LivingWageLocation, error) {
 	location := LivingWageLocation{}
-	err := s.db.Where("name=?", name).Find(&location).Error
+	err := s.db.Where("name=?", name).First(&location).Error
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +459,7 @@ func (s *Store) FindLivingWageLocation(name string) (*LivingWageLocation, error)
 
 func (s *Store) LoadLivingWageLocation(id uint) (*LivingWageLocation, error) {
 	livingWageLocation := LivingWageLocation{}
-	err := s.db.Where("id=?", id).Find(&livingWageLocation).Error
+	err := s.db.Where("id=?", id).First(&livingWageLocation).Error
 	return &livingWageLocation, err
 }
 
@@ -487,7 +496,7 @@ func (s *Store) ListLivingWages() ([]LivingWage, error) {
 
 func (s *Store) LoadLivingWage(id uint) (*LivingWage, error) {
 	livingWage := LivingWage{}
-	err := s.db.Where("id=?", id).Find(&livingWage).Error
+	err := s.db.Where("id=?", id).First(&livingWage).Error
 	return &livingWage, err
 }
 
@@ -507,7 +516,7 @@ func (s *Store) ListLivingWagesForLocation(locationId uint) ([]LivingWage, error
 
 func (s *Store) FindLivingWage(locationId uint, startDate PosixDateTime, stopDate PosixDateTime) (*LivingWage, error) {
 	livingWage := LivingWage{}
-	err := s.db.Where("location_id=? AND start_date=? AND stop_date=?", locationId, startDate, stopDate).Find(&livingWage).Error
+	err := s.db.Where("location_id=? AND start_date=? AND stop_date=?", locationId, startDate, stopDate).First(&livingWage).Error
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +579,7 @@ func (s *Store) PurgeStandingOrder(standingOrder StandingOrder) {
 
 func (s *Store) LoadStandingOrder(id uint) (*StandingOrder, error) {
 	standingOrder := StandingOrder{}
-	err := s.db.Where("id=?", id).Find(&standingOrder).Error
+	err := s.db.Where("id=?", id).First(&standingOrder).Error
 	return &standingOrder, err
 }
 

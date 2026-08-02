@@ -17,7 +17,6 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	_ = s.db.Close()
 	os.Exit(code)
 }
 
@@ -127,7 +126,6 @@ func TestStore_DeleteConcept(t *testing.T) {
 
 			Convey("Concept should not be findable by email address", func() {
 				savedUser, err := s.FindConcept(name)
-
 				So(err, ShouldNotBeNil)
 				So(savedUser, ShouldEqual, (*Concept)(nil))
 			})
