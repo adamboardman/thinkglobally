@@ -273,7 +273,7 @@ func TestStore_TransactionCreation(t *testing.T) {
 			Convey("Updating the transaction", func() {
 				transactionFromTransactions.Status = TransactionOfferApproved
 				transactionId2, _ := s.UpdateTransaction(transactionFromTransactions)
-				Convey("Concept should keep the same ID and content", func() {
+				Convey("Transaction should keep the same ID and content", func() {
 					So(transactionId2, ShouldEqual, transactionId)
 					reloadedTransaction, _ := s.LoadTransaction(transactionId2)
 					So(reloadedTransaction.ID, ShouldEqual, transactionFromTransactions.ID)

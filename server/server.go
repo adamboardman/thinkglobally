@@ -1349,7 +1349,7 @@ func DeleteStandingOrder(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Delete StandingOrder Failed - err: %s", err.Error())})
 	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"status": http.StatusOK, "message": "ConceptTag deleted", "resourceId": id,
+			"status": http.StatusOK, "message": "StandingOrder deleted", "resourceId": id,
 		})
 	}
 }
